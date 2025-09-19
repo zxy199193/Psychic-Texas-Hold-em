@@ -90,6 +90,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cardImage: {fileID: 5673483701552036139}
+  cardBackSprite: {fileID: 21300000, guid: 91ec2921ff63ff54ebd670657fd51b80, type: 3}
   cardSprites:
   - {fileID: 21300000, guid: 01ff8a5649c96c7428929c47b15d0e0e, type: 3}
   - {fileID: 21300000, guid: 84f5ade9285db67489ec443439167f3c, type: 3}

@@ -6,14 +6,22 @@ public class Player
 {
     public string name;
     public List<Card> hand = new List<Card>();
-    public int chips = 1000;
-    public int energy = 5;
-    public bool isFolded = false;
-    public Transform HandParent;
+    public int chips;
+    public int energy = 8;
+    public int maxEnergy = 10;
+    public int currentBet;
+    public bool isFolded;
+    public bool isAllIn;
+    public bool isAI;
+    //public Transform HandParent;
+    
 
-    public Player(string n)
+    public Player(string name, int startChips = 1000, bool isAI = false)
     {
-        name = n;
+        this.name = name;
+        this.chips = startChips;
+        this.isAI = isAI;
+        ClearForNewHand();
     }
 
     public  void AddCard(Card c)
@@ -21,23 +29,11 @@ public class Player
         hand.Add(c);
     }
 
-    public void ClearHand()
+    public void ClearForNewHand()
     {
         hand.Clear();
-    }
-
-    public void AdjustChips(int amount)
-    {
-        chips += amount;
-    }
-
-    public bool UseEnergy(int cost)
-    {
-        if (energy >= cost)
-        {
-            energy -= cost;
-            return true;
-        }
-        return false;
+        currentBet = 0;
+        isFolded = false;
+        isAllIn = false;
     }
 }

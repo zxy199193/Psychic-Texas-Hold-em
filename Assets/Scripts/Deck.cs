@@ -49,4 +49,10 @@ public class Deck
     {
         return cards.Count;
     }
+
+    public void ReturnCard(Card card)
+    {
+        // 防止重复加入，可以根据需要检查是否已在牌堆里
+        cards.Add(card);
+    }
 }
