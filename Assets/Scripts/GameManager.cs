@@ -53,6 +53,7 @@ public class GameManager : MonoBehaviour
     private List<CardView> ai2CardViews = new List<CardView>();
 
     private enum PlayerAction { None, Fold, Call, Raise }
+    private int minRaise = 20; // 初始加注额，每轮加注翻倍
 
     void Start()
     {
@@ -89,6 +90,7 @@ public class GameManager : MonoBehaviour
 
     IEnumerator PlayHand()
     {
+        minRaise = 20;
         foreach (var p in players)
         {
             p.energy = Mathf.Min(p.maxEnergy, p.energy + 1);
@@ -296,10 +298,21 @@ public class GameManager : MonoBehaviour
                 }
                 else if (pendingPlayerAction == PlayerAction.Raise)
                 {
-                    int newBet = currentBet + raiseAmount;
+                    int newBet = currentBet + minRaise;
                     int raiseCost = newBet - p.currentBet;
+
+                    // 防止超过筹码
+                    if (raiseCost > p.chips) raiseCost = p.chips;
+
                     DoRaise(p, raiseCost, newBet);
                     statusText.text = $"{p.name} raised to {newBet}";
+
+                    // 每次加注后翻倍最小加注
+                    minRaise *= 2;
+
+                    // Reset hasActed for other players (他们需要再决定)
+                    for (int i = 0; i < players.Count; i++) hasActed[i] = false;
+                    hasActed[idx] = true;
                     // reset hasActed for everyone except raiser
                     for (int i = 0; i < n; i++) hasActed[i] = false;
                     hasActed[idx] = true;
@@ -315,50 +328,79 @@ public class GameManager : MonoBehaviour
                 yield return new WaitForSeconds(0.2f); // small delay for UX
 
                 var best = HandEvaluator.GetBestHand(p.hand, communityCards);
+                var (baseCall, baseRaise) = GetBaseProb(best.rank);
 
-                // Simple AI strategy
-                if (best.rank >= HandRank.ThreeOfAKind && p.chips > 0)
+                // 计算当前下注相对筹码的比例
+                int callAmount = Mathf.Max(0, currentBet - p.currentBet);
+                float betRatio = (p.chips > 0) ? (float)callAmount / p.chips : 1f;
+
+                // 修正后的概率
+                float modifier = GetChipPressureModifier(betRatio);
+                float callProb = Mathf.Clamp01(baseCall + modifier);
+                float raiseProb = Mathf.Clamp01(baseRaise + modifier);
+
+                // 随机决定行为
+                float roll = Random.value;
+
+                Debug.Log($"{p.name} AI decision: Hand={best.rank}, CallProb={callProb:F2}, RaiseProb={raiseProb:F2}, Roll={roll:F2}");
+
+                if (callAmount == 0)
                 {
-                    int newBet = currentBet + raiseAmount;
-                    int raiseCost = newBet - p.currentBet;
-                    DoRaise(p, raiseCost, newBet);
-                    statusText.text = $"{p.name} (AI) raised to {newBet}";
-                    for (int i = 0; i < n; i++) hasActed[i] = false;
-                    hasActed[idx] = true;
-                }
-                else if (best.rank == HandRank.TwoPair || best.rank == HandRank.OnePair)
-                {
-                    // prefer call, small chance to raise
-                    if (Random.value < 0.12f && p.chips > 0)
+                    // --- 没有下注，可以选择 Check 或主动作出 Raise ---
+                    if (roll < raiseProb && p.chips > 0)
                     {
                         int newBet = currentBet + raiseAmount;
                         int raiseCost = newBet - p.currentBet;
-                        DoRaise(p, raiseCost, newBet);
-                        statusText.text = $"{p.name} (AI) raised to {newBet}";
-                        for (int i = 0; i < n; i++) hasActed[i] = false;
-                        hasActed[idx] = true;
+                        if (raiseCost <= p.chips)
+                        {
+                            DoRaise(p, raiseCost, newBet);
+                            statusText.text = $"{p.name} (AI) raised with {best.rank}";
+                            for (int i = 0; i < n; i++) hasActed[i] = false;
+                            hasActed[idx] = true;
+                        }
+                        else
+                        {
+                            statusText.text = $"{p.name} (AI) checks (not enough chips to raise)";
+                            hasActed[idx] = true;
+                        }
                     }
                     else
                     {
-                        int callAmt = Mathf.Max(0, currentBet - p.currentBet);
-                        DoCall(p, callAmt);
-                        statusText.text = $"{p.name} (AI) called {callAmt}";
+                        statusText.text = $"{p.name} (AI) checks";
                         hasActed[idx] = true;
                     }
                 }
                 else
                 {
-                    int callAmt = Mathf.Max(0, currentBet - p.currentBet);
-                    if (callAmt > p.chips * 0.6f && Random.value < 0.6f)
+                    // --- 有人下注，AI需要决定 Call / Raise / Fold ---
+                    if (roll < raiseProb && callAmount < p.chips)
                     {
-                        p.isFolded = true;
-                        statusText.text = $"{p.name} (AI) folded";
+                        int newBet = currentBet + raiseAmount;
+                        int raiseCost = newBet - p.currentBet;
+                        if (raiseCost <= p.chips)
+                        {
+                            DoRaise(p, raiseCost, newBet);
+                            statusText.text = $"{p.name} (AI) raised with {best.rank}";
+                            for (int i = 0; i < n; i++) hasActed[i] = false;
+                            hasActed[idx] = true;
+                        }
+                        else
+                        {
+                            DoCall(p, callAmount);
+                            statusText.text = $"{p.name} (AI) all-in call with {best.rank}";
+                            hasActed[idx] = true;
+                        }
+                    }
+                    else if (roll < callProb + raiseProb && callAmount <= p.chips)
+                    {
+                        DoCall(p, callAmount);
+                        statusText.text = $"{p.name} (AI) called with {best.rank}";
                         hasActed[idx] = true;
                     }
                     else
                     {
-                        DoCall(p, callAmt);
-                        statusText.text = $"{p.name} (AI) called {callAmt}";
+                        p.isFolded = true;
+                        statusText.text = $"{p.name} (AI) folded {best.rank}";
                         hasActed[idx] = true;
                     }
                 }
@@ -451,7 +493,6 @@ public class GameManager : MonoBehaviour
     // ---------- Showdown & UI ----------
     IEnumerator HandleShowdown()
     {
-        // Reveal AI hands visually? (for now assume CardPrefab shows face-up for community; AI private cards remain as created earlier)
         yield return new WaitForSeconds(0.2f);
 
         var contenders = players.Where(p => !p.isFolded).ToList();
@@ -466,10 +507,45 @@ public class GameManager : MonoBehaviour
             statusText.text = $"{winner.name} wins (others folded)! pot {pot}";
             winner.chips += pot;
             pot = 0;
+
+            // 能量恢复：赢家 +3，其余 +1
+            foreach (var pl in players)
+            {
+                if (pl == winner)
+                    pl.energy = Mathf.Min(pl.maxEnergy, pl.energy + 3);
+                else
+                    pl.energy = Mathf.Min(pl.maxEnergy, pl.energy + 1);
+            }
+
             UpdateUI();
+            if (nextHandButton != null)
+                nextHandButton.gameObject.SetActive(true);
             yield break;
         }
 
+        // ---------- 翻开 AI 手牌 ----------
+        foreach (var p in contenders)
+        {
+            if (p.isAI)
+            {
+                int areaIndex = players.IndexOf(p);
+                if (playerAreas != null && areaIndex < playerAreas.Length && playerAreas[areaIndex] != null)
+                {
+                    int cardIdx = 0;
+                    foreach (Transform t in playerAreas[areaIndex])
+                    {
+                        CardView cv = t.GetComponent<CardView>();
+                        if (cv != null && cardIdx < p.hand.Count)
+                        {
+                            cv.SetCard(p.hand[cardIdx], true); // 翻开
+                        }
+                        cardIdx++;
+                    }
+                }
+            }
+        }
+
+        // ---------- 计算胜者 ----------
         Player bestPlayer = null;
         var bestRank = HandRank.HighCard;
         int bestHigh = 0;
@@ -491,8 +567,17 @@ public class GameManager : MonoBehaviour
             statusText.text = $"{bestPlayer.name} wins with {bestRank}!";
             bestPlayer.chips += pot;
             pot = 0;
-            bestPlayer.energy = Mathf.Min(bestPlayer.maxEnergy, bestPlayer.energy + 3);
+
+            // 能量恢复：赢家 +3，其余 +1
+            foreach (var pl in players)
+            {
+                if (pl == bestPlayer)
+                    pl.energy = Mathf.Min(pl.maxEnergy, pl.energy + 3);
+                else
+                    pl.energy = Mathf.Min(pl.maxEnergy, pl.energy + 1);
+            }
         }
+
         UpdateUI();
         if (nextHandButton != null)
             nextHandButton.gameObject.SetActive(true);
@@ -528,12 +613,13 @@ public class GameManager : MonoBehaviour
         {
             for (int i = 0; i < players.Count; i++)
             {
-                playerChipsText[i].text = $"{players[i].name}: {players[i].chips}";
+                //playerChipsText[i].text = $"{players[i].name}: {players[i].chips}";
+                playerChipsText[i].text = $"{players[i].chips}";
             }
         }
         if (energyText != null)
         {
-            energyText.text = $"Energy: {players[0].energy}/{players[0].maxEnergy}";
+            energyText.text = $"{players[0].energy}/{players[0].maxEnergy}";
         }
     }
     void OnNextHandClicked()
@@ -594,4 +680,33 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"Swapped card at index {idx}: {oldCard} -> {newCard}");
     }
+    // 根据牌型返回基础概率
+    private (float callProb, float raiseProb) GetBaseProb(HandEvaluator.HandRank rank)
+    {
+        switch (rank)
+        {
+            case HandEvaluator.HandRank.HighCard: return (0.30f, 0.05f);
+            case HandEvaluator.HandRank.OnePair: return (0.50f, 0.10f);
+            case HandEvaluator.HandRank.TwoPair: return (0.80f, 0.20f);
+            case HandEvaluator.HandRank.ThreeOfAKind: return (1.00f, 0.30f);
+            case HandEvaluator.HandRank.Straight: return (1.00f, 0.50f);
+            case HandEvaluator.HandRank.Flush: return (1.00f, 0.60f);
+            case HandEvaluator.HandRank.FullHouse: return (1.00f, 0.70f);
+            case HandEvaluator.HandRank.FourOfAKind: return (1.20f, 0.80f);
+            case HandEvaluator.HandRank.StraightFlush: return (1.60f, 0.90f);
+            case HandEvaluator.HandRank.RoyalFlush: return (1.60f, 1.00f);
+            default: return (0.10f, 0.0f);
+        }
+    }
+
+    // 根据下注比例返回修正值
+    private float GetChipPressureModifier(float betRatio)
+    {
+        if (betRatio < 0.2f) return 0f;
+        if (betRatio < 0.4f) return -0.15f;
+        if (betRatio < 0.6f) return -0.30f;
+        if (betRatio < 0.8f) return -0.45f;
+        return -0.60f;
+    }
+
 }

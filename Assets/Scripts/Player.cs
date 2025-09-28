@@ -7,7 +7,7 @@ public class Player
     public string name;
     public List<Card> hand = new List<Card>();
     public int chips;
-    public int energy = 8;
+    public int energy = 5;
     public int maxEnergy = 10;
     public int currentBet;
     public bool isFolded;
