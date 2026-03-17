@@ -128,8 +128,8 @@ public class PokerUIManager : MonoBehaviour
         // 1. 刷新全局的奖池和最高下注额
         if (ServerGameManager.Instance != null)
         {
-            if (potText != null) potText.text = $"奖池: {ServerGameManager.Instance.pot}";
-            if (highestBetText != null) highestBetText.text = $"最高标杆: {ServerGameManager.Instance.highestBet}";
+            if (potText != null) potText.text = $"{ServerGameManager.Instance.pot}";
+            if (highestBetText != null) highestBetText.text = $"{ServerGameManager.Instance.highestBet}";
         }
 
         // 2. 扫描全场玩家，刷新各自的 UI
@@ -150,9 +150,9 @@ public class PokerUIManager : MonoBehaviour
             if (p.isLocalPlayer)
             {
                 // 更新你自己的 UI
-                if (myChipsText != null) myChipsText.text = $"筹码: {p.chips}";
-                if (myCurrentBetText != null) myCurrentBetText.text = $"已下注: {p.currentBet}";
-                if (myEnergyText != null) myEnergyText.text = $"能量: {p.energy}/{currentMaxEnergy}";
+                if (myChipsText != null) myChipsText.text = $"{p.chips}";
+                if (myCurrentBetText != null) myCurrentBetText.text = $"{p.currentBet}";
+                if (myEnergyText != null) myEnergyText.text = $"{p.energy}/{currentMaxEnergy}";
                 if (p.isDealer && dealerButtonUI != null && myDealerPos != null)
                 {
                     dealerButtonUI.transform.SetParent(myDealerPos, false);
@@ -169,9 +169,9 @@ public class PokerUIManager : MonoBehaviour
                 if (enemyIndex >= 0 && enemyIndex < enemyNameTexts.Length)
                 {
                     if (enemyNameTexts[enemyIndex] != null) enemyNameTexts[enemyIndex].text = p.playerName;
-                    if (enemyChipsTexts[enemyIndex] != null) enemyChipsTexts[enemyIndex].text = $"筹码: {p.chips}";
-                    if (enemyCurrentBetTexts[enemyIndex] != null) enemyCurrentBetTexts[enemyIndex].text = $"已下注: {p.currentBet}";
-                    if (enemyEnergyTexts[enemyIndex] != null) enemyEnergyTexts[enemyIndex].text = $"能量: {p.energy}/{currentMaxEnergy}";
+                    if (enemyChipsTexts[enemyIndex] != null) enemyChipsTexts[enemyIndex].text = $"{p.chips}";
+                    if (enemyCurrentBetTexts[enemyIndex] != null) enemyCurrentBetTexts[enemyIndex].text = $"{p.currentBet}";
+                    if (enemyEnergyTexts[enemyIndex] != null) enemyEnergyTexts[enemyIndex].text = $"{p.energy}/{currentMaxEnergy}";
 
                     // 同步 D 牌位置
                     if (p.isDealer && dealerButtonUI != null && enemyIndex < enemyDealerPos.Length && enemyDealerPos[enemyIndex] != null)
@@ -303,7 +303,7 @@ public class PokerUIManager : MonoBehaviour
     public void ShowCastBar(string casterName, string skillName, float duration)
     {
         if (castBarPanel != null) castBarPanel.SetActive(true);
-        if (castNameText != null) castNameText.text = $" {casterName} 正在发功：{skillName}";
+        if (castNameText != null) castNameText.text = $" {casterName} 正在对你使用超能力：{skillName}";
 
         if (castUICoroutine != null) StopCoroutine(castUICoroutine);
         castUICoroutine = StartCoroutine(CastBarRoutine(duration));
