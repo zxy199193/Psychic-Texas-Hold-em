@@ -43,22 +43,34 @@ public class ServerGameManager : NetworkBehaviour
     {
         Instance = this;
     }
+    // ==========================================
+    // 游戏流程控制接口
+    // ==========================================
 
-    private void Update()
+    [Server]
+    public void StartGameAction()
     {
-        // 只有服务器能控制发牌节奏
-        if (isServer)
-        {
-            // 空格键：重新开始新的一局 (发底牌)
-            if (!hasGameStarted && Input.GetKeyDown(KeyCode.Space))
-            {
-                hasGameStarted = true;
-                StartNewHand();
-            }
-        }
+        if (hasGameStarted) return; // 防止重复点击
+
+        hasGameStarted = true;
+
+        // 1. 广播给全网所有玩家：把主菜单遮罩收起来！
+        RpcHideMainMenu();
+
+        // 2. 荷官开始洗牌发牌！
+        StartNewHand();
     }
 
-[Server]
+    // 大喇叭：全网隐藏主菜单
+    [ClientRpc]
+    private void RpcHideMainMenu()
+    {
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.HideMainMenu();
+        }
+    }
+    [Server]
     public void StartNewHand()
     {
         Debug.Log("--- 服务器：牌局开始，正在洗牌 ---");
@@ -66,14 +78,13 @@ public class ServerGameManager : NetworkBehaviour
         serverCommunityCards.Clear();
         RpcClearTable();
 
-        // 更新座位表，重置账单
         activePlayers.Clear();
         activePlayers.AddRange(FindObjectsOfType<PokerPlayer>());
         activePlayers.Sort((a, b) => a.netId.CompareTo(b.netId));
+
         pot = 0;
         highestBet = 0;
 
-        // 【安全检查】如果房间里没人，直接停止，防止后面数组越界报错
         if (activePlayers.Count == 0) return;
 
         // 颁发庄家身份标志！
@@ -82,43 +93,18 @@ public class ServerGameManager : NetworkBehaviour
             activePlayers[i].isDealer = (i == dealerIndex);
         }
 
-        // 核心 1：发底牌前，设定本局标杆为大盲注
-        highestBet = bigBlind;
-
-        // 核心 2：找出小盲位和大盲位
-        int sbIndex = (dealerIndex + 1) % activePlayers.Count;
-        int bbIndex = (dealerIndex + 2) % activePlayers.Count;
-
-        // 核心 3：强制扣钱进奖池！
-        PokerPlayer sbPlayer = activePlayers[sbIndex];
-        int actualSB = Mathf.Min(smallBlind, sbPlayer.chips);
-        sbPlayer.chips -= actualSB;
-        sbPlayer.currentBet += actualSB;
-        pot += actualSB;
-
-        PokerPlayer bbPlayer = activePlayers[bbIndex];
-        int actualBB = Mathf.Min(bigBlind, bbPlayer.chips);
-        bbPlayer.chips -= actualBB;
-        bbPlayer.currentBet += actualBB;
-        pot += actualBB;
-
-
         deck = new Deck();
         deck.Initialize();
-        
+
+        // ==========================================
+        // 第一步：先遍历所有人，重置状态、加能量、发牌
+        // ==========================================
         foreach (PokerPlayer p in activePlayers)
         {
-            // --- 能量发放逻辑 ---
-            if (isFirstHand)
-            {
-                p.energy = initialEnergy; // 第一局，所有人拿初始能量 (比如 3)
-            }
-            else
-            {
-                // 【核心】从第二局开始，每次一发牌，所有人自动恢复 1 点能量
-                p.energy = Mathf.Clamp(p.energy + roundEnergyRegen, 0, maxEnergy);
-            }
+            if (isFirstHand) p.energy = initialEnergy;
+            else p.energy = Mathf.Clamp(p.energy + roundEnergyRegen, 0, maxEnergy);
 
+            // 这里的重置必须放在扣盲注前面，否则会把盲注洗掉！
             p.currentBet = 0;
             p.isFolded = false;
             p.isAllIn = false;
@@ -129,7 +115,7 @@ public class ServerGameManager : NetworkBehaviour
             Card c2 = deck.Draw();
             p.serverHand.Add(c1);
             p.serverHand.Add(c2);
-            // 打印机器人的底牌（方便测试时开上帝视角）
+
             if (p.GetComponent<PokerBot>() != null)
             {
                 Debug.Log($"悄悄告诉你，机器人 [{p.playerName}] 抽到的底牌是: {c1} 和 {c2}");
@@ -138,14 +124,35 @@ public class ServerGameManager : NetworkBehaviour
             p.TargetReceiveHoleCards(p.connectionToClient, c1, c2);
             p.RpcShowEnemyCardBacks();
         }
-        // 核心 4：翻牌前（Pre-Flop），第一个说话的人是大盲注左手边的人 (枪口位 UTG)
+
+        // ==========================================
+        // 第二步：大家状态都干净了，开始强制扣盲注！
+        // ==========================================
+        highestBet = bigBlind;
+
+        int sbIndex = (dealerIndex + 1) % activePlayers.Count;
+        int bbIndex = (dealerIndex + 2) % activePlayers.Count;
+
+        PokerPlayer sbPlayer = activePlayers[sbIndex];
+        int actualSB = Mathf.Min(smallBlind, sbPlayer.chips);
+        sbPlayer.chips -= actualSB;
+        sbPlayer.currentBet += actualSB; // 现在加上去，就不会被清零了！
+        pot += actualSB;
+
+        PokerPlayer bbPlayer = activePlayers[bbIndex];
+        int actualBB = Mathf.Min(bigBlind, bbPlayer.chips);
+        bbPlayer.chips -= actualBB;
+        bbPlayer.currentBet += actualBB;
+        pot += actualBB;
+
+        isFirstHand = false;
+
+        // ==========================================
+        // 第三步：把话筒交给大盲注左手边的人 (枪口位 UTG)
+        // ==========================================
         int utgIndex = (bbIndex + 1) % activePlayers.Count;
-       
-        isFirstHand = false; // 第一局结束，标记置为 false
-       
-        // 牌全部发完后，再把话筒交给 0 号玩家，开启新一局的击鼓传花
         GiveTurnTo(utgIndex);
-        Debug.Log($"发牌完毕，请 {activePlayers[currentPlayerIndex].playerName} 开始行动！");
+        Debug.Log($"发牌完毕，盲注已扣！请 {activePlayers[currentPlayerIndex].playerName} 开始行动！");
     }
 
     // ==========================================

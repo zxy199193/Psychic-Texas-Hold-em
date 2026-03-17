@@ -41,17 +41,23 @@ public class PokerUIManager : MonoBehaviour
     public Text resultText;
 
     [Header("施法进度条 UI")]
-    public GameObject castBarPanel;       // 包含整个进度条的父节点 (方便一键隐藏)
-    public Slider castSlider;             // Unity 自带的 Slider 组件
-    public Text castNameText;             // 显示 "XXX 正在发功..."
+    public GameObject castBarPanel;
+    public Slider castSlider;
+    public Text castNameText;
+    private Coroutine castUICoroutine;
 
-    private Coroutine castUICoroutine;    // 记录进度条动画的协程
+    [Header("技能栏按钮 (关联你做好的实体按钮)")]
+    public Button btnResistSkill;         // 拖入你技能栏里的“抵抗”按钮
+    public Text txtResistCost;            // 拖入抵抗按钮上显示耗蓝 "X" 的文本组件
 
     [Header("庄家标志 (D牌)")]
     public GameObject dealerButtonUI;     // 场景里那个写着 "D" 的 UI 图片
     public Transform myDealerPos;         // 你自己头像旁的 D 牌挂载点
     public Transform[] enemyDealerPos;    // 对手们头像旁的 D 牌挂载点
 
+    [Header("主菜单 UI")]
+    public GameObject mainMenuPanel;      // 整个主菜单的遮罩背景
+    public Button btnStartGame;           // 开始游戏按钮
 
     private void Awake()
     {
@@ -123,18 +129,42 @@ public class PokerUIManager : MonoBehaviour
         if (PokerPlayer.LocalPlayer != null)
             PokerPlayer.LocalPlayer.CmdRaise(20); // 测试用，先写死每次加注掏20块
     }
+    // 绑定给“开始游戏”按钮
+    public void OnBtnStartGameClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            // 简单限制：只有房主（Server）能点击开始，普通客户端点了提示一下
+            if (PokerPlayer.LocalPlayer.isServer)
+            {
+                PokerPlayer.LocalPlayer.CmdStartGame();
+            }
+            else
+            {
+                Debug.Log("只有房主可以开始游戏哦！请等待房主操作。");
+            }
+        }
+    }
+
+    // 被服务器大喇叭调用的隐藏方法
+    public void HideMainMenu()
+    {
+        if (mainMenuPanel != null)
+        {
+            mainMenuPanel.SetActive(false);
+        }
+    }
+
+
     private void Update()
     {
         // 1. 刷新全局的奖池和最高下注额
         if (ServerGameManager.Instance != null)
         {
-            if (potText != null) potText.text = $"{ServerGameManager.Instance.pot}";
-            if (highestBetText != null) highestBetText.text = $"{ServerGameManager.Instance.highestBet}";
+            SetTextAndRebuildLayout(potText, $"{ServerGameManager.Instance.pot}");
+            SetTextAndRebuildLayout(highestBetText, $"{ServerGameManager.Instance.highestBet}");
         }
 
-        // 2. 扫描全场玩家，刷新各自的 UI
-        // （注：卡牌游戏玩家少，Update里用FindObjectsOfType完全不影响性能）
-        // 获取当前游戏的最大能量上限（加个判空保护）
         int currentMaxEnergy = 10;
         if (ServerGameManager.Instance != null)
         {
@@ -149,10 +179,11 @@ public class PokerUIManager : MonoBehaviour
         {
             if (p.isLocalPlayer)
             {
-                // 更新你自己的 UI
-                if (myChipsText != null) myChipsText.text = $"{p.chips}";
-                if (myCurrentBetText != null) myCurrentBetText.text = $"{p.currentBet}";
-                if (myEnergyText != null) myEnergyText.text = $"{p.energy}/{currentMaxEnergy}";
+                // 使用智能刷新方法更新自己 UI
+                SetTextAndRebuildLayout(myChipsText, $"{p.chips}");
+                SetTextAndRebuildLayout(myCurrentBetText, $"{p.currentBet}");
+                SetTextAndRebuildLayout(myEnergyText, $"{p.energy}/{currentMaxEnergy}");
+
                 if (p.isDealer && dealerButtonUI != null && myDealerPos != null)
                 {
                     dealerButtonUI.transform.SetParent(myDealerPos, false);
@@ -162,18 +193,16 @@ public class PokerUIManager : MonoBehaviour
             }
             else
             {
-                // 直接调用相对座位计算器，获取这个对手应该坐在哪个坑位！
                 int enemyIndex = GetEnemyIndex(p);
 
-                // 安全判定，防止数组越界
                 if (enemyIndex >= 0 && enemyIndex < enemyNameTexts.Length)
                 {
-                    if (enemyNameTexts[enemyIndex] != null) enemyNameTexts[enemyIndex].text = p.playerName;
-                    if (enemyChipsTexts[enemyIndex] != null) enemyChipsTexts[enemyIndex].text = $"{p.chips}";
-                    if (enemyCurrentBetTexts[enemyIndex] != null) enemyCurrentBetTexts[enemyIndex].text = $"{p.currentBet}";
-                    if (enemyEnergyTexts[enemyIndex] != null) enemyEnergyTexts[enemyIndex].text = $"{p.energy}/{currentMaxEnergy}";
+                    // 使用智能刷新方法更新对手 UI
+                    SetTextAndRebuildLayout(enemyNameTexts[enemyIndex], p.playerName);
+                    SetTextAndRebuildLayout(enemyChipsTexts[enemyIndex], $"{p.chips}");
+                    SetTextAndRebuildLayout(enemyCurrentBetTexts[enemyIndex], $"{p.currentBet}");
+                    SetTextAndRebuildLayout(enemyEnergyTexts[enemyIndex], $"{p.energy}/{currentMaxEnergy}");
 
-                    // 同步 D 牌位置
                     if (p.isDealer && dealerButtonUI != null && enemyIndex < enemyDealerPos.Length && enemyDealerPos[enemyIndex] != null)
                     {
                         dealerButtonUI.transform.SetParent(enemyDealerPos[enemyIndex], false);
@@ -183,28 +212,29 @@ public class PokerUIManager : MonoBehaviour
                 }
             }
         }
+
         // 3. 回合按钮锁死与状态提示
         if (PokerPlayer.LocalPlayer != null)
         {
             bool myTurn = PokerPlayer.LocalPlayer.isMyTurn;
 
-            // 如果是我的回合，按钮可以点；否则变灰不可点
             if (btnFold != null) btnFold.interactable = myTurn;
             if (btnCall != null) btnCall.interactable = myTurn;
             if (btnRaise != null) btnRaise.interactable = myTurn;
 
-            // 醒目的文字提示
             if (turnStatusText != null)
             {
-                if (myTurn)
+                string statusMsg = myTurn ? "轮到你了！请选择操作" : "正在等待对手行动...";
+                Color statusColor = myTurn ? Color.yellow : Color.gray;
+
+                // 同样做一次防重复刷新判定
+                if (turnStatusText.text != statusMsg)
                 {
-                    turnStatusText.text = "轮到你了！请选择操作";
-                    turnStatusText.color = Color.yellow; // 变黄高亮
-                }
-                else
-                {
-                    turnStatusText.text = "正在等待对手行动...";
-                    turnStatusText.color = Color.gray; // 变灰
+                    turnStatusText.text = statusMsg;
+                    turnStatusText.color = statusColor;
+
+                    RectTransform parentRect = turnStatusText.transform.parent.GetComponent<RectTransform>();
+                    if (parentRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
                 }
             }
         }
@@ -223,7 +253,7 @@ public class PokerUIManager : MonoBehaviour
     public void ClearAllTable()
     {
         ClearArea(myHandArea);
-
+        SetMyCardsBlurred(false);
         // 遍历清空所有对手的手牌区域
         if (enemyHandAreas != null)
         {
@@ -246,12 +276,10 @@ public class PokerUIManager : MonoBehaviour
     {
         CastSkillOnEnemy(1); // 1号技能：透视
     }
-
-    public void OnBtnInterruptClicked()
+    public void OnBtnBlurClicked()
     {
-        CastSkillOnEnemy(2); // 2号技能：打断
+        CastSkillOnEnemy(4); // 4号技能：模糊
     }
-
     // 快捷方法：自动向场上的对手释放技能
     private void CastSkillOnEnemy(int skillID)
     {
@@ -300,10 +328,31 @@ public class PokerUIManager : MonoBehaviour
     }
 
     // 2. 显示施法进度条
-    public void ShowCastBar(string casterName, string skillName, float duration)
+    public void ShowCastBar(string casterName, string skillName, float duration, bool canResist, int resistCost)
     {
         if (castBarPanel != null) castBarPanel.SetActive(true);
-        if (castNameText != null) castNameText.text = $" {casterName} 正在对你使用超能力：{skillName}";
+
+        if (casterName == "你")
+        {
+            if (castNameText != null) castNameText.text = $"你正在发功：{skillName} ...";
+        }
+        else
+        {
+            if (castNameText != null) castNameText.text = $"警告！{casterName} 正在对你使用：{skillName}！";
+        }
+
+        // 【核心关联】：控制你技能栏里的抵抗按钮！
+        if (btnResistSkill != null)
+        {
+            // 只有被攻击时，按钮才亮起可点
+            btnResistSkill.interactable = canResist;
+
+            // 把耗蓝文本从 "X" 变成具体的数字
+            if (txtResistCost != null)
+            {
+                txtResistCost.text = canResist ? resistCost.ToString() : "X";
+            }
+        }
 
         if (castUICoroutine != null) StopCoroutine(castUICoroutine);
         castUICoroutine = StartCoroutine(CastBarRoutine(duration));
@@ -326,12 +375,25 @@ public class PokerUIManager : MonoBehaviour
     {
         if (castBarPanel != null) castBarPanel.SetActive(false);
         if (castUICoroutine != null) StopCoroutine(castUICoroutine);
+
+        // 【核心关联】：进度条消失，抵抗按钮重新变灰并恢复 X
+        if (btnResistSkill != null)
+        {
+            btnResistSkill.interactable = false;
+            if (txtResistCost != null) txtResistCost.text = "X";
+        }
     }
     public void OnBtnSwapClicked()
     {
         CastSkillOnSelf(3); // 触发 3 号技能
     }
-
+    public void OnBtnResistClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            PokerPlayer.LocalPlayer.CmdResist();
+        }
+    }
     // 【新增】对自己释放技能的快捷方法
     private void CastSkillOnSelf(int skillID)
     {
@@ -386,6 +448,56 @@ public class PokerUIManager : MonoBehaviour
             {
                 enemyHandAreas[idx].GetChild(0).GetComponent<CardView>().SetCard(c1, true);
                 enemyHandAreas[idx].GetChild(1).GetComponent<CardView>().SetCard(c2, true);
+            }
+        }
+    }
+    // ==========================================
+    // UI 性能与布局优化工具
+    // ==========================================
+    private void SetTextAndRebuildLayout(Text textComp, string newText)
+    {
+        if (textComp == null) return;
+
+        // 只有当内容真正发生变化时，才去消耗性能更新 UI
+        if (textComp.text != newText)
+        {
+            textComp.text = newText;
+
+            // 强制刷新它所在的父节点 Layout 布局，防止挤在一起
+            RectTransform parentRect = textComp.transform.parent.GetComponent<RectTransform>();
+            if (parentRect != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
+            }
+        }
+    }
+
+    // ==========================================
+    // 模糊技能视觉效果 (升级版)
+    // ==========================================
+    public void SetMyCardsBlurred(bool isBlurred)
+    {
+        if (myHandArea != null)
+        {
+            foreach (Transform child in myHandArea)
+            {
+                // 1. 地毯式搜索：获取卡牌及其所有子节点上的全部 Image 组件
+                Image[] allImages = child.GetComponentsInChildren<Image>();
+                foreach (Image img in allImages)
+                {
+                    // 模糊时变成深灰色，恢复时变回纯白 (显示原本的颜色)
+                    img.color = isBlurred ? new Color(0.1f, 0.1f, 0.1f, 1f) : Color.white;
+                }
+
+                // 2. 如果你的牌面数字/花色是用 Unity 原生的 Text 做的，也让它变暗或半透明
+                Text[] allTexts = child.GetComponentsInChildren<Text>();
+                foreach (Text txt in allTexts)
+                {
+                    Color c = txt.color;
+                    // 模糊时把文字透明度降到几乎看不见，恢复时调回 1
+                    c.a = isBlurred ? 0.05f : 1f;
+                    txt.color = c;
+                }
             }
         }
     }

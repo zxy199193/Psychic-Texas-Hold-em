@@ -18,11 +18,17 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar] public bool hasActed = false;
     [SyncVar] public bool isCasting = false; // 全场同步：我正在发功！
     [SyncVar] public bool isDealer = false;
-    private Coroutine currentCastCoroutine;  // 服务器用来记录当前的读条进程
+    // ==========================================
+    // 超能力施法与抵抗状态记录 (仅服务器使用)
+    // ==========================================
+    private Coroutine currentCastCoroutine;
+    private PokerPlayer incomingAttacker = null; // 记录当前谁正在攻击我
+    private int incomingResistCost = 0;          // 记录抵抗这次攻击需要多少蓝
 
     // --- 以下变量只在 Server 端有意义，客户端即使读取也是空的或者不同步的 ---
     // 服务器用来记录该玩家当前底牌的私密列表
     public List<Card> serverHand = new List<Card>();
+
 
     public override void OnStartLocalPlayer()
     {
@@ -31,6 +37,12 @@ public class PokerPlayer : NetworkBehaviour
         CmdSetName("Player_" + Random.Range(1000, 9999));
     }
 
+    [Command]
+    public void CmdStartGame()
+    {
+        // 只有服务器能决定是否开始
+        ServerGameManager.Instance.StartGameAction();
+    }
     [Command]
     public void CmdSetName(string newName)
     {
@@ -65,7 +77,16 @@ public class PokerPlayer : NetworkBehaviour
     [ClientRpc]
     public void RpcRevealHoleCards(Card c1, Card c2)
     {
-        if (isLocalPlayer) return; // 自己本来就是亮着的，不用管
+        if (isLocalPlayer)
+        {
+            // 【新增】：如果之前自己的牌被模糊了，摊牌阶段要强制恢复原状！
+            if (PokerUIManager.Instance != null)
+            {
+                PokerUIManager.Instance.SetMyCardsBlurred(false);
+            }
+            return;
+        }
+
         if (PokerUIManager.Instance != null)
         {
             PokerUIManager.Instance.FlipEnemyCards(this, c1, c2);
@@ -103,11 +124,10 @@ public class PokerPlayer : NetworkBehaviour
     {
         base.OnStartServer();
         skillDatabase.Add(1, new PeekSkill());
-        skillDatabase.Add(2, new InterruptSkill());
         skillDatabase.Add(3, new SwapCardsSkill());
+        skillDatabase.Add(4, new BlurSkill());
     }
 
-    // 客户端申请释放技能
     [Command]
     public void CmdCastSkill(int skillID, uint targetNetId)
     {
@@ -127,47 +147,109 @@ public class PokerPlayer : NetworkBehaviour
         }
         if (targetPlayer == null) return;
 
-        // 1. 【核心规则】申请通过，起手直接扣蓝！不退还！
+        // 1. 扣除施法者的蓝量
         this.energy -= skillToCast.energyCost;
 
-        // 2. 开始发功读条
+        // 2. 开始私密读条
         currentCastCoroutine = StartCoroutine(CastingRoutine(skillToCast, targetPlayer));
     }
 
-    // 服务器执行的读条协程
     private System.Collections.IEnumerator CastingRoutine(BaseSkill skill, PokerPlayer target)
     {
         isCasting = true;
 
-        // 【新增】告诉全场的客户端：把进度条给我拉出来！
-        RpcStartCastingUI(playerName, skill.skillName, skill.castTime);
+        // 1. 告诉施法者自己：显示蓝色进度条（不带抵抗按钮）
+        TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skill.castTime, false, 0);
+
+        // 2. 告诉受害者：有人搞你！弹红色警报进度条！（带抵抗按钮）
+        if (target != this && target != null)
+        {
+            int resistCost = Mathf.Max(0, skill.energyCost - 1); // 动态计算抵抗耗蓝：对方耗蓝减1
+            target.TargetStartCastingUI(target.connectionToClient, this.playerName, skill.skillName, skill.castTime, true, resistCost);
+
+            // 服务器给受害者打上标记，允许他在这段时间内进行抵抗
+            target.incomingAttacker = this;
+            target.incomingResistCost = resistCost;
+        }
 
         yield return new WaitForSeconds(skill.castTime);
 
+        // 如果读条没被打断，正常生效
         if (isCasting)
         {
             isCasting = false;
-            RpcStopCastingUI(); // 【新增】正常结束，隐藏进度条
+            // 正常结束，收回双方的进度条
+            TargetStopCastingUI(this.connectionToClient);
+            if (target != this && target != null)
+            {
+                TargetStopCastingUI(target.connectionToClient);
+                target.incomingAttacker = null; // 清除受害者的受击标记
+            }
+
             skill.Execute(this, target, ServerGameManager.Instance);
         }
     }
 
-    // 【新增】供干扰技能调用的打断方法 (仅服务器执行)
+    // ==========================================
+    // 全新的抵抗反制系统
+    // ==========================================
+
+    [Command]
+    public void CmdResist()
+    {
+        // 只有被攻击的人，且攻击者还在读条，且自己蓝够，才能抵抗
+        if (incomingAttacker != null && incomingAttacker.isCasting)
+        {
+            if (this.energy >= incomingResistCost)
+            {
+                this.energy -= incomingResistCost; // 扣除抵抗所需能量
+                incomingAttacker.InterruptBy(this); // 触发反制
+                incomingAttacker = null;            // 危机解除
+            }
+            else
+            {
+                TargetReceiveSkillMessage(this.connectionToClient, "能量不足，无法抵抗！");
+            }
+        }
+    }
+
     [Server]
-    public void Interrupt()
+    public void InterruptBy(PokerPlayer resister)
     {
         if (isCasting)
         {
             isCasting = false;
-            if (currentCastCoroutine != null)
-            {
-                StopCoroutine(currentCastCoroutine);
-                currentCastCoroutine = null;
-            }
-            RpcStopCastingUI(); // 【新增】被打断！瞬间隐藏进度条
-            RpcBroadcastSkillState($"砰！{playerName} 的施法被打断了，能量白给了！");
+            if (currentCastCoroutine != null) StopCoroutine(currentCastCoroutine);
+
+            // 告诉双方收起进度条
+            TargetStopCastingUI(this.connectionToClient);
+            TargetStopCastingUI(resister.connectionToClient);
+
+            // 悄悄话通知双方结果
+            TargetReceiveSkillMessage(this.connectionToClient, $"砰！你的施法被 {resister.playerName} 抵抗了，能量白给！");
+            resister.TargetReceiveSkillMessage(resister.connectionToClient, $"漂亮！你成功抵抗了 {this.playerName} 的超能力！");
         }
     }
+
+    // ==========================================
+    // 私密 UI 调度接口 (TargetRpc 替代 ClientRpc)
+    // ==========================================
+
+    [TargetRpc]
+    public void TargetStartCastingUI(NetworkConnectionToClient targetConn, string casterName, string skillName, float duration, bool canResist, int resistCost)
+    {
+        if (PokerUIManager.Instance != null)
+            PokerUIManager.Instance.ShowCastBar(casterName, skillName, duration, canResist, resistCost);
+    }
+
+    [TargetRpc]
+    public void TargetStopCastingUI(NetworkConnectionToClient targetConn)
+    {
+        if (PokerUIManager.Instance != null)
+            PokerUIManager.Instance.HideCastBar();
+    }
+
+
 
     [TargetRpc]
     public void TargetReceiveSkillMessage(NetworkConnectionToClient target, string message)
@@ -190,20 +272,13 @@ public class PokerPlayer : NetworkBehaviour
         }
     }
 
-    // 大喇叭：全场显示进度条
-    [ClientRpc]
-    public void RpcStartCastingUI(string casterName, string skillName, float duration)
+    [TargetRpc]
+    public void TargetApplyBlur(NetworkConnectionToClient targetConn)
     {
         if (PokerUIManager.Instance != null)
-            PokerUIManager.Instance.ShowCastBar(casterName, skillName, duration);
-    }
-
-    // 大喇叭：全场隐藏进度条
-    [ClientRpc]
-    public void RpcStopCastingUI()
-    {
-        if (PokerUIManager.Instance != null)
-            PokerUIManager.Instance.HideCastBar();
+        {
+            PokerUIManager.Instance.SetMyCardsBlurred(true);
+        }
     }
 
 }
