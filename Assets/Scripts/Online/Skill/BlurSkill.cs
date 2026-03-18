@@ -10,7 +10,7 @@ public class BlurSkill : BaseSkill
         castTime = 3.0f;         // ∂¡Ãı 3 √Î
     }
 
-    public override void Execute(PokerPlayer caster, PokerPlayer target, ServerGameManager serverContext)
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         if (target == null) return;
 

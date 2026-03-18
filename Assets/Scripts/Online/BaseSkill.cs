@@ -17,5 +17,5 @@ public abstract class BaseSkill
     }
 
     // 技能生效时的具体逻辑 (由服务器调用)
-    public abstract void Execute(PokerPlayer caster, PokerPlayer target, ServerGameManager serverContext);
+    public abstract void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext);
 }

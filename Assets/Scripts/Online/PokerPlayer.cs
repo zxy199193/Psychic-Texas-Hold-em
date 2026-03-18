@@ -12,6 +12,7 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar] public int chips = 1000;
     [SyncVar] public int energy = 5;
     [SyncVar] public int currentBet = 0;
+    [SyncVar] public int rebuyCount = 0;
     [SyncVar] public bool isFolded = false;
     [SyncVar] public bool isAllIn = false;
     [SyncVar] public bool isMyTurn = false;
@@ -24,7 +25,11 @@ public class PokerPlayer : NetworkBehaviour
     private Coroutine currentCastCoroutine;
     private PokerPlayer incomingAttacker = null; // 记录当前谁正在攻击我
     private int incomingResistCost = 0;          // 记录抵抗这次攻击需要多少蓝
-
+    // ==========================================
+    // 感应技能状态标记
+    // ==========================================
+    public bool serverIsSensing = false; // 服务器记录：此人是否开启了感应
+    public bool localIsSensing = false;  // 客户端记录：我本地是否开启了感应 (用于UI刷新)
     // --- 以下变量只在 Server 端有意义，客户端即使读取也是空的或者不同步的 ---
     // 服务器用来记录该玩家当前底牌的私密列表
     public List<Card> serverHand = new List<Card>();
@@ -124,40 +129,67 @@ public class PokerPlayer : NetworkBehaviour
     {
         base.OnStartServer();
         skillDatabase.Add(1, new PeekSkill());
-        skillDatabase.Add(3, new SwapCardsSkill());
+        skillDatabase.Add(3, new SwapSkill());
         skillDatabase.Add(4, new BlurSkill());
+        skillDatabase.Add(5, new SensingSkill());
     }
 
     [Command]
-    public void CmdCastSkill(int skillID, uint targetNetId)
+    public void CmdCastSkill(int skillID, uint targetNetId, int targetType, int targetIndex)
     {
         if (!skillDatabase.ContainsKey(skillID)) return;
         BaseSkill skillToCast = skillDatabase[skillID];
 
-        if (!skillToCast.CanCast(this))
+        // 1. 动态耗蓝计算
+        int actualEnergyCost = skillToCast.energyCost;
+
+        if (skillID == 1) // 透视
         {
-            TargetReceiveSkillMessage(this.connectionToClient, "能量不足或正在施法中！");
+            if (targetType == 1) actualEnergyCost *= 2; // 透视公牌，耗能 x2
+        }
+        else if (skillID == 3) // 换牌
+        {
+            if (targetType == 0 && targetNetId != this.netId)
+                actualEnergyCost *= 2; // 换敌方手牌，耗能 x2
+            else if (targetType == 1)
+                actualEnergyCost *= 3; // 换未翻开的公牌，耗能 x3
+        }
+
+        // 2. 拦截检查：蓝够不够？(包含算好的动态蓝耗)
+        if (this.energy < actualEnergyCost)
+        {
+            TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！该操作需要 {actualEnergyCost} 点能量。");
+            return;
+        }
+        if (isCasting)
+        {
+            TargetReceiveSkillMessage(this.connectionToClient, "正在施法中！");
             return;
         }
 
+        // 3. 解析目标玩家 (如果是对公牌施法，这个 targetPlayer 会是 null，这是正常的)
         PokerPlayer targetPlayer = null;
-        if (NetworkServer.spawned.TryGetValue(targetNetId, out NetworkIdentity targetIdentity))
+        if (targetType == 0 && NetworkServer.spawned.TryGetValue(targetNetId, out NetworkIdentity targetIdentity))
         {
             targetPlayer = targetIdentity.GetComponent<PokerPlayer>();
         }
-        if (targetPlayer == null) return;
 
-        // 1. 扣除施法者的蓝量
-        this.energy -= skillToCast.energyCost;
+        // 4. 正式扣除计算后的蓝量！
+        this.energy -= actualEnergyCost;
 
-        // 2. 开始私密读条
-        currentCastCoroutine = StartCoroutine(CastingRoutine(skillToCast, targetPlayer));
+        // 5. 开启私密读条 (这里传入的 targetType 和 targetIndex 之后会在技能的具体逻辑里用到)
+        currentCastCoroutine = StartCoroutine(CastingRoutine(skillToCast, targetPlayer, targetType, targetIndex));
     }
 
-    private System.Collections.IEnumerator CastingRoutine(BaseSkill skill, PokerPlayer target)
+    private System.Collections.IEnumerator CastingRoutine(BaseSkill skill, PokerPlayer target, int targetType, int targetIndex)
     {
         isCasting = true;
-
+        string targetName = (target != null) ? target.playerName : "公共牌";
+        foreach (var p in ServerGameManager.Instance.activePlayers)
+        {
+            if (p.serverIsSensing)
+                p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}正向{targetName}使用{skill.skillName}技能");
+        }
         // 1. 告诉施法者自己：显示蓝色进度条（不带抵抗按钮）
         TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skill.castTime, false, 0);
 
@@ -185,8 +217,12 @@ public class PokerPlayer : NetworkBehaviour
                 TargetStopCastingUI(target.connectionToClient);
                 target.incomingAttacker = null; // 清除受害者的受击标记
             }
-
-            skill.Execute(this, target, ServerGameManager.Instance);
+            foreach (var p in ServerGameManager.Instance.activePlayers)
+            {
+                if (p.serverIsSensing)
+                    p.TargetReceiveSensingLog(p.connectionToClient, "使用成功");
+            }
+            skill.Execute(this, target, targetType, targetIndex, ServerGameManager.Instance);
         }
     }
 
@@ -228,6 +264,11 @@ public class PokerPlayer : NetworkBehaviour
             // 悄悄话通知双方结果
             TargetReceiveSkillMessage(this.connectionToClient, $"砰！你的施法被 {resister.playerName} 抵抗了，能量白给！");
             resister.TargetReceiveSkillMessage(resister.connectionToClient, $"漂亮！你成功抵抗了 {this.playerName} 的超能力！");
+            foreach (var p in ServerGameManager.Instance.activePlayers)
+            {
+                if (p.serverIsSensing)
+                    p.TargetReceiveSensingLog(p.connectionToClient, "使用失败");
+            }
         }
     }
 
@@ -264,12 +305,17 @@ public class PokerPlayer : NetworkBehaviour
     }
     // 专门给透视技能用的：只让施法者自己看到翻牌
     [TargetRpc]
-    public void TargetPeekCards(NetworkConnectionToClient target, Card c1, Card c2)
+    public void TargetPeekSingleCard(NetworkConnectionToClient targetConn, int targetType, int targetIndex, uint ownerNetId, Card card)
     {
         if (PokerUIManager.Instance != null)
-        {
-            PokerUIManager.Instance.ShowEnemyCardsTemporarily(c1, c2, 3f);
-        }
+            PokerUIManager.Instance.ShowSpecificCardTemporarily(targetType, targetIndex, ownerNetId, card, 3f);
+    }
+
+    [TargetRpc]
+    public void TargetUpdateSingleHandCard(NetworkConnectionToClient targetConn, int targetIndex, Card newCard)
+    {
+        if (PokerUIManager.Instance != null)
+            PokerUIManager.Instance.UpdateMySingleCard(targetIndex, newCard);
     }
 
     [TargetRpc]
@@ -280,5 +326,33 @@ public class PokerPlayer : NetworkBehaviour
             PokerUIManager.Instance.SetMyCardsBlurred(true);
         }
     }
+    // 开启 30 秒感应 Buff
+    public void StartSensingBuff(float duration)
+    {
+        StartCoroutine(SensingRoutine(duration));
+    }
 
+    private System.Collections.IEnumerator SensingRoutine(float duration)
+    {
+        serverIsSensing = true;
+        TargetSetSensingState(this.connectionToClient, true);
+
+        yield return new WaitForSeconds(duration);
+
+        serverIsSensing = false;
+        TargetSetSensingState(this.connectionToClient, false);
+    }
+
+    [TargetRpc]
+    public void TargetSetSensingState(NetworkConnectionToClient conn, bool state)
+    {
+        localIsSensing = state; // 告诉本地客户端：你的感应状态变了
+    }
+
+    [TargetRpc] // 只有开启了感应的特定玩家才能收到这条日志
+    public void TargetReceiveSensingLog(NetworkConnectionToClient conn, string logMsg)
+    {
+        if (PokerUIManager.Instance != null)
+            PokerUIManager.Instance.ShowSensingLog(logMsg);
+    }
 }

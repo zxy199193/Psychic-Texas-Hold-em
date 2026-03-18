@@ -38,6 +38,8 @@ public class ServerGameManager : NetworkBehaviour
 
     // 服务器私有记录的公共牌列表（用于之后算牌型）
     public List<Card> serverCommunityCards = new List<Card>();
+    // 【新增】：开局就决定好的 5 张命运公牌！
+    public Card[] futureCommunityCards = new Card[5];
 
     private void Awake()
     {
@@ -95,7 +97,24 @@ public class ServerGameManager : NetworkBehaviour
 
         deck = new Deck();
         deck.Initialize();
-
+        for (int i = 0; i < 5; i++)
+        {
+            futureCommunityCards[i] = deck.Draw();
+        }
+        RpcSpawnInitialCommunityCards();
+        foreach (PokerPlayer p in activePlayers)
+        {
+            if (p.chips <= 0)
+            {
+                p.chips = 1000; // 自动发放 1000 筹码
+                p.rebuyCount++; // 买入次数 +1
+                // 悄悄告诉破产的玩家
+                if (p.connectionToClient != null)
+                {
+                    p.TargetReceiveSkillMessage(p.connectionToClient, "筹码耗尽，系统已自动为您重新买入 1000 筹码！");
+                }
+            }
+        }
         // ==========================================
         // 第一步：先遍历所有人，重置状态、加能量、发牌
         // ==========================================
@@ -202,8 +221,23 @@ public class ServerGameManager : NetworkBehaviour
         }
 
         // 3. 把话筒重新交给 庄家 左手边第一位存活的玩家
-        currentPlayerIndex = dealerIndex;
-        MoveToNextPlayer(); // MoveToNextPlayer 内部有找下一个人并跳过弃牌玩家的逻辑
+        int playersCanAct = 0;
+        foreach (var p in activePlayers)
+        {
+            if (!p.isFolded && !p.isAllIn && p.chips > 0) playersCanAct++;
+        }
+
+        // 如果场上不足 2 人能动（处于 All-in 快进中），就不交出话筒了！
+        if (playersCanAct <= 1)
+        {
+            GiveTurnTo(-1);
+        }
+        else
+        {
+            // 正常把话筒重新交给 庄家 左手边第一位存活的玩家
+            currentPlayerIndex = dealerIndex;
+            MoveToNextPlayer();
+        }
     }
 
     // ==========================================
@@ -292,43 +326,48 @@ public class ServerGameManager : NetworkBehaviour
     private void DealFlop()
     {
         currentPhase = GamePhase.Flop;
-        Card[] flopCards = new Card[] { deck.Draw(), deck.Draw(), deck.Draw() };
-        serverCommunityCards.AddRange(flopCards);
+        // 把提前定好的前 3 张牌加入已翻开列表
+        serverCommunityCards.Add(futureCommunityCards[0]);
+        serverCommunityCards.Add(futureCommunityCards[1]);
+        serverCommunityCards.Add(futureCommunityCards[2]);
 
-        // 广播给全场：画出这 3 张牌
-        RpcSpawnCommunityCards(flopCards);
+        // 通知客户端翻开第 0, 1, 2 张牌
+        RpcRevealCommunityCards(0, 3, new Card[] { futureCommunityCards[0], futureCommunityCards[1], futureCommunityCards[2] });
     }
 
     [Server]
     private void DealTurn()
     {
         currentPhase = GamePhase.Turn;
-        Card[] turnCard = new Card[] { deck.Draw() };
-        serverCommunityCards.AddRange(turnCard);
-
-        RpcSpawnCommunityCards(turnCard);
+        serverCommunityCards.Add(futureCommunityCards[3]);
+        RpcRevealCommunityCards(3, 1, new Card[] { futureCommunityCards[3] });
     }
 
     [Server]
     private void DealRiver()
     {
         currentPhase = GamePhase.River;
-        Card[] riverCard = new Card[] { deck.Draw() };
-        serverCommunityCards.AddRange(riverCard);
-
-        RpcSpawnCommunityCards(riverCard);
+        serverCommunityCards.Add(futureCommunityCards[4]);
+        RpcRevealCommunityCards(4, 1, new Card[] { futureCommunityCards[4] });
     }
 
-    // 【新增】大喇叭：通知所有客户端在桌面上画出这几张公共牌
+    // 开局时调用：在公牌区生成 5 张盖着的牌背
     [ClientRpc]
-    private void RpcSpawnCommunityCards(Card[] cards)
+    private void RpcSpawnInitialCommunityCards()
     {
         if (PokerUIManager.Instance != null)
         {
-            foreach (Card c in cards)
-            {
-                PokerUIManager.Instance.SpawnCommunityCard(c);
-            }
+            PokerUIManager.Instance.SpawnInitialCommunityCards();
+        }
+    }
+
+    // 推进阶段时调用：把指定的牌背翻面！
+    [ClientRpc]
+    private void RpcRevealCommunityCards(int startIndex, int count, Card[] cards)
+    {
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.RevealCommunityCards(startIndex, count, cards);
         }
     }
 
@@ -360,15 +399,22 @@ public class ServerGameManager : NetworkBehaviour
         if (activePlayers[currentPlayerIndex] != player) return;
 
         int callAmount = highestBet - player.currentBet;
-        if (callAmount > player.chips) callAmount = player.chips;
+
+        // 核心判定：如果需要的钱 >= 他手里的钱，触发 All-in！
+        if (callAmount >= player.chips)
+        {
+            callAmount = player.chips;
+            player.isAllIn = true;
+            player.TargetReceiveSkillMessage(player.connectionToClient, "你已 All-in！命运交由天定。");
+        }
 
         player.chips -= callAmount;
         player.currentBet += callAmount;
         pot += callAmount;
 
-        player.hasActed = true; // 【新增】
+        player.hasActed = true;
         Debug.Log($"{player.playerName} 跟注 {callAmount}");
-        CheckAndMove(); // 【修改】
+        CheckAndMove();
     }
 
     [Server]
@@ -377,46 +423,64 @@ public class ServerGameManager : NetworkBehaviour
         if (activePlayers[currentPlayerIndex] != player) return;
 
         int totalNeeded = (highestBet - player.currentBet) + raiseAmount;
-        if (totalNeeded > player.chips) return;
+
+        // 核心判定：如果加注的钱 >= 他手里的钱，触发 All-in！
+        if (totalNeeded >= player.chips)
+        {
+            totalNeeded = player.chips;
+            player.isAllIn = true;
+            player.TargetReceiveSkillMessage(player.connectionToClient, "你已 All-in！气势惊人！");
+        }
 
         player.chips -= totalNeeded;
         player.currentBet += totalNeeded;
         pot += totalNeeded;
-        highestBet = player.currentBet;
 
-        // 【新增】因为加注了，其他人的“已行动”状态全部作废！
-        foreach (var p in activePlayers)
+        // 刷新最高下注额
+        if (player.currentBet > highestBet)
         {
-            p.hasActed = false;
-        }
-        player.hasActed = true; // 但加注的这个人自己算是行动过了
+            highestBet = player.currentBet;
 
+            // 【核心修正】有人加注了，其他没弃牌且没 All-in 的人，必须重新表态
+            foreach (var p in activePlayers)
+            {
+                if (!p.isFolded && !p.isAllIn) p.hasActed = false;
+            }
+        }
+
+        player.hasActed = true;
         Debug.Log($"{player.playerName} 加注到 {highestBet}");
-        CheckAndMove(); // 【修改】
+        CheckAndMove();
     }
 
     // 击鼓传花：把话筒递给下一个没弃牌的人
+    // 击鼓传花：把话筒递给下一个能行动的人
     [Server]
     private void MoveToNextPlayer()
     {
         int startIndex = currentPlayerIndex;
+        int attempts = 0; // 防死循环保护
+
         do
         {
             int nextIndex = (currentPlayerIndex + 1) % activePlayers.Count;
-            if (!activePlayers[nextIndex].isFolded)
+            attempts++;
+
+            // 核心跳过条件：没弃牌、没All-in，且手里还有钱的人，才有资格拿到话筒
+            if (!activePlayers[nextIndex].isFolded &&
+                !activePlayers[nextIndex].isAllIn &&
+                activePlayers[nextIndex].chips > 0)
             {
-                // 把话筒交给下一个人
                 GiveTurnTo(nextIndex);
                 Debug.Log($"轮到 {activePlayers[currentPlayerIndex].playerName} 说话了！");
                 return;
             }
             currentPlayerIndex = nextIndex;
-        } while (currentPlayerIndex != startIndex);
+        }
+        while (currentPlayerIndex != startIndex && attempts <= activePlayers.Count);
 
-        Debug.Log("一圈结束了！(未来这里会触发结算和发下一轮公共牌)");
-
-        // 一圈结束，暂时没收所有人的话筒
-        GiveTurnTo(-1);
+        Debug.Log("一圈结束了！或者所有人都处于 All-in/弃牌 状态。");
+        GiveTurnTo(-1); // 暂时没收所有人话筒
     }
 
     [Server]
@@ -446,52 +510,77 @@ public class ServerGameManager : NetworkBehaviour
     // ==========================================
 
     [Server]
-    private bool IsBettingRoundComplete()
+    private bool IsBettingRoundComplete(out int playersCanAct)
     {
-        int activeCount = 0; // 没弃牌的玩家总数
-        int readyCount = 0;  // 已经准备好进入下一轮的玩家数
+        int activeCount = 0;
+        int readyCount = 0;
+        playersCanAct = 0; // 记录场上还有几个“活人”能动
 
         foreach (var p in activePlayers)
         {
             if (p.isFolded) continue;
             activeCount++;
 
-            // 如果他已经 All-in 了，直接算他准备好了（他不需要再操作了）
-            if (p.isAllIn)
+            if (!p.isAllIn && p.chips > 0)
             {
-                readyCount++;
+                playersCanAct++; // 这个人还能继续做决定
+            }
+            else
+            {
+                readyCount++; // All-in 玩家算作已准备好
                 continue;
             }
 
-            // 核心判定：他已经表过态，且他出的钱平齐了最高标杆
             if (p.hasActed && p.currentBet == highestBet)
             {
                 readyCount++;
             }
         }
 
-        // 如果只剩 1 个人（其他全弃牌了），也直接结束本轮
         if (activeCount <= 1) return true;
-
-        // 当所有存活玩家都准备好时，本轮结束！
         return activeCount == readyCount;
     }
+
     [Server]
     private void CheckAndMove()
     {
-        // 没收当前玩家的话筒
         activePlayers[currentPlayerIndex].isMyTurn = false;
 
-        // 裁判吹哨：这轮下注结束了吗？
-        if (IsBettingRoundComplete())
+        int playersCanAct;
+        bool isComplete = IsBettingRoundComplete(out playersCanAct);
+
+        if (isComplete)
         {
             Debug.Log(">>> 本轮下注结束，准备推进游戏阶段！ <<<");
-            AdvancePhase();
+
+            // 核心分流：如果所有人都表态了，且场上能动的人 <= 1 (说明全 All-in 锁死了)
+            if (playersCanAct <= 1 && currentPhase != GamePhase.Showdown)
+            {
+                StartCoroutine(AutoDealRemainingCards());
+            }
+            else
+            {
+                AdvancePhase();
+            }
         }
         else
         {
-            // 还没结束，继续击鼓传花
             MoveToNextPlayer();
+        }
+    }
+
+    // ==========================================
+    // All-in 决战：自动发完剩余公牌
+    // ==========================================
+    private System.Collections.IEnumerator AutoDealRemainingCards()
+    {
+        Debug.Log("触发 All-in 决战！自动快进发牌！");
+        GiveTurnTo(-1); // 剥夺所有人操作权
+
+        while (currentPhase != GamePhase.Showdown)
+        {
+            yield return new WaitForSeconds(1.5f); // 停顿 1.5 秒营造刺激感
+            AdvancePhase();
         }
     }
 

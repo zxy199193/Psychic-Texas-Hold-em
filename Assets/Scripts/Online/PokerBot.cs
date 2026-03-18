@@ -39,7 +39,7 @@ public class PokerBot : NetworkBehaviour
         int currentBet = ServerGameManager.Instance.highestBet;
         int callAmount = Mathf.Max(0, currentBet - myPlayer.currentBet);
         float betRatio = (myPlayer.chips > 0) ? (float)callAmount / myPlayer.chips : 1f;
-
+        int minRaise = ServerGameManager.Instance.bigBlind;
         var bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards);
         var (baseCall, baseRaise) = GetBaseProb(bestHand.rank);
         float modifier = GetChipPressureModifier(betRatio);
@@ -54,10 +54,10 @@ public class PokerBot : NetworkBehaviour
         // --- 核心决策逻辑 ---
         if (callAmount == 0)
         {
-            if (roll < raiseProb && myPlayer.chips > 20)
+            if (roll < raiseProb && myPlayer.chips > minRaise)
             {
-                myPlayer.RpcBroadcastSkillState($"机器人 [{myPlayer.playerName}] 决定: 加注 (Raise) 20！");
-                ServerGameManager.Instance.HandlePlayerRaise(myPlayer, 20);
+                Debug.Log($"机器人 [{myPlayer.playerName}] 决定: 加注 (Raise) {minRaise}！");
+                ServerGameManager.Instance.HandlePlayerRaise(myPlayer, minRaise);
             }
             else
             {
@@ -67,10 +67,10 @@ public class PokerBot : NetworkBehaviour
         }
         else
         {
-            if (roll < raiseProb && callAmount + 20 <= myPlayer.chips)
+            if (roll < raiseProb && callAmount + minRaise <= myPlayer.chips)
             {
-                myPlayer.RpcBroadcastSkillState($"机器人 [{myPlayer.playerName}] 决定: 反击加注 (Raise) 20！");
-                ServerGameManager.Instance.HandlePlayerRaise(myPlayer, 20);
+                Debug.Log($"机器人 [{myPlayer.playerName}] 决定: 反击加注 (Raise) {minRaise}！");
+                ServerGameManager.Instance.HandlePlayerRaise(myPlayer, minRaise);
             }
             else if (roll < callProb + raiseProb && callAmount <= myPlayer.chips)
             {

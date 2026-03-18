@@ -21,6 +21,8 @@ public class PokerUIManager : MonoBehaviour
     public Text myChipsText;          // 你的筹码
     public Text myCurrentBetText;     // 你的当前下注额
     public Text myEnergyText;
+    public GameObject myRebuyNode;    // 你的买入次数节点 (背景框)
+    public Text myRebuyText;
 
     [Header("对手 UI (支持多人)")]
     public Text[] enemyNameTexts;        // 对手们的名字
@@ -28,6 +30,8 @@ public class PokerUIManager : MonoBehaviour
     public Text[] enemyCurrentBetTexts;  // 对手们的下注
     public Text[] enemyEnergyTexts;      // 对手们的能量
     public Transform[] enemyHandAreas;   // 对手们的底牌区域 (必须分开，不然牌会挤在一起)
+    public GameObject[] enemyRebuyNodes; // 对手们的买入次数节点
+    public Text[] enemyRebuyTexts;
 
     [Header("操作按钮")]
     public Button btnFold;
@@ -58,7 +62,23 @@ public class PokerUIManager : MonoBehaviour
     [Header("主菜单 UI")]
     public GameObject mainMenuPanel;      // 整个主菜单的遮罩背景
     public Button btnStartGame;           // 开始游戏按钮
+    
+    [Header("感应情报 UI")]
+    public GameObject sensingLogPanel;    // 用来装文字的底框/节点
+    public Text sensingLogText;           // 显示情报的文本
 
+    [Header("技能目标点选 (Targeting UI)")]
+    public GameObject targetingMask; // 全屏黑幕遮罩 (Panel)
+    private bool isTargeting = false;
+    private int targetingSkillID = -1;
+
+    [Header("加注面板 UI (Raise Panel)")]
+    public GameObject raisePanel;         // 包含遮罩的整个面板
+    public Slider raiseSlider;            // 竖直滑动条
+    public Text raiseTargetText;          // 滑动条上方：显示加注到的目标金额
+    public Text raiseCostText;            // 显示实际需要消耗的筹码
+
+    private Coroutine sensingLogCoroutine;
     private void Awake()
     {
         Instance = this;
@@ -74,9 +94,11 @@ public class PokerUIManager : MonoBehaviour
         {
             GameObject go1 = Instantiate(cardPrefab, myHandArea);
             go1.GetComponent<CardView>().SetCard(c1, true);
+            go1.AddComponent<CardTarget>().Setup(0, 0, PokerPlayer.LocalPlayer.netId, true);
 
             GameObject go2 = Instantiate(cardPrefab, myHandArea);
             go2.GetComponent<CardView>().SetCard(c2, true);
+            go2.AddComponent<CardTarget>().Setup(0, 1, PokerPlayer.LocalPlayer.netId, true);
         }
     }
 
@@ -124,10 +146,86 @@ public class PokerUIManager : MonoBehaviour
             PokerPlayer.LocalPlayer.CmdCall();
     }
 
+    // ==========================================
+    // 动态加注面板系统
+    // ==========================================
+
+    // 1. 点击主界面的“加注”按钮，打开面板
     public void OnBtnRaiseClicked()
     {
-        if (PokerPlayer.LocalPlayer != null)
-            PokerPlayer.LocalPlayer.CmdRaise(20); // 测试用，先写死每次加注掏20块
+        if (PokerPlayer.LocalPlayer == null || ServerGameManager.Instance == null) return;
+
+        PokerPlayer p = PokerPlayer.LocalPlayer;
+        int highestBet = ServerGameManager.Instance.highestBet;
+        int callAmount = highestBet - p.currentBet;
+
+        // 最小加注幅度（至少是大盲注）
+        int minRaiseDelta = ServerGameManager.Instance.bigBlind;
+        // 最大能加注的幅度（我所有的筹码 - 需要跟注的钱）
+        int maxRaiseDelta = p.chips - callAmount;
+
+        if (raisePanel != null) raisePanel.SetActive(true);
+
+        if (maxRaiseDelta <= minRaiseDelta)
+        {
+            // 没钱了，只能 All-in！锁死滑动条
+            if (raiseSlider != null)
+            {
+                raiseSlider.minValue = maxRaiseDelta;
+                raiseSlider.maxValue = maxRaiseDelta;
+                raiseSlider.value = maxRaiseDelta;
+                raiseSlider.interactable = false;
+            }
+        }
+        else
+        {
+            // 钱够，可以自由选择
+            if (raiseSlider != null)
+            {
+                raiseSlider.minValue = minRaiseDelta;
+                raiseSlider.maxValue = maxRaiseDelta;
+                raiseSlider.value = minRaiseDelta; // 默认停在最小加注额上
+                raiseSlider.interactable = true;
+            }
+        }
+
+        UpdateRaisePanelUI();
+    }
+
+    // 2. 绑定给滑动条的 OnValueChanged 事件
+    public void OnRaiseSliderValueChanged()
+    {
+        UpdateRaisePanelUI();
+    }
+
+    // 刷新面板上的文字
+    private void UpdateRaisePanelUI()
+    {
+        if (PokerPlayer.LocalPlayer == null || raiseSlider == null) return;
+
+        int raiseDelta = (int)raiseSlider.value;
+        int targetTotalBet = ServerGameManager.Instance.highestBet + raiseDelta;
+        int actualCost = (ServerGameManager.Instance.highestBet - PokerPlayer.LocalPlayer.currentBet) + raiseDelta;
+
+        if (raiseTargetText != null) raiseTargetText.text = $"加注到: {targetTotalBet}";
+        if (raiseCostText != null) raiseCostText.text = $"需支付: {actualCost}";
+    }
+
+    // 3. 绑定给面板上的“确定加注”按钮
+    public void OnBtnConfirmRaiseClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null && raiseSlider != null)
+        {
+            // 发送给服务器的是“加注的幅度 (Delta)”
+            PokerPlayer.LocalPlayer.CmdRaise((int)raiseSlider.value);
+        }
+        CloseRaisePanel();
+    }
+
+    // 4. 绑定给透明遮罩的点击事件
+    public void CloseRaisePanel()
+    {
+        if (raisePanel != null) raisePanel.SetActive(false);
     }
     // 绑定给“开始游戏”按钮
     public void OnBtnStartGameClicked()
@@ -183,7 +281,8 @@ public class PokerUIManager : MonoBehaviour
                 SetTextAndRebuildLayout(myChipsText, $"{p.chips}");
                 SetTextAndRebuildLayout(myCurrentBetText, $"{p.currentBet}");
                 SetTextAndRebuildLayout(myEnergyText, $"{p.energy}/{currentMaxEnergy}");
-
+                if (myRebuyNode != null) myRebuyNode.SetActive(p.rebuyCount > 0);
+                if (myRebuyText != null && p.rebuyCount > 0) myRebuyText.text = $"{p.rebuyCount}";
                 if (p.isDealer && dealerButtonUI != null && myDealerPos != null)
                 {
                     dealerButtonUI.transform.SetParent(myDealerPos, false);
@@ -201,8 +300,17 @@ public class PokerUIManager : MonoBehaviour
                     SetTextAndRebuildLayout(enemyNameTexts[enemyIndex], p.playerName);
                     SetTextAndRebuildLayout(enemyChipsTexts[enemyIndex], $"{p.chips}");
                     SetTextAndRebuildLayout(enemyCurrentBetTexts[enemyIndex], $"{p.currentBet}");
-                    SetTextAndRebuildLayout(enemyEnergyTexts[enemyIndex], $"{p.energy}/{currentMaxEnergy}");
-
+                    bool iAmSensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
+                    string energyDisplay = iAmSensing ? $"{p.energy}/{currentMaxEnergy}" : "? / ?";
+                    SetTextAndRebuildLayout(enemyEnergyTexts[enemyIndex], energyDisplay);
+                    if (enemyIndex < enemyRebuyNodes.Length && enemyRebuyNodes[enemyIndex] != null)
+                    {
+                        enemyRebuyNodes[enemyIndex].SetActive(p.rebuyCount > 0);
+                        if (enemyRebuyTexts[enemyIndex] != null && p.rebuyCount > 0)
+                        {
+                            enemyRebuyTexts[enemyIndex].text = $"{p.rebuyCount}";
+                        }
+                    }
                     if (p.isDealer && dealerButtonUI != null && enemyIndex < enemyDealerPos.Length && enemyDealerPos[enemyIndex] != null)
                     {
                         dealerButtonUI.transform.SetParent(enemyDealerPos[enemyIndex], false);
@@ -238,6 +346,10 @@ public class PokerUIManager : MonoBehaviour
                 }
             }
         }
+        if (isTargeting && (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape)))
+        {
+            CancelTargeting();
+        }
     }
     // 【新增】显示结算横幅
     public void ShowResult(string message)
@@ -272,60 +384,8 @@ public class PokerUIManager : MonoBehaviour
     // 魔改技能 UI 接口
     // ==========================================
 
-    public void OnBtnPeekClicked()
-    {
-        CastSkillOnEnemy(1); // 1号技能：透视
-    }
-    public void OnBtnBlurClicked()
-    {
-        CastSkillOnEnemy(4); // 4号技能：模糊
-    }
-    // 快捷方法：自动向场上的对手释放技能
-    private void CastSkillOnEnemy(int skillID)
-    {
-        if (PokerPlayer.LocalPlayer == null) return;
-
-        // 遍历全场找对手 (1v1 环境下最简单的找人法)
-        PokerPlayer[] allPlayers = FindObjectsOfType<PokerPlayer>();
-        foreach (var p in allPlayers)
-        {
-            if (!p.isLocalPlayer)
-            {
-                // 向服务器发送施法指令！(技能ID, 对手的网络身份证)
-                PokerPlayer.LocalPlayer.CmdCastSkill(skillID, p.netId);
-                return;
-            }
-        }
-    }
-    // ==========================================
-    // 魔改技能视觉表现
-    // ==========================================
-
-    // 1. 临时翻开对手的牌
-    public void ShowEnemyCardsTemporarily(Card c1, Card c2, float duration = 3f)
-    {
-        StartCoroutine(PeekCoroutine(c1, c2, duration));
-    }
-
-    private System.Collections.IEnumerator PeekCoroutine(Card c1, Card c2, float duration)
-    {
-        // 确保对手区域确实有两张牌
-        if (enemyHandArea != null && enemyHandArea.childCount >= 2)
-        {
-            // 翻开正面
-            enemyHandArea.GetChild(0).GetComponent<CardView>().SetCard(c1, true);
-            enemyHandArea.GetChild(1).GetComponent<CardView>().SetCard(c2, true);
-
-            yield return new WaitForSeconds(duration);
-
-            // 3秒后，盖回去 (加个判空，防止在这 3 秒内游戏进入了下一局被清空了)
-            if (enemyHandArea != null && enemyHandArea.childCount >= 2)
-            {
-                enemyHandArea.GetChild(0).GetComponent<CardView>().ShowBack();
-                enemyHandArea.GetChild(1).GetComponent<CardView>().ShowBack();
-            }
-        }
-    }
+    public void OnBtnPeekClicked() { EnterTargetingMode(1); }
+    public void OnBtnBlurClicked() { EnterTargetingMode(4); }
 
     // 2. 显示施法进度条
     public void ShowCastBar(string casterName, string skillName, float duration, bool canResist, int resistCost)
@@ -383,10 +443,7 @@ public class PokerUIManager : MonoBehaviour
             if (txtResistCost != null) txtResistCost.text = "X";
         }
     }
-    public void OnBtnSwapClicked()
-    {
-        CastSkillOnSelf(3); // 触发 3 号技能
-    }
+    public void OnBtnSwapClicked() { EnterTargetingMode(3); }
     public void OnBtnResistClicked()
     {
         if (PokerPlayer.LocalPlayer != null)
@@ -394,15 +451,7 @@ public class PokerUIManager : MonoBehaviour
             PokerPlayer.LocalPlayer.CmdResist();
         }
     }
-    // 【新增】对自己释放技能的快捷方法
-    private void CastSkillOnSelf(int skillID)
-    {
-        if (PokerPlayer.LocalPlayer != null)
-        {
-            // 目标 NetworkIdentity 填自己的 netId
-            PokerPlayer.LocalPlayer.CmdCastSkill(skillID, PokerPlayer.LocalPlayer.netId);
-        }
-    }
+
     public int GetEnemyIndex(PokerPlayer player)
     {
         PokerPlayer[] allPlayers = FindObjectsOfType<PokerPlayer>();
@@ -435,8 +484,10 @@ public class PokerUIManager : MonoBehaviour
             ClearArea(enemyHandAreas[idx]); // 画之前先清空它的专属区域
             GameObject go1 = Instantiate(cardPrefab, enemyHandAreas[idx]);
             go1.GetComponent<CardView>().ShowBack();
+            go1.AddComponent<CardTarget>().Setup(0, 0, enemy.netId, false);
             GameObject go2 = Instantiate(cardPrefab, enemyHandAreas[idx]);
             go2.GetComponent<CardView>().ShowBack();
+            go2.AddComponent<CardTarget>().Setup(0, 1, enemy.netId, false);
         }
     }
     public void FlipEnemyCards(PokerPlayer enemy, Card c1, Card c2)
@@ -447,7 +498,9 @@ public class PokerUIManager : MonoBehaviour
             if (enemyHandAreas[idx].childCount >= 2)
             {
                 enemyHandAreas[idx].GetChild(0).GetComponent<CardView>().SetCard(c1, true);
+                enemyHandAreas[idx].GetChild(0).GetComponent<CardTarget>().isRevealed = true;
                 enemyHandAreas[idx].GetChild(1).GetComponent<CardView>().SetCard(c2, true);
+                enemyHandAreas[idx].GetChild(1).GetComponent<CardTarget>().isRevealed = true;
             }
         }
     }
@@ -499,6 +552,206 @@ public class PokerUIManager : MonoBehaviour
                     txt.color = c;
                 }
             }
+        }
+    }
+    // ==========================================
+    // 感应情报显示系统
+    // ==========================================
+    public void ShowSensingLog(string message)
+    {
+        if (sensingLogPanel != null) sensingLogPanel.SetActive(true);
+        if (sensingLogText != null) sensingLogText.text = message;
+
+        // 每次有新消息，直接覆盖旧协程，重置 2 秒倒计时
+        if (sensingLogCoroutine != null) StopCoroutine(sensingLogCoroutine);
+        sensingLogCoroutine = StartCoroutine(HideSensingLogRoutine());
+    }
+
+    private System.Collections.IEnumerator HideSensingLogRoutine()
+    {
+        yield return new WaitForSeconds(2f);
+        if (sensingLogPanel != null) sensingLogPanel.SetActive(false);
+    }
+
+    // 绑定给“感应”技能按钮
+    public void OnBtnSensingClicked()
+    {
+        // 感应是给自己上的 Buff，所以目标是自己
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            PokerPlayer.LocalPlayer.CmdCastSkill(5, PokerPlayer.LocalPlayer.netId, 0, -1);
+        }
+    }
+    // ==========================================
+    // 技能目标点选系统 (Targeting System)
+    // ==========================================
+    private void EnterTargetingMode(int skillID)
+    {
+        isTargeting = true;
+        targetingSkillID = skillID;
+        if (targetingMask != null) targetingMask.SetActive(true);
+
+        // 遍历场上所有的牌，判断谁是合法目标
+        CardTarget[] allCards = FindObjectsOfType<CardTarget>();
+        foreach (var c in allCards)
+        {
+            if (IsValidTarget(c, skillID))
+            {
+                c.SetElevated(true); // 合法目标：层级跃升，穿透黑幕！
+            }
+            else
+            {
+                c.SetElevated(false); // 非法目标：沉入黑暗
+            }
+        }
+    }
+
+    // 取消施法 (右键或点击空白处)
+    public void CancelTargeting()
+    {
+        isTargeting = false;
+        targetingSkillID = -1;
+        if (targetingMask != null) targetingMask.SetActive(false);
+
+        // 所有牌恢复原状
+        CardTarget[] allCards = FindObjectsOfType<CardTarget>();
+        foreach (var c in allCards)
+        {
+            c.SetElevated(false);
+            c.SetHighlight(false);
+        }
+    }
+    private bool IsValidTarget(CardTarget c, int skillID)
+    {
+        if (skillID == 1) // 透视：敌方手牌、未翻开的公牌
+        {
+            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
+            if (c.targetType == 1 && !c.isRevealed) return true;
+        }
+        else if (skillID == 3) // 换牌：所有人手牌、未翻开的公牌
+        {
+            if (c.targetType == 0) return true;
+            if (c.targetType == 1 && !c.isRevealed) return true;
+        }
+        else if (skillID == 4) // 模糊：敌方手牌
+        {
+            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
+        }
+        return false;
+    }
+    // --- 鼠标事件响应 ---
+    public void OnCardHoverEnter(CardTarget c)
+    {
+        if (!isTargeting || !IsValidTarget(c, targetingSkillID)) return;
+
+        if (targetingSkillID == 4) // 模糊特权：悬停一张，两张同亮！
+        {
+            CardTarget[] allCards = FindObjectsOfType<CardTarget>();
+            foreach (var card in allCards)
+            {
+                if (card.targetType == 0 && card.ownerNetId == c.ownerNetId)
+                    card.SetHighlight(true);
+            }
+        }
+        else
+        {
+            c.SetHighlight(true); // 其他技能：指哪亮哪
+        }
+    }
+
+    public void OnCardHoverExit(CardTarget c)
+    {
+        if (!isTargeting) return;
+        CardTarget[] allCards = FindObjectsOfType<CardTarget>();
+        foreach (var card in allCards) card.SetHighlight(false); // 鼠标移走，统统熄灭
+    }
+
+    public void OnCardClicked(CardTarget c)
+    {
+        if (!isTargeting || !IsValidTarget(c, targetingSkillID)) return;
+
+        // 致命一击：把精准坐标发给服务器！
+        PokerPlayer.LocalPlayer.CmdCastSkill(targetingSkillID, c.ownerNetId, c.targetType, c.targetIndex);
+
+        // 施法完成，收起黑幕
+        CancelTargeting();
+    }
+    public void SpawnInitialCommunityCards()
+    {
+        ClearArea(communityArea);
+        for (int i = 0; i < 5; i++)
+        {
+            GameObject go = Instantiate(cardPrefab, communityArea);
+            go.GetComponent<CardView>().ShowBack();
+            go.AddComponent<CardTarget>().Setup(1, i, 0, false); // 1代表公牌，0代表无归属
+        }
+    }
+    public void RevealCommunityCards(int startIndex, int count, Card[] cards)
+    {
+        if (communityArea == null) return;
+        for (int i = 0; i < count; i++)
+        {
+            if (startIndex + i < communityArea.childCount)
+            {
+                Transform cardObj = communityArea.GetChild(startIndex + i);
+                cardObj.GetComponent<CardView>().SetCard(cards[i], true);
+                cardObj.GetComponent<CardTarget>().isRevealed = true; // 状态更新为已翻开
+            }
+        }
+    }
+    // ==========================================
+    // 精准卡牌操作 (配合透视与变牌)
+    // ==========================================
+
+    // 工具方法：根据坐标在全屏幕寻找那张特定的实体牌
+    private CardTarget FindSpecificCardTarget(int targetType, int targetIndex, uint ownerNetId)
+    {
+        CardTarget[] allCards = FindObjectsOfType<CardTarget>();
+        foreach (var c in allCards)
+        {
+            if (c.targetType == targetType && c.targetIndex == targetIndex)
+            {
+                if (targetType == 1 || c.ownerNetId == ownerNetId) return c;
+            }
+        }
+        return null;
+    }
+
+    // 专属透视：将选中的牌临时翻开 3 秒
+    public void ShowSpecificCardTemporarily(int targetType, int targetIndex, uint ownerNetId, Card card, float duration)
+    {
+        StartCoroutine(PeekSingleCardRoutine(targetType, targetIndex, ownerNetId, card, duration));
+    }
+
+    private System.Collections.IEnumerator PeekSingleCardRoutine(int targetType, int targetIndex, uint ownerNetId, Card card, float duration)
+    {
+        CardTarget targetObj = FindSpecificCardTarget(targetType, targetIndex, ownerNetId);
+
+        // 只有在牌还没被正常翻开的情况下，透视才有意义
+        if (targetObj != null && !targetObj.isRevealed)
+        {
+            CardView cv = targetObj.GetComponent<CardView>();
+            cv.SetCard(card, true); // 翻看正面
+
+            yield return new WaitForSeconds(duration);
+
+            // 3秒后，如果这张牌依然没有被荷官正常翻开，那就把它盖回去
+            if (targetObj != null && !targetObj.isRevealed)
+            {
+                cv.ShowBack();
+            }
+        }
+    }
+
+    // 专属变牌：永久更新我自己的某一张底牌
+    public void UpdateMySingleCard(int targetIndex, Card newCard)
+    {
+        // 找到属于我自己的那张特定底牌
+        CardTarget targetObj = FindSpecificCardTarget(0, targetIndex, PokerPlayer.LocalPlayer.netId);
+        if (targetObj != null)
+        {
+            CardView cv = targetObj.GetComponent<CardView>();
+            cv.SetCard(newCard, true); // 永久展示新牌
         }
     }
 }

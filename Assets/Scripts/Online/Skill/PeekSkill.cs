@@ -1,4 +1,5 @@
 using UnityEngine;
+using Mirror;
 
 public class PeekSkill : BaseSkill
 {
@@ -6,20 +7,28 @@ public class PeekSkill : BaseSkill
     {
         skillID = 1;
         skillName = "透视 (Peek)";
-        energyCost = 2;      // 消耗 2 点能量
-        castTime = 2.0f;     // 发功需要 2 秒！这段时间非常危险！
+        energyCost = 2;  // 基础耗蓝，服务器已写好了动态翻倍逻辑
+        castTime = 1f;
     }
-    public override void Execute(PokerPlayer caster, PokerPlayer target, ServerGameManager serverContext)
+
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
-        if (target.serverHand.Count < 2) return;
+        Card cardToPeek = new Card();
+        uint targetNetId = 0;
 
-        Card c1 = target.serverHand[0];
-        Card c2 = target.serverHand[1];
+        // 获取要透视的真实数据
+        if (targetType == 0 && target != null)
+        {
+            cardToPeek = target.serverHand[targetIndex];
+            targetNetId = target.netId;
+        }
+        else if (targetType == 1)
+        {
+            cardToPeek = serverContext.futureCommunityCards[targetIndex];
+        }
 
-        // 呼叫我们刚刚写好的真正“翻牌”指令！
-        caster.TargetPeekCards(caster.connectionToClient, c1, c2);
-
-        // 顺便在控制台也留个底
-        caster.TargetReceiveSkillMessage(caster.connectionToClient, $"透视成功！");
+        // 发送悄悄话给施法者：在你的屏幕上把这张牌翻过来看看！
+        caster.TargetPeekSingleCard(caster.connectionToClient, targetType, targetIndex, targetNetId, cardToPeek);
+        caster.TargetReceiveSkillMessage(caster.connectionToClient, "透视成功！命运的轨迹已向你展露。");
     }
 }
