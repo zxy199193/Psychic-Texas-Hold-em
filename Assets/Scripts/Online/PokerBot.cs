@@ -35,6 +35,7 @@ public class PokerBot : NetworkBehaviour
 
         // 假装思考 1 到 2 秒，让真人玩家有反应时间
         yield return new WaitForSeconds(Random.Range(1.0f, 2.0f));
+        isThinking = false;
 
         int currentBet = ServerGameManager.Instance.highestBet;
         int callAmount = Mathf.Max(0, currentBet - myPlayer.currentBet);
@@ -83,8 +84,6 @@ public class PokerBot : NetworkBehaviour
                 ServerGameManager.Instance.HandlePlayerFold(myPlayer);
             }
         }
-
-        isThinking = false;
     }
 
     // --- 照搬你以前写的基础概率算法 ---
@@ -93,6 +92,7 @@ public class PokerBot : NetworkBehaviour
         switch (rank)
         {
             case HandEvaluator.HandRank.HighCard: return (0.30f, 0.05f);
+            //case HandEvaluator.HandRank.HighCard: return (1.60f, 1.00f);
             case HandEvaluator.HandRank.OnePair: return (0.50f, 0.10f);
             case HandEvaluator.HandRank.TwoPair: return (0.80f, 0.20f);
             case HandEvaluator.HandRank.ThreeOfAKind: return (1.00f, 0.30f);

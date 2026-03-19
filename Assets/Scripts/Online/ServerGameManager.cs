@@ -13,7 +13,16 @@ public class ServerGameManager : NetworkBehaviour
     [Header("服务器运行状态 (仅方便在面板查看)")]
     public GamePhase currentPhase = GamePhase.Idle;
     [Header("下注与回合管理 (同步变量)")]
-    [SyncVar] public int pot = 0;           // 桌上的总奖池
+    [Header("下注与回合管理 (同步变量)")]
+    public readonly SyncList<int> syncPotAmounts = new SyncList<int>(); // 全网同步的各池金额（[0]是主池，[1]是边池1...）
+
+    // 服务器私有：用来记录每个池子具体有哪些人有资格分钱
+    public class ServerPot
+    {
+        public int amount = 0;
+        public HashSet<PokerPlayer> eligiblePlayers = new HashSet<PokerPlayer>();
+    }
+    private List<ServerPot> serverPots = new List<ServerPot>();
     [SyncVar] public int highestBet = 0;    // 当前这轮最高的下注额
     [SyncVar] public int currentPlayerIndex = 0; // 当前轮到谁说话了
 
@@ -84,7 +93,10 @@ public class ServerGameManager : NetworkBehaviour
         activePlayers.AddRange(FindObjectsOfType<PokerPlayer>());
         activePlayers.Sort((a, b) => a.netId.CompareTo(b.netId));
 
-        pot = 0;
+        serverPots.Clear();
+        serverPots.Add(new ServerPot()); // 创建主池
+        syncPotAmounts.Clear();
+        syncPotAmounts.Add(0);           // UI 同步主池
         highestBet = 0;
 
         if (activePlayers.Count == 0) return;
@@ -156,13 +168,11 @@ public class ServerGameManager : NetworkBehaviour
         int actualSB = Mathf.Min(smallBlind, sbPlayer.chips);
         sbPlayer.chips -= actualSB;
         sbPlayer.currentBet += actualSB; // 现在加上去，就不会被清零了！
-        pot += actualSB;
 
         PokerPlayer bbPlayer = activePlayers[bbIndex];
         int actualBB = Mathf.Min(bigBlind, bbPlayer.chips);
         bbPlayer.chips -= actualBB;
         bbPlayer.currentBet += actualBB;
-        pot += actualBB;
 
         isFirstHand = false;
 
@@ -191,6 +201,7 @@ public class ServerGameManager : NetworkBehaviour
     [Server]
     public void AdvancePhase()
     {
+        SweepBetsIntoPots();
         // 【新增拦截】如果场上没弃牌的人只剩 1 个了，直接提前结束！不需要发剩下的公共牌了。
         int activeCount = 0;
         foreach (var p in activePlayers) { if (!p.isFolded) activeCount++; }
@@ -248,64 +259,75 @@ public class ServerGameManager : NetworkBehaviour
     {
         currentPhase = GamePhase.Showdown;
 
+        // 无论如何，先把最后一轮河牌圈的钱扫拢！
+        SweepBetsIntoPots();
+
+        if (activePlayers.Count > 0) dealerIndex = (dealerIndex + 1) % activePlayers.Count;
+
         List<PokerPlayer> survivors = new List<PokerPlayer>();
         foreach (var p in activePlayers) { if (!p.isFolded) survivors.Add(p); }
-
-        //【核心修复】：无论本局怎么结束的，在这里先把下一局的庄家位置定好！
-        if (activePlayers.Count > 0)
-        {
-            dealerIndex = (dealerIndex + 1) % activePlayers.Count;
-        }
 
         // 1. 情况 A：提前获胜 (其他人全 Fold 了)
         if (survivors.Count == 1)
         {
             PokerPlayer winner = survivors[0];
-            winner.chips += pot;
+            int totalWin = 0;
+            foreach (var pot in serverPots) totalWin += pot.amount;
 
-            // 赢家立刻获得额外能量奖励！
+            winner.chips += totalWin;
             winner.energy = Mathf.Clamp(winner.energy + winnerBonus, 0, maxEnergy);
 
-            RpcShowResult($"{winner.playerName} 赢得了 {pot} 筹码！(对手弃牌)");
-            pot = 0;
-
-            // 触发 3 秒后自动开启下一局
+            RpcShowResult($"{winner.playerName} 赢得了 {totalWin} 筹码！(对手弃牌)");
             StartCoroutine(WaitAndStartNextHand(3f));
-            return; // 这里的 return 就安全了，因为庄家已经移动过了
+            return;
         }
 
-        // 2. 情况 B：正常摊牌比大小
-        PokerPlayer bestPlayer = survivors[0];
-        var bestHandResult = HandEvaluator.GetBestHand(bestPlayer.serverHand, serverCommunityCards);
-
-        for (int i = 1; i < survivors.Count; i++)
+        // 2. 情况 B：正常摊牌！逐个池子分赃！
+        string resultMsg = "【终极结算】\n";
+        foreach (var pot in serverPots)
         {
-            var p = survivors[i];
-            var currentResult = HandEvaluator.GetBestHand(p.serverHand, serverCommunityCards);
+            if (pot.amount == 0) continue;
 
-            if (currentResult.rank > bestHandResult.rank ||
-               (currentResult.rank == bestHandResult.rank && currentResult.score > bestHandResult.score))
+            // 筛出有资格分这个池子，且活到最后的人
+            List<PokerPlayer> eligible = new List<PokerPlayer>();
+            foreach (var ep in pot.eligiblePlayers) { if (!ep.isFolded) eligible.Add(ep); }
+            if (eligible.Count == 0) continue;
+
+            // 寻找最大牌型（支持平局并列）
+            List<PokerPlayer> winners = new List<PokerPlayer>();
+            var bestHandResult = HandEvaluator.GetBestHand(eligible[0].serverHand, serverCommunityCards);
+            winners.Add(eligible[0]);
+
+            for (int i = 1; i < eligible.Count; i++)
             {
-                bestHandResult = currentResult;
-                bestPlayer = p;
+                var currentResult = HandEvaluator.GetBestHand(eligible[i].serverHand, serverCommunityCards);
+                if (currentResult.rank > bestHandResult.rank ||
+                   (currentResult.rank == bestHandResult.rank && currentResult.score > bestHandResult.score))
+                {
+                    bestHandResult = currentResult;
+                    winners.Clear();
+                    winners.Add(eligible[i]);
+                }
+                else if (currentResult.rank == bestHandResult.rank && currentResult.score == bestHandResult.score)
+                {
+                    winners.Add(eligible[i]); // 出现平局！
+                }
+            }
+
+            // 发钱！
+            int splitAmount = pot.amount / winners.Count;
+            foreach (var w in winners)
+            {
+                w.chips += splitAmount;
+                w.energy = Mathf.Clamp(w.energy + winnerBonus, 0, maxEnergy);
+                resultMsg += $"[{w.playerName}] 赢走池内 {splitAmount} 筹码！\n";
             }
         }
 
-        bestPlayer.chips += pot;
+        // 亮牌环节
+        foreach (var p in survivors) p.RpcRevealHoleCards(p.serverHand[0], p.serverHand[1]);
 
-        // 赢家立刻获得额外能量奖励！
-        bestPlayer.energy = Mathf.Clamp(bestPlayer.energy + winnerBonus, 0, maxEnergy);
-
-        // 亮牌环节：所有幸存者向全场公开底牌！
-        foreach (var p in survivors)
-        {
-            p.RpcRevealHoleCards(p.serverHand[0], p.serverHand[1]);
-        }
-
-        RpcShowResult($"摊牌！{bestPlayer.playerName} 以 【{bestHandResult.rank}】 获胜，赢走 {pot} 筹码！");
-        pot = 0;
-
-        // 触发 3 秒后自动开启下一局
+        RpcShowResult(resultMsg);
         StartCoroutine(WaitAndStartNextHand(3f));
     }
 
@@ -410,7 +432,6 @@ public class ServerGameManager : NetworkBehaviour
 
         player.chips -= callAmount;
         player.currentBet += callAmount;
-        pot += callAmount;
 
         player.hasActed = true;
         Debug.Log($"{player.playerName} 跟注 {callAmount}");
@@ -434,7 +455,6 @@ public class ServerGameManager : NetworkBehaviour
 
         player.chips -= totalNeeded;
         player.currentBet += totalNeeded;
-        pot += totalNeeded;
 
         // 刷新最高下注额
         if (player.currentBet > highestBet)
@@ -605,6 +625,67 @@ public class ServerGameManager : NetworkBehaviour
             GameObject botGo = Instantiate(botPrefab);
             NetworkServer.Spawn(botGo); // 这一步极其重要！通知全网：有新实体加入了！
             Debug.Log("荷官：已成功在网络中 Spawn 了一个机器人实体！");
+        }
+    }
+    // ==========================================
+    // 边池核心算法：荷官扫拢筹码
+    // ==========================================
+    [Server]
+    private void SweepBetsIntoPots()
+    {
+        // 1. 获取面前还有筹码没被收走的玩家
+        List<PokerPlayer> bettors = new List<PokerPlayer>();
+        foreach (var p in activePlayers)
+        {
+            if (p.currentBet > 0) bettors.Add(p);
+        }
+
+        while (bettors.Count > 0)
+        {
+            // 2. 找出这一波的最小下注额 (短板效应)
+            int minBet = int.MaxValue;
+            foreach (var p in bettors)
+            {
+                if (p.currentBet < minBet) minBet = p.currentBet;
+            }
+
+            ServerPot currentPot = serverPots[serverPots.Count - 1];
+            int contribution = 0;
+            bool someoneAllInMatched = false;
+
+            // 3. 从所有人面前拿走这部分钱
+            for (int i = bettors.Count - 1; i >= 0; i--)
+            {
+                PokerPlayer p = bettors[i];
+                contribution += minBet;
+                p.currentBet -= minBet;
+
+                // 只要没弃牌，他就有资格参与分这个池子（哪怕他刚 all-in）
+                if (!p.isFolded)
+                {
+                    currentPot.eligiblePlayers.Add(p);
+                }
+
+                // 如果这波扣钱把他面前的筹码清空了
+                if (p.currentBet == 0)
+                {
+                    if (p.isAllIn) someoneAllInMatched = true; // 发现 All-in 玩家的断层！
+                    bettors.RemoveAt(i);
+                }
+            }
+
+            // 4. 汇入当前池，并同步给全网 UI
+            currentPot.amount += contribution;
+            if (syncPotAmounts.Count < serverPots.Count) syncPotAmounts.Add(currentPot.amount);
+            else syncPotAmounts[serverPots.Count - 1] = currentPot.amount;
+
+            // 5. 核心：如果有人在这层 All-in 了，这个池子就必须“封顶”！
+            // 【去掉 && bettors.Count > 0 的判断】
+            if (someoneAllInMatched)
+            {
+                serverPots.Add(new ServerPot());
+                syncPotAmounts.Add(0);
+            }
         }
     }
 }

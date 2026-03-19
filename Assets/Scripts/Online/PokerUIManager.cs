@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,8 +14,10 @@ public class PokerUIManager : MonoBehaviour
     [Header("预制体与资源")]
     public GameObject cardPrefab;
 
-    [Header("全局 UI 文本")]
-    public Text potText;
+    [Header("动态奖池 UI (主池/边池)")]
+    public Transform potContainer;    // 用来放所有池子节点的容器
+    public GameObject potItemPrefab;  // 做好的带 Text 的预制体 (如 [主池: 100])
+    private List<GameObject> activePotUIItems = new List<GameObject>();
     public Text highestBetText;
 
     [Header("本地玩家 UI (你)")]
@@ -32,6 +35,10 @@ public class PokerUIManager : MonoBehaviour
     public Transform[] enemyHandAreas;   // 对手们的底牌区域 (必须分开，不然牌会挤在一起)
     public GameObject[] enemyRebuyNodes; // 对手们的买入次数节点
     public Text[] enemyRebuyTexts;
+
+    [Header("弃牌提示 UI")]
+    public GameObject myFoldNode;       // 你的弃牌节点 (包含图片和文字)
+    public GameObject[] enemyFoldNodes; // 对手们的弃牌节点
 
     [Header("操作按钮")]
     public Button btnFold;
@@ -259,7 +266,31 @@ public class PokerUIManager : MonoBehaviour
         // 1. 刷新全局的奖池和最高下注额
         if (ServerGameManager.Instance != null)
         {
-            SetTextAndRebuildLayout(potText, $"{ServerGameManager.Instance.pot}");
+            var potList = ServerGameManager.Instance.syncPotAmounts;
+
+            // 根据服务器池子的数量，动态生成/销毁 UI 预制体
+            while (activePotUIItems.Count < potList.Count)
+            {
+                GameObject go = Instantiate(potItemPrefab, potContainer);
+                activePotUIItems.Add(go);
+            }
+            while (activePotUIItems.Count > potList.Count)
+            {
+                Destroy(activePotUIItems[activePotUIItems.Count - 1]);
+                activePotUIItems.RemoveAt(activePotUIItems.Count - 1);
+            }
+
+            // 往每个独立的 Text 里面填入数据
+            for (int i = 0; i < potList.Count; i++)
+            {
+                Text txt = activePotUIItems[i].GetComponentInChildren<Text>();
+                string label = (i == 0) ? "" : $"边池 {i}: ";
+                SetTextAndRebuildLayout(txt, $"{label}{potList[i]}");
+
+                //【新增 UI 优化】：如果边池是 0 块钱，直接隐藏整个节点（主池 0 块也保留）
+                activePotUIItems[i].SetActive(i == 0 || potList[i] > 0);
+            }
+
             SetTextAndRebuildLayout(highestBetText, $"{ServerGameManager.Instance.highestBet}");
         }
 
@@ -289,6 +320,12 @@ public class PokerUIManager : MonoBehaviour
                     dealerButtonUI.transform.position = myDealerPos.position;
                     dealerButtonUI.SetActive(true);
                 }
+                // 控制你自己的弃牌 UI 和 卡牌变暗
+                if (myFoldNode != null)
+                {
+                    if (myFoldNode.activeSelf != p.isFolded) myFoldNode.SetActive(p.isFolded);
+                }
+                SetAreaDarkened(myHandArea, p.isFolded);
             }
             else
             {
@@ -317,6 +354,13 @@ public class PokerUIManager : MonoBehaviour
                         dealerButtonUI.transform.position = enemyDealerPos[enemyIndex].position;
                         dealerButtonUI.SetActive(true);
                     }
+                    // 控制对手的弃牌 UI 和 卡牌变暗
+                    if (enemyIndex < enemyFoldNodes.Length && enemyFoldNodes[enemyIndex] != null)
+                    {
+                        if (enemyFoldNodes[enemyIndex].activeSelf != p.isFolded)
+                            enemyFoldNodes[enemyIndex].SetActive(p.isFolded);
+                    }
+                    SetAreaDarkened(enemyHandAreas[enemyIndex], p.isFolded);
                 }
             }
         }
@@ -752,6 +796,35 @@ public class PokerUIManager : MonoBehaviour
         {
             CardView cv = targetObj.GetComponent<CardView>();
             cv.SetCard(newCard, true); // 永久展示新牌
+        }
+    }
+
+    // ==========================================
+    // 视觉效果：弃牌时卡牌变暗
+    // ==========================================
+    private void SetAreaDarkened(Transform area, bool isDarkened)
+    {
+        if (area == null) return;
+
+        foreach (Transform child in area)
+        {
+            Image[] allImages = child.GetComponentsInChildren<Image>();
+            foreach (Image img in allImages)
+            {
+                if (isDarkened)
+                {
+                    // 变成深灰色 (弃牌状态)
+                    img.color = new Color(0.3f, 0.3f, 0.3f, 1f);
+                }
+                else
+                {
+                    // 恢复原本的颜色。做个判断，防止覆盖掉“模糊”技能特有的 0.1f 极暗颜色
+                    if (img.color == new Color(0.3f, 0.3f, 0.3f, 1f))
+                    {
+                        img.color = Color.white;
+                    }
+                }
+            }
         }
     }
 }
