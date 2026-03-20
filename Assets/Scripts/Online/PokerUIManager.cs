@@ -7,115 +7,95 @@ public class PokerUIManager : MonoBehaviour
 {
     public static PokerUIManager Instance;
 
-    [Header("UI 挂载点 (Transform)")]
-    public Transform myHandArea;
-    public Transform communityArea;
-    public Transform enemyHandArea;  // 【取消注释】用来放对手的牌背
+    [Header("1. 大厅与主菜单 (Lobby & Menu)")]
+    public GameObject mainMenuPanel;
+    public Button btnCreateRoom;
+    public Button btnJoinRoom;
+    public Button btnExitGame;
+    public Button btnStartGame;
+    public Text txtPlayerCount;
+    public Toggle toggleFillBots;
+    public Toggle toggleOfflineMode;
 
-    [Header("预制体与资源")]
-    public GameObject cardPrefab;
-
-    [Header("动态奖池 UI (主池/边池)")]
-    public Transform potContainer;    // 用来放所有池子节点的容器
-    public GameObject potItemPrefab;  // 做好的带 Text 的预制体 (如 [主池: 100])
+    [Header("2. 全局牌桌 UI (Table Core)")]
+    public Transform communityArea;       // 公共牌区域
+    public Transform potContainer;        // 奖池容器
+    public GameObject potItemPrefab;      // 奖池文本预制体
+    public Text highestBetText;           // 最高下注额
+    public GameObject dealerButtonUI;     // 游走的庄家 D 牌
+    public Text turnStatusText;           // 屏幕中间的回合/结算提示
+    public Color colorMyTurn = Color.yellow;
+    public Color colorWaiting = Color.gray;
+    public Color colorResult = Color.cyan;
+    private bool isShowingResult = false;
     private List<GameObject> activePotUIItems = new List<GameObject>();
-    public Text highestBetText;
 
-    [Header("本地玩家 UI (你)")]
-    public Text myNameText;           // 你的名字文本
-    public Text myChipsText;          // 你的筹码
-    public Text myCurrentBetText;     // 你的当前下注额
+    [Header("3. 本地玩家 UI (Local Player)")]
+    public Transform myHandArea;          // 你的底牌区域
+    public Transform myDealerPos;         // 你的 D 牌挂载点
+    public Text myNameText;
+    public Text myChipsText;
+    public Text myCurrentBetText;
     public Text myEnergyText;
-    public GameObject myRebuyNode;    // 你的买入次数节点 (背景框)
+    public GameObject myRebuyNode;
     public Text myRebuyText;
+    public RawImage myAvatarImage;
+    public GameObject myFoldNode;
 
-    [Header("对手 UI (支持多人)")]
-    public Text[] enemyNameTexts;        // 对手们的名字
-    public Text[] enemyChipsTexts;       // 对手们的筹码
-    public Text[] enemyCurrentBetTexts;  // 对手们的下注
-    public Text[] enemyEnergyTexts;      // 对手们的能量
-    public Transform[] enemyHandAreas;   // 对手们的底牌区域 (必须分开，不然牌会挤在一起)
-    public GameObject[] enemyRebuyNodes; // 对手们的买入次数节点
+    [Header("4. 对手玩家 UI (Enemy Players)")]
+    public GameObject[] enemySeats;       // 对手座位总节点
+    public Transform[] enemyHandAreas;    // 对手底牌区域
+    public Transform[] enemyDealerPos;    // 对手 D 牌挂载点
+    public Text[] enemyNameTexts;
+    public Text[] enemyChipsTexts;
+    public Text[] enemyCurrentBetTexts;
+    public Text[] enemyEnergyTexts;
+    public GameObject[] enemyRebuyNodes;
     public Text[] enemyRebuyTexts;
+    public RawImage[] enemyAvatarImages;
+    public GameObject[] enemyFoldNodes;
 
-    [Header("头像显示 (RawImage)")]
-    public RawImage myAvatarImage;        // 你的头像
-    public RawImage[] enemyAvatarImages;  // 对手们的头像
-    public Texture2D botDefaultAvatar;    // 给机器人准备一个默认头像 (在编辑器里拖入)
-
-    [Header("弃牌提示 UI")]
-    public GameObject myFoldNode;       // 你的弃牌节点 (包含图片和文字)
-    public GameObject[] enemyFoldNodes; // 对手们的弃牌节点
-
-    [Header("操作按钮")]
+    [Header("5. 基础操作与加注面板 (Actions)")]
     public Button btnFold;
     public Button btnCall;
     public Button btnRaise;
+    public GameObject raisePanel;
+    public Slider raiseSlider;
+    public Text raiseTargetText;
+    public Text raiseCostText;
 
-    [Header("回合与结算提示 (共用)")]
-    public Text turnStatusText; // 屏幕中间用来提示状态的大字
-    public Color colorMyTurn = Color.yellow;       // 轮到我时的颜色
-    public Color colorWaiting = Color.gray;        // 等待时的颜色
-    public Color colorResult = Color.cyan;         // 结算时的颜色
-    private bool isShowingResult = false; // 新增：结算状态拦截锁
-
-    [Header("庄家标志 (D牌)")]
-    public GameObject dealerButtonUI;     // 场景里那个写着 "D" 的 UI 图片
-    public Transform myDealerPos;         // 你自己头像旁的 D 牌挂载点
-    public Transform[] enemyDealerPos;    // 对手们头像旁的 D 牌挂载点
-
-    [Header("大厅与主菜单 UI")]
-    public GameObject mainMenuPanel;
-    public Button btnCreateRoom;          // 创建房间 (Host)
-    public Button btnJoinRoom;            // 加入房间 (Client)
-    public Button btnExitGame;            // 退出游戏
-    public Button btnStartGame;           // 开始游戏 (仅房主可用)
-    public Text txtPlayerCount;           // 人数显示 (如 1/6)
-    public Toggle toggleFillBots;         // 机器人补位勾选框 (仅房主可用)
-
-    [Header("对手统一座位节点")]
-    public GameObject[] enemySeats;       // 拖入你打包好的 EnemySeat_0 到 EnemySeat_4
-
-    [Header("技能目标点选 (Targeting UI)")]
-    public GameObject targetingMask; // 全屏黑幕遮罩 (Panel)
+    [Header("6. 技能系统 UI (Skills & Targeting)")]
+    public GameObject targetingMask;      // 点选技能时的黑幕
+    public Button btnResistSkill;         // 抵抗按钮
+    public Text txtResistCost;            // 抵抗耗蓝
     private bool isTargeting = false;
     private int targetingSkillID = -1;
+    private Coroutine resistButtonCoroutine;
 
-    [Header("加注面板 UI (Raise Panel)")]
-    public GameObject raisePanel;         // 包含遮罩的整个面板
-    public Slider raiseSlider;            // 竖直滑动条
-    public Text raiseTargetText;          // 滑动条上方：显示加注到的目标金额
-    public Text raiseCostText;            // 显示实际需要消耗的筹码
-
-    [Header("技能消息流系统 (Message Feed)")]
-    public Transform messageFeedContainer;  // 挂载了 VerticalLayoutGroup 的容器
-    public GameObject textMessagePrefab;    // 纯文本消息预制体
-    public GameObject castMessagePrefab;    // 施法/抵抗消息预制体
-
-    [Header("全局技能栏按钮 (固定在下方)")]
-    public Button btnResistSkill;         // 固定位置的抵抗按钮
-    public Text txtResistCost;            // 抵抗耗蓝文本
-    private Coroutine resistButtonCoroutine; // 用来控制按钮何时自动变灰
-
-    [Header("技能图标资源")]
-    public Sprite iconPeek;      // 透视图标
-    public Sprite iconSwap;      // 换牌图标
-    public Sprite iconBlur;      // 模糊图标
-    public Sprite iconSensing;   // 感应图标
-    public Sprite iconResist;    // 抵抗图标
-    public Sprite iconDefault;   // 系统默认图标
-
-    [Header("发牌飞行动画")]
-    public Transform deckOriginPos;    // 屏幕外的发牌点 (荷官牌堆位置)
-    public float cardFlySpeed = 0.3f;  // 卡牌飞行的耗时
-    private List<GameObject> dealRound1 = new List<GameObject>(); // 所有人第1张
-    private List<GameObject> dealRound2 = new List<GameObject>(); // 所有人第2张
-    private List<GameObject> dealCommunity = new List<GameObject>(); // 公共牌
-    private bool isDealScheduled = false; // 是否已经安排了总管发牌
-    // 记录当前的读条消息，方便被打断时强制销毁它
+    [Header("7. 消息瀑布流 (Message Feed)")]
+    public Transform messageFeedContainer;
+    public GameObject textMessagePrefab;
+    public GameObject castMessagePrefab;
     private SkillMessageItem currentCastItem;
 
-    private Coroutine sensingLogCoroutine;
+    [Header("8. 资源与特效设定 (Prefabs & FX)")]
+    public GameObject cardPrefab;
+    public Texture2D botDefaultAvatar;
+    public Sprite iconPeek;
+    public Sprite iconSwap;
+    public Sprite iconBlur;
+    public Sprite iconSensing;
+    public Sprite iconResist;
+    public Sprite iconDefault;
+    public Transform deckOriginPos;       // 发牌机位置
+    public float cardFlySpeed = 0.3f;     // 飞牌速度
+
+    // 发牌总管队列
+    private List<GameObject> dealRound1 = new List<GameObject>();
+    private List<GameObject> dealRound2 = new List<GameObject>();
+    private List<GameObject> dealCommunity = new List<GameObject>();
+    private bool isDealScheduled = false;
+
     private void Awake()
     {
         Instance = this;
@@ -139,18 +119,6 @@ public class PokerUIManager : MonoBehaviour
         ScheduleMasterDeal();
     }
 
-    // 【新增】显示敌人的牌背
-    public void ShowEnemyCardBacks()
-    {
-        // 实例化第一张牌背，并调用你 CardView 里的 ShowBack 方法
-        GameObject go1 = Instantiate(cardPrefab, enemyHandArea);
-        go1.GetComponent<CardView>().ShowBack();
-
-        // 实例化第二张牌背
-        GameObject go2 = Instantiate(cardPrefab, enemyHandArea);
-        go2.GetComponent<CardView>().ShowBack();
-    }
-
     public void ClearArea(Transform area)
     {
         if (area == null) return;
@@ -158,14 +126,6 @@ public class PokerUIManager : MonoBehaviour
         {
             Destroy(child.gameObject);
         }
-    }
-    public void SpawnCommunityCard(Card c)
-    {
-        if (AudioManager.Instance != null) AudioManager.Instance.PlayDealCard();
-        if (communityArea == null || cardPrefab == null) return;
-
-        GameObject go = Instantiate(cardPrefab, communityArea);
-        go.GetComponent<CardView>().SetCard(c, true);
     }
 
     // ==========================================
@@ -272,16 +232,46 @@ public class PokerUIManager : MonoBehaviour
     // ==========================================
     public void OnBtnCreateRoomClicked()
     {
-        // 调用 Mirror 底层接口建立主机
-        Mirror.NetworkManager.singleton.StartHost();
+        // 检查是否勾选了单机模式
+        bool isOffline = (toggleOfflineMode != null && toggleOfflineMode.isOn);
+
+        if (isOffline)
+        {
+            Debug.Log("【单机测试模式】启动！不连接 Steam 大厅。");
+            Mirror.NetworkManager.singleton.StartHost(); // 直接开房，绕过 Steam
+        }
+        else if (SteamLobby.Instance != null && SteamManager.Initialized)
+        {
+            SteamLobby.Instance.HostLobby();
+        }
+        else
+        {
+            Mirror.NetworkManager.singleton.StartHost(); // 没开 Steam 时的兜底保护
+        }
+
         SetupLobbyUI(true);
     }
-
     public void OnBtnJoinRoomClicked()
     {
-        // 调用 Mirror 底层接口作为客户端加入 (配合 Steam 时，Steam 覆盖层会接管连接逻辑)
-        Mirror.NetworkManager.singleton.StartClient();
-        SetupLobbyUI(false);
+        bool isOffline = (toggleOfflineMode != null && toggleOfflineMode.isOn);
+
+        if (isOffline)
+        {
+            Debug.Log("【局域网模式】连接到本机 (localhost)...");
+            Mirror.NetworkManager.singleton.networkAddress = "localhost";
+            Mirror.NetworkManager.singleton.StartClient();
+            SetupLobbyUI(false);
+        }
+        else
+        {
+            // Steam 模式下，不应该点这个按钮，而是通过 Shift+Tab 接受邀请
+            if (turnStatusText != null)
+            {
+                turnStatusText.text = "请按 Shift+Tab 在好友列表中右键加入游戏！";
+                turnStatusText.color = Color.yellow;
+                turnStatusText.gameObject.SetActive(true);
+            }
+        }
     }
 
     public void OnBtnExitGameClicked()
@@ -1049,47 +1039,7 @@ public class PokerUIManager : MonoBehaviour
         flipped.Apply();
         return flipped;
     }
-    // ==========================================
-    // 视觉特效：卡牌飞行动画核心
-    // ==========================================
-    private System.Collections.IEnumerator AnimateCardFlight(GameObject cardObj)
-    {
-        // 1. 如果没设置发牌点，就不播动画直接显示
-        if (deckOriginPos == null) yield break;
 
-        // 2. 强制刷新父节点的 Layout，获取卡牌在 UI 里的最终绝对坐标
-        RectTransform parentRect = cardObj.transform.parent.GetComponent<RectTransform>();
-        if (parentRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
-
-        Vector3 targetWorldPos = cardObj.transform.position;
-        Vector3 targetScale = cardObj.transform.localScale;
-
-        // 3. 把卡牌瞬移到屏幕外的“荷官牌堆”，并缩小
-        cardObj.transform.position = deckOriginPos.position;
-        cardObj.transform.localScale = Vector3.zero;
-
-        // 4. 播放一声发牌音效
-        if (AudioManager.Instance != null) AudioManager.Instance.PlayDealCard();
-
-        // 5. 开启丝滑的飞行与放大过程
-        float t = 0;
-        Vector3 startWorldPos = cardObj.transform.position;
-
-        while (t < 1f)
-        {
-            t += Time.deltaTime / cardFlySpeed;
-            // 使用 SmoothStep 缓动函数，让起步和刹车更自然
-            float ease = Mathf.SmoothStep(0f, 1f, t);
-
-            cardObj.transform.position = Vector3.Lerp(startWorldPos, targetWorldPos, ease);
-            cardObj.transform.localScale = Vector3.Lerp(Vector3.zero, targetScale, ease);
-            yield return null;
-        }
-
-        // 6. 确保最终严丝合缝地归位
-        cardObj.transform.position = targetWorldPos;
-        cardObj.transform.localScale = targetScale;
-    }
     // ==========================================
     // 终极视觉特效：全局序列化发牌引擎
     // ==========================================
@@ -1110,7 +1060,6 @@ public class PokerUIManager : MonoBehaviour
             StartCoroutine(MasterDealRoutine());
         }
     }
-
     private System.Collections.IEnumerator MasterDealRoutine()
     {
         // 核心魔法：等待当前这 1 帧结束！

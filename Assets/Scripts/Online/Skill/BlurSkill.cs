@@ -15,7 +15,10 @@ public class BlurSkill : BaseSkill
         if (target == null) return;
 
         // 告诉受害者客户端：你的视线被模糊了！
-        target.TargetApplyBlur(target.connectionToClient);
+        if (target.connectionToClient != null)
+        {
+            target.TargetApplyBlur(target.connectionToClient);
+        }
 
         // 悄悄话通知施法者：施法成功
         caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功模糊了 {target.playerName} 的底牌视线！", 4);

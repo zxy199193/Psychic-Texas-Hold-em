@@ -22,7 +22,11 @@ public class SwapSkill : BaseSkill
             target.serverHand[targetIndex] = newCard;
 
             // 通知那个玩家：你的牌变了！(如果是自己换自己的，也是走这里更新 UI)
-            target.TargetUpdateSingleHandCard(target.connectionToClient, targetIndex, newCard);
+
+            if (target.connectionToClient != null)
+            {
+                target.TargetUpdateSingleHandCard(target.connectionToClient, targetIndex, newCard);
+            }
 
             if (target != caster)
                 target.TargetReceiveSkillMessage(target.connectionToClient, $"警告！你的第 {targetIndex + 1} 张底牌被超能力篡改了！", 3);
@@ -33,7 +37,6 @@ public class SwapSkill : BaseSkill
             serverContext.futureCommunityCards[targetIndex] = newCard;
             // 因为公牌还没翻开，所以全网的 UI 都不用更新。等荷官发牌时，发出来的自然就是这张新牌了！
         }
-
         caster.TargetReceiveSkillMessage(caster.connectionToClient, "换牌成功！", 3);
     }
 }
