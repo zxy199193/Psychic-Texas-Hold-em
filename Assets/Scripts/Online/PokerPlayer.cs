@@ -1,6 +1,7 @@
 using System.Collections.Generic;
-using UnityEngine;
 using Mirror; // 必须引入 Mirror
+using UnityEngine;
+using Steamworks;
 
 public class PokerPlayer : NetworkBehaviour
 {
@@ -9,6 +10,7 @@ public class PokerPlayer : NetworkBehaviour
 
     [Header("玩家公开状态 (所有人可见)")]
     [SyncVar] public string playerName = "Player";
+    [SyncVar] public ulong steamId = 0; // 0 代表是机器人或未连接 Steam
     [SyncVar] public int chips = 1000;
     [SyncVar] public int energy = 5;
     [SyncVar] public int currentBet = 0;
@@ -34,24 +36,38 @@ public class PokerPlayer : NetworkBehaviour
     // 服务器用来记录该玩家当前底牌的私密列表
     public List<Card> serverHand = new List<Card>();
 
-
     public override void OnStartLocalPlayer()
     {
         LocalPlayer = this;
-        // 本地玩家诞生时，向服务器请求改个名字（比如带上随机数以便区分）
-        CmdSetName("Player_" + Random.Range(1000, 9999));
+
+        // 判断 Steam 是否已经正常初始化
+        if (SteamManager.Initialized)
+        {
+            // 获取自己的 Steam 名字和 64位 ID
+            string mySteamName = SteamFriends.GetPersonaName();
+            ulong mySteamId = SteamUser.GetSteamID().m_SteamID;
+
+            CmdSetSteamInfo(mySteamName, mySteamId);
+        }
+        else
+        {
+            // 没开 Steam 测试时的降级方案
+            CmdSetSteamInfo("Player_" + Random.Range(1000, 9999), 0);
+        }
     }
 
     [Command]
-    public void CmdStartGame()
-    {
-        // 只有服务器能决定是否开始
-        ServerGameManager.Instance.StartGameAction();
-    }
-    [Command]
-    public void CmdSetName(string newName)
+    public void CmdSetSteamInfo(string newName, ulong sId)
     {
         playerName = newName;
+        steamId = sId;
+    }
+
+    [Command]
+    public void CmdStartGame(bool fillBots)
+    {
+        // 只有服务器能决定是否开始
+        ServerGameManager.Instance.StartGameAction(fillBots);
     }
 
     // --------------------------------------------------------
@@ -158,12 +174,12 @@ public class PokerPlayer : NetworkBehaviour
         // 2. 拦截检查：蓝够不够？(包含算好的动态蓝耗)
         if (this.energy < actualEnergyCost)
         {
-            TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！该操作需要 {actualEnergyCost} 点能量。");
+            TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！该操作需要 {actualEnergyCost} 点能量。", 0);
             return;
         }
         if (isCasting)
         {
-            TargetReceiveSkillMessage(this.connectionToClient, "正在施法中！");
+            TargetReceiveSkillMessage(this.connectionToClient, "正在施法中！", 0);
             return;
         }
 
@@ -178,27 +194,29 @@ public class PokerPlayer : NetworkBehaviour
         this.energy -= actualEnergyCost;
 
         // 5. 开启私密读条 (这里传入的 targetType 和 targetIndex 之后会在技能的具体逻辑里用到)
-        currentCastCoroutine = StartCoroutine(CastingRoutine(skillToCast, targetPlayer, targetType, targetIndex));
+        currentCastCoroutine = StartCoroutine(CastingRoutine(skillID, skillToCast, targetPlayer, targetType, targetIndex));
     }
 
-    private System.Collections.IEnumerator CastingRoutine(BaseSkill skill, PokerPlayer target, int targetType, int targetIndex)
+    private System.Collections.IEnumerator CastingRoutine(int skillID, BaseSkill skill, PokerPlayer target, int targetType, int targetIndex)
     {
         isCasting = true;
         string targetName = (target != null) ? target.playerName : "公共牌";
         foreach (var p in ServerGameManager.Instance.activePlayers)
         {
-            if (p.serverIsSensing)
+            if (p.serverIsSensing && p != this)
                 p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}正向{targetName}使用{skill.skillName}技能");
         }
         // 1. 告诉施法者自己：显示蓝色进度条（不带抵抗按钮）
-        TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skill.castTime, false, 0);
+        TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skillID, skill.castTime, false, 0);
 
         // 2. 告诉受害者：有人搞你！弹红色警报进度条！（带抵抗按钮）
         if (target != this && target != null)
         {
             int resistCost = Mathf.Max(0, skill.energyCost - 1); // 动态计算抵抗耗蓝：对方耗蓝减1
-            target.TargetStartCastingUI(target.connectionToClient, this.playerName, skill.skillName, skill.castTime, true, resistCost);
-
+            if (target.connectionToClient != null)
+            {
+                target.TargetStartCastingUI(target.connectionToClient, this.playerName, skill.skillName, skillID, skill.castTime, true, resistCost);
+            }
             // 服务器给受害者打上标记，允许他在这段时间内进行抵抗
             target.incomingAttacker = this;
             target.incomingResistCost = resistCost;
@@ -210,16 +228,16 @@ public class PokerPlayer : NetworkBehaviour
         if (isCasting)
         {
             isCasting = false;
-            // 正常结束，收回双方的进度条
-            TargetStopCastingUI(this.connectionToClient);
+            if (this.connectionToClient != null) TargetStopCastingUI(this.connectionToClient);
+
             if (target != this && target != null)
             {
-                TargetStopCastingUI(target.connectionToClient);
-                target.incomingAttacker = null; // 清除受害者的受击标记
+                if (target.connectionToClient != null) TargetStopCastingUI(target.connectionToClient);
+                target.incomingAttacker = null;
             }
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
-                if (p.serverIsSensing)
+                if (p.serverIsSensing && p != this)
                     p.TargetReceiveSensingLog(p.connectionToClient, "使用成功");
             }
             skill.Execute(this, target, targetType, targetIndex, ServerGameManager.Instance);
@@ -244,7 +262,7 @@ public class PokerPlayer : NetworkBehaviour
             }
             else
             {
-                TargetReceiveSkillMessage(this.connectionToClient, "能量不足，无法抵抗！");
+                TargetReceiveSkillMessage(this.connectionToClient, "能量不足，无法抵抗！", 99);
             }
         }
     }
@@ -257,16 +275,20 @@ public class PokerPlayer : NetworkBehaviour
             isCasting = false;
             if (currentCastCoroutine != null) StopCoroutine(currentCastCoroutine);
 
-            // 告诉双方收起进度条
-            TargetStopCastingUI(this.connectionToClient);
-            TargetStopCastingUI(resister.connectionToClient);
+            if (this.connectionToClient != null)
+            {
+                TargetStopCastingUI(this.connectionToClient);
+                TargetReceiveSkillMessage(this.connectionToClient, $"砰！你的施法被 {resister.playerName} 抵抗了，能量白给！", 99);
+            }
 
-            // 悄悄话通知双方结果
-            TargetReceiveSkillMessage(this.connectionToClient, $"砰！你的施法被 {resister.playerName} 抵抗了，能量白给！");
-            resister.TargetReceiveSkillMessage(resister.connectionToClient, $"漂亮！你成功抵抗了 {this.playerName} 的超能力！");
+            if (resister.connectionToClient != null)
+            {
+                TargetStopCastingUI(resister.connectionToClient);
+                resister.TargetReceiveSkillMessage(resister.connectionToClient, $"漂亮！你成功抵抗了 {this.playerName} 的超能力！", 99);
+            }
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
-                if (p.serverIsSensing)
+                if (p.serverIsSensing && p != this && p != resister)
                     p.TargetReceiveSensingLog(p.connectionToClient, "使用失败");
             }
         }
@@ -277,10 +299,10 @@ public class PokerPlayer : NetworkBehaviour
     // ==========================================
 
     [TargetRpc]
-    public void TargetStartCastingUI(NetworkConnectionToClient targetConn, string casterName, string skillName, float duration, bool canResist, int resistCost)
+    public void TargetStartCastingUI(NetworkConnectionToClient targetConn, string casterName, string skillName, int skillID, float duration, bool canResist, int resistCost)
     {
         if (PokerUIManager.Instance != null)
-            PokerUIManager.Instance.ShowCastBar(casterName, skillName, duration, canResist, resistCost);
+            PokerUIManager.Instance.ShowCastBar(casterName, skillName, skillID, duration, canResist, resistCost);
     }
 
     [TargetRpc]
@@ -293,9 +315,15 @@ public class PokerPlayer : NetworkBehaviour
 
 
     [TargetRpc]
-    public void TargetReceiveSkillMessage(NetworkConnectionToClient target, string message)
+    public void TargetReceiveSkillMessage(NetworkConnectionToClient target, string message, int skillID)
     {
-        Debug.Log(message); // 发给个人的悄悄话
+        Debug.Log(message); // 依然在控制台留个底
+
+        // 呼叫大管家，在界面上生成一条系统消息！
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.SpawnTextMessage(message, skillID, 3.5f);
+        }
     }
 
     [ClientRpc]

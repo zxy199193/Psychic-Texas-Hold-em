@@ -29,6 +29,6 @@ public class PeekSkill : BaseSkill
 
         // 发送悄悄话给施法者：在你的屏幕上把这张牌翻过来看看！
         caster.TargetPeekSingleCard(caster.connectionToClient, targetType, targetIndex, targetNetId, cardToPeek);
-        caster.TargetReceiveSkillMessage(caster.connectionToClient, "透视成功！命运的轨迹已向你展露。");
+        caster.TargetReceiveSkillMessage(caster.connectionToClient, "透视成功！命运的轨迹已向你展露。", 1);
     }
 }

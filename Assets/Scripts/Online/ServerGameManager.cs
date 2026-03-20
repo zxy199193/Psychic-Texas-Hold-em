@@ -59,16 +59,34 @@ public class ServerGameManager : NetworkBehaviour
     // ==========================================
 
     [Server]
-    public void StartGameAction()
+    public void StartGameAction(bool fillBots)
     {
-        if (hasGameStarted) return; // 防止重复点击
+        if (hasGameStarted) return;
+
+        // 1. 盘点当前房间里的真人数量
+        activePlayers.Clear();
+        activePlayers.AddRange(FindObjectsOfType<PokerPlayer>());
+
+        // 2. 智能补位逻辑：如果勾选了补齐机器人，且人数不足 6 人
+        if (fillBots)
+        {
+            int botsNeeded = 6 - activePlayers.Count;
+            for (int i = 0; i < botsNeeded; i++)
+            {
+                if (botPrefab != null)
+                {
+                    GameObject botGo = Instantiate(botPrefab);
+                    NetworkServer.Spawn(botGo); // 瞬间生成并同步给全网
+                }
+            }
+        }
 
         hasGameStarted = true;
 
-        // 1. 广播给全网所有玩家：把主菜单遮罩收起来！
+        // 3. 广播给全网所有玩家：把主菜单遮罩收起来！
         RpcHideMainMenu();
 
-        // 2. 荷官开始洗牌发牌！
+        // 4. 荷官开始洗牌发牌！
         StartNewHand();
     }
 
@@ -123,7 +141,7 @@ public class ServerGameManager : NetworkBehaviour
                 // 悄悄告诉破产的玩家
                 if (p.connectionToClient != null)
                 {
-                    p.TargetReceiveSkillMessage(p.connectionToClient, "筹码耗尽，系统已自动为您重新买入 1000 筹码！");
+                    p.TargetReceiveSkillMessage(p.connectionToClient, "筹码耗尽，系统已自动为您重新买入 1000 筹码！", 0);
                 }
             }
         }
@@ -180,8 +198,7 @@ public class ServerGameManager : NetworkBehaviour
         // 第三步：把话筒交给大盲注左手边的人 (枪口位 UTG)
         // ==========================================
         int utgIndex = (bbIndex + 1) % activePlayers.Count;
-        GiveTurnTo(utgIndex);
-        Debug.Log($"发牌完毕，盲注已扣！请 {activePlayers[currentPlayerIndex].playerName} 开始行动！");
+        StartCoroutine(WaitAnimationAndGiveTurn(utgIndex, 2.5f));
     }
 
     // ==========================================
@@ -245,9 +262,10 @@ public class ServerGameManager : NetworkBehaviour
         }
         else
         {
-            // 正常把话筒重新交给 庄家 左手边第一位存活的玩家
-            currentPlayerIndex = dealerIndex;
-            MoveToNextPlayer();
+            float waitTime = 1.0f; // 默认等1秒
+            if (currentPhase == GamePhase.Flop) waitTime = 1.5f; // 发3张翻牌，多等会儿
+
+            StartCoroutine(WaitAnimationAndFindNextPlayer(waitTime));
         }
     }
 
@@ -427,7 +445,7 @@ public class ServerGameManager : NetworkBehaviour
         {
             callAmount = player.chips;
             player.isAllIn = true;
-            player.TargetReceiveSkillMessage(player.connectionToClient, "你已 All-in！命运交由天定。");
+            player.TargetReceiveSkillMessage(player.connectionToClient, "你已 All-in！命运交由天定。", 0);
         }
 
         player.chips -= callAmount;
@@ -450,7 +468,7 @@ public class ServerGameManager : NetworkBehaviour
         {
             totalNeeded = player.chips;
             player.isAllIn = true;
-            player.TargetReceiveSkillMessage(player.connectionToClient, "你已 All-in！气势惊人！");
+            player.TargetReceiveSkillMessage(player.connectionToClient, "你已 All-in！气势惊人！", 0);
         }
 
         player.chips -= totalNeeded;
@@ -618,14 +636,6 @@ public class ServerGameManager : NetworkBehaviour
     public override void OnStartServer()
     {
         base.OnStartServer();
-
-        // 服务器启动时，动态生成一个机器人并注册到网络中！
-        if (botPrefab != null)
-        {
-            GameObject botGo = Instantiate(botPrefab);
-            NetworkServer.Spawn(botGo); // 这一步极其重要！通知全网：有新实体加入了！
-            Debug.Log("荷官：已成功在网络中 Spawn 了一个机器人实体！");
-        }
     }
     // ==========================================
     // 边池核心算法：荷官扫拢筹码
@@ -687,5 +697,33 @@ public class ServerGameManager : NetworkBehaviour
                 syncPotAmounts.Add(0);
             }
         }
+    }
+    // ==========================================
+    // 视觉同步保护：等待发牌动画播放完毕
+    // ==========================================
+
+    // 用于开局第一手牌的等待
+    private System.Collections.IEnumerator WaitAnimationAndGiveTurn(int targetIndex, float delay)
+    {
+        Debug.Log($"导演：全场不许动！等待发牌动画 {delay} 秒...");
+        GiveTurnTo(-1); // 暂时没收所有人话筒，UI上的按钮全部置灰
+
+        yield return new WaitForSeconds(delay);
+
+        Debug.Log("导演：动画完毕，Action！");
+        GiveTurnTo(targetIndex);
+    }
+
+    // 用于后续发公牌时的等待
+    private System.Collections.IEnumerator WaitAnimationAndFindNextPlayer(float delay)
+    {
+        Debug.Log($"导演：等待公共牌飞行动画 {delay} 秒...");
+        GiveTurnTo(-1);
+
+        yield return new WaitForSeconds(delay);
+
+        Debug.Log("导演：动画完毕，寻找下一位玩家！");
+        currentPlayerIndex = dealerIndex;
+        MoveToNextPlayer(); // 这里的逻辑和你原来写的一模一样
     }
 }

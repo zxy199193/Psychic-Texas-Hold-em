@@ -46,9 +46,9 @@ public class UIButtonClickEffect : MonoBehaviour, IPointerDownHandler, IPointerU
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (clickSound != null && audioSource != null)
+        if (clickSound != null)
         {
-            audioSource.PlayOneShot(clickSound, volume);
+            AudioSource.PlayClipAtPoint(clickSound, Camera.main.transform.position, volume);
         }
     }
 }

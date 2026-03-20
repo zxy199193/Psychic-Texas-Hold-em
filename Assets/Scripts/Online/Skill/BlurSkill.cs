@@ -18,6 +18,6 @@ public class BlurSkill : BaseSkill
         target.TargetApplyBlur(target.connectionToClient);
 
         // 悄悄话通知施法者：施法成功
-        caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功模糊了 {target.playerName} 的底牌视线！");
+        caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功模糊了 {target.playerName} 的底牌视线！", 4);
     }
 }

@@ -13,7 +13,7 @@ public class PokerBot : NetworkBehaviour
     {
         base.OnStartServer();
         myPlayer = GetComponent<PokerPlayer>();
-        myPlayer.playerName = "AI_Bot_" + Random.Range(100, 999);
+        myPlayer.playerName = "Bot-" + Random.Range(1, 99);
 
         // 【新增】加一句日志，确保服务器真的识别到了它！
         Debug.Log($"机器人 {myPlayer.playerName} 成功在服务器端上线待命！");

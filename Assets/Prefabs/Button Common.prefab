@@ -230,5 +230,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   scaleFactor: 0.95
   scaleSpeed: 20
-  clickSound: {fileID: 0}
+  clickSound: {fileID: 8300000, guid: c793d48bc5d205b49843904e5dfcab1e, type: 3}
   volume: 1
