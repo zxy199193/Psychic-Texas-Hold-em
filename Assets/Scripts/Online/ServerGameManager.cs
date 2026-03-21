@@ -141,7 +141,7 @@ public class ServerGameManager : NetworkBehaviour
                 // 悄悄告诉破产的玩家
                 if (p.connectionToClient != null)
                 {
-                    p.TargetReceiveSkillMessage(p.connectionToClient, "筹码耗尽，系统已自动为您重新买入 1000 筹码！", 0);
+                    p.TargetReceiveSkillMessage(p.connectionToClient, "筹码耗尽，已自动为您重新买入 1000 筹码！", 0);
                 }
             }
         }
@@ -277,13 +277,16 @@ public class ServerGameManager : NetworkBehaviour
     {
         currentPhase = GamePhase.Showdown;
 
-        // 无论如何，先把最后一轮河牌圈的钱扫拢！
+        //无论如何，先把最后一轮河牌圈的钱扫拢！
         SweepBetsIntoPots();
 
         if (activePlayers.Count > 0) dealerIndex = (dealerIndex + 1) % activePlayers.Count;
 
         List<PokerPlayer> survivors = new List<PokerPlayer>();
         foreach (var p in activePlayers) { if (!p.isFolded) survivors.Add(p); }
+
+        //用来记录谁在这局里赢到了钱（哪怕只是边池）
+        HashSet<PokerPlayer> ultimateWinners = new HashSet<PokerPlayer>();
 
         // 1. 情况 A：提前获胜 (其他人全 Fold 了)
         if (survivors.Count == 1)
@@ -295,13 +298,13 @@ public class ServerGameManager : NetworkBehaviour
             winner.chips += totalWin;
             winner.energy = Mathf.Clamp(winner.energy + winnerBonus, 0, maxEnergy);
 
-            RpcShowResult($"{winner.playerName} 赢得了 {totalWin} 筹码！(对手弃牌)");
+            RpcShowResult($"{winner.playerName} 赢得 {totalWin} 筹码！(对手弃牌)");
             StartCoroutine(WaitAndStartNextHand(3f));
             return;
         }
 
         // 2. 情况 B：正常摊牌！逐个池子分赃！
-        string resultMsg = "【终极结算】\n";
+        string resultMsg = "";
         foreach (var pot in serverPots)
         {
             if (pot.amount == 0) continue;
@@ -338,15 +341,29 @@ public class ServerGameManager : NetworkBehaviour
             {
                 w.chips += splitAmount;
                 w.energy = Mathf.Clamp(w.energy + winnerBonus, 0, maxEnergy);
-                resultMsg += $"[{w.playerName}] 赢走池内 {splitAmount} 筹码！\n";
+                resultMsg += $"[{w.playerName}] 赢得池内 {splitAmount} 筹码！";
+                ultimateWinners.Add(w);
             }
         }
 
-        // 亮牌环节
-        foreach (var p in survivors) p.RpcRevealHoleCards(p.serverHand[0], p.serverHand[1]);
+        // ============================
+        // 最后的亮牌与播报环节
+        // ============================
+        foreach (var p in survivors)
+        {
+            // 判断他是不是赢家
+            bool isWinner = ultimateWinners.Contains(p) || survivors.Count == 1;
+
+            var finalHand = HandEvaluator.GetBestHand(p.serverHand, serverCommunityCards);
+
+            // 直接把完整的 score 分数传进去，让翻译官自己去拆解！
+            string professionalName = GetProfessionalHandName(finalHand.rank.ToString(), finalHand.score);
+
+            p.RpcRevealHoleCards(p.serverHand[0], p.serverHand[1], professionalName, isWinner);
+        }
 
         RpcShowResult(resultMsg);
-        StartCoroutine(WaitAndStartNextHand(3f));
+        StartCoroutine(WaitAndStartNextHand(10f));
     }
 
     // 服务器拿大喇叭宣布比赛结果
@@ -445,7 +462,7 @@ public class ServerGameManager : NetworkBehaviour
         {
             callAmount = player.chips;
             player.isAllIn = true;
-            player.TargetReceiveSkillMessage(player.connectionToClient, "你已 All-in！命运交由天定。", 0);
+            player.TargetReceiveSkillMessage(player.connectionToClient, "All-in！！", 0);
         }
 
         player.chips -= callAmount;
@@ -468,7 +485,7 @@ public class ServerGameManager : NetworkBehaviour
         {
             totalNeeded = player.chips;
             player.isAllIn = true;
-            player.TargetReceiveSkillMessage(player.connectionToClient, "你已 All-in！气势惊人！", 0);
+            player.TargetReceiveSkillMessage(player.connectionToClient, "All-in！！", 0);
         }
 
         player.chips -= totalNeeded;
@@ -725,5 +742,52 @@ public class ServerGameManager : NetworkBehaviour
         Debug.Log("导演：动画完毕，寻找下一位玩家！");
         currentPlayerIndex = dealerIndex;
         MoveToNextPlayer(); // 这里的逻辑和你原来写的一模一样
+    }
+    // ==========================================
+    // 专业牌型翻译工具 (支持双关键牌)
+    // ==========================================
+    private string GetProfessionalHandName(string rankString, int score)
+    {
+        // 核心解密魔法：按 16 进制位移，依次提取出排好序的 5 张牌大小！
+        int card1 = (score >> 16) & 15; // 最大的主牌
+        // int card2 = (score >> 12) & 15; // 第2张 (如果是两对或葫芦，这张肯定和第1张一样，不需要)
+        int card3 = (score >> 8) & 15;  // 第3张 (这正是两对里的第二对！)
+        int card4 = (score >> 4) & 15;  // 第4张 (这正是葫芦里的对子！)
+
+        // 转成 A, K, Q 字母
+        string c1 = GetCardFaceString(card1);
+
+        if (rankString.Contains("RoyalFlush")) return "皇家同花顺";
+        if (rankString.Contains("StraightFlush")) return $"{c1}高同花顺";
+        if (rankString.Contains("FourOfAKind") || rankString.Contains("Quads")) return $"四条 {c1}";
+        if (rankString.Contains("FullHouse"))
+        {
+            string c2 = GetCardFaceString(card4); // 拿到葫芦的带牌
+            return $"葫芦 ({c1}带{c2})";
+        }
+        if (rankString.Contains("Flush")) return $"{c1}高同花";
+        if (rankString.Contains("Straight")) return $"{c1}高顺子";
+        if (rankString.Contains("ThreeOfAKind") || rankString.Contains("Trips") || rankString.Contains("Set")) return $"三条 {c1}";
+        if (rankString.Contains("TwoPair"))
+        {
+            string c2 = GetCardFaceString(card3); // 拿到两对的第二对
+            return $"{c1}-{c2} 两对";
+        }
+        if (rankString.Contains("Pair")) return $"一对 {c1}";
+        if (rankString.Contains("HighCard")) return $"{c1}高牌";
+
+        return "未知牌型";
+    }
+
+    // ==========================================
+    // 数字转扑克牌面字符工具
+    // ==========================================
+    private string GetCardFaceString(int cardValue)
+    {
+        if (cardValue == 14 || cardValue == 1) return "A";
+        if (cardValue == 13) return "K";
+        if (cardValue == 12) return "Q";
+        if (cardValue == 11) return "J";
+        return cardValue.ToString(); // 2~10 直接返回数字
     }
 }

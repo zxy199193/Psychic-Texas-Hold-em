@@ -6,7 +6,7 @@ public class BlurSkill : BaseSkill
     {
         skillID = 4;             // 注册为 4 号技能
         skillName = "模糊 (Blur)";
-        energyCost = 2;          // 消耗 2 点能量 (对手抵抗只需 1 点)
+        energyCost = 1;          // 消耗 2 点能量 (对手抵抗只需 1 点)
         castTime = 3.0f;         // 读条 3 秒
     }
 
@@ -21,6 +21,6 @@ public class BlurSkill : BaseSkill
         }
 
         // 悄悄话通知施法者：施法成功
-        caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功模糊了 {target.playerName} 的底牌视线！", 4);
+        caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！ {target.playerName} 无法看清手牌！", 4);
     }
 }

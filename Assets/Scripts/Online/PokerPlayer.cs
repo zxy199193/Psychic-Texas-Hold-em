@@ -96,14 +96,15 @@ public class PokerPlayer : NetworkBehaviour
         }
     }
     [ClientRpc]
-    public void RpcRevealHoleCards(Card c1, Card c2)
+    public void RpcRevealHoleCards(Card c1, Card c2, string handTypeStr, bool isWinner)
     {
         if (isLocalPlayer)
         {
-            // 【新增】：如果之前自己的牌被模糊了，摊牌阶段要强制恢复原状！
             if (PokerUIManager.Instance != null)
             {
                 PokerUIManager.Instance.SetMyCardsBlurred(false);
+                // 传给 UI
+                PokerUIManager.Instance.ShowPlayerHandType(this, handTypeStr, isWinner);
             }
             return;
         }
@@ -111,6 +112,8 @@ public class PokerPlayer : NetworkBehaviour
         if (PokerUIManager.Instance != null)
         {
             PokerUIManager.Instance.FlipEnemyCards(this, c1, c2);
+            // 传给 UI
+            PokerUIManager.Instance.ShowPlayerHandType(this, handTypeStr, isWinner);
         }
     }
     // ==========================================
@@ -174,12 +177,12 @@ public class PokerPlayer : NetworkBehaviour
         // 2. 拦截检查：蓝够不够？(包含算好的动态蓝耗)
         if (this.energy < actualEnergyCost)
         {
-            TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！该操作需要 {actualEnergyCost} 点能量。", 0);
+            TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！需要 {actualEnergyCost} 点能量。", 0);
             return;
         }
         if (isCasting)
         {
-            TargetReceiveSkillMessage(this.connectionToClient, "正在施法中！", 0);
+            TargetReceiveSkillMessage(this.connectionToClient, "正在发动技能...", 0);
             return;
         }
 
@@ -204,7 +207,7 @@ public class PokerPlayer : NetworkBehaviour
         foreach (var p in ServerGameManager.Instance.activePlayers)
         {
             if (p.serverIsSensing && p != this)
-                p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}正向{targetName}使用{skill.skillName}技能");
+                p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}在正向{targetName}发动技能[{skill.skillName}]");
         }
         // 1. 告诉施法者自己：显示蓝色进度条（不带抵抗按钮）
         TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skillID, skill.castTime, false, 0);
@@ -238,7 +241,7 @@ public class PokerPlayer : NetworkBehaviour
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
                 if (p.serverIsSensing && p != this)
-                    p.TargetReceiveSensingLog(p.connectionToClient, "使用成功");
+                    p.TargetReceiveSensingLog(p.connectionToClient, "使用成功！");
             }
             skill.Execute(this, target, targetType, targetIndex, ServerGameManager.Instance);
         }
@@ -262,7 +265,7 @@ public class PokerPlayer : NetworkBehaviour
             }
             else
             {
-                TargetReceiveSkillMessage(this.connectionToClient, "能量不足，无法抵抗！", 99);
+                TargetReceiveSkillMessage(this.connectionToClient, "能量不足，抵抗失败！", 99);
             }
         }
     }
@@ -278,18 +281,18 @@ public class PokerPlayer : NetworkBehaviour
             if (this.connectionToClient != null)
             {
                 TargetStopCastingUI(this.connectionToClient);
-                TargetReceiveSkillMessage(this.connectionToClient, $"砰！你的施法被 {resister.playerName} 抵抗了，能量白给！", 99);
+                TargetReceiveSkillMessage(this.connectionToClient, $"你的技能被 {resister.playerName} 抵挡住了！", 99);
             }
 
             if (resister.connectionToClient != null)
             {
                 TargetStopCastingUI(resister.connectionToClient);
-                resister.TargetReceiveSkillMessage(resister.connectionToClient, $"漂亮！你成功抵抗了 {this.playerName} 的超能力！", 99);
+                resister.TargetReceiveSkillMessage(resister.connectionToClient, $"你成功抵挡住了 {this.playerName} 的技能！", 99);
             }
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
                 if (p.serverIsSensing && p != this && p != resister)
-                    p.TargetReceiveSensingLog(p.connectionToClient, "使用失败");
+                    p.TargetReceiveSensingLog(p.connectionToClient, "使用失败！");
             }
         }
     }

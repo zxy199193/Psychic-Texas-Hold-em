@@ -7,12 +7,12 @@ public class SensingSkill : BaseSkill
         skillID = 5;
         skillName = "感应 (Sensing)";
         energyCost = 1;
-        castTime = 0.2f;
+        castTime = 1f;
     }
 
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         caster.StartSensingBuff(30f);
-        caster.TargetReceiveSkillMessage(caster.connectionToClient, "感应已激活！30秒内可看透全场能量与施法动向！", 5);
+        caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动成功！你感受到了全场的动向！", 5);
     }
 }

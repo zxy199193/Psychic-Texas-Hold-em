@@ -29,6 +29,8 @@ public class PokerUIManager : MonoBehaviour
     public Color colorResult = Color.cyan;
     private bool isShowingResult = false;
     private List<GameObject> activePotUIItems = new List<GameObject>();
+    public Color colorWinnerNode = Color.red;     // 赢家颜色 (默认红)
+    public Color colorLoserNode = Color.blue;     // 输家颜色 (默认蓝)
 
     [Header("3. 本地玩家 UI (Local Player)")]
     public Transform myHandArea;          // 你的底牌区域
@@ -41,6 +43,8 @@ public class PokerUIManager : MonoBehaviour
     public Text myRebuyText;
     public RawImage myAvatarImage;
     public GameObject myFoldNode;
+    public GameObject myHandTypeNode; // 牌型显示的背景框节点
+    public Text myHandTypeText;       // 牌型文字
 
     [Header("4. 对手玩家 UI (Enemy Players)")]
     public GameObject[] enemySeats;       // 对手座位总节点
@@ -54,6 +58,8 @@ public class PokerUIManager : MonoBehaviour
     public Text[] enemyRebuyTexts;
     public RawImage[] enemyAvatarImages;
     public GameObject[] enemyFoldNodes;
+    public GameObject[] enemyHandTypeNodes;
+    public Text[] enemyHandTypeTexts;
 
     [Header("5. 基础操作与加注面板 (Actions)")]
     public Button btnFold;
@@ -68,6 +74,7 @@ public class PokerUIManager : MonoBehaviour
     public GameObject targetingMask;      // 点选技能时的黑幕
     public Button btnResistSkill;         // 抵抗按钮
     public Text txtResistCost;            // 抵抗耗蓝
+    public GameObject skillInfoPanel;     // 技能说明浮窗的总节点
     private bool isTargeting = false;
     private int targetingSkillID = -1;
     private Coroutine resistButtonCoroutine;
@@ -89,6 +96,7 @@ public class PokerUIManager : MonoBehaviour
     public Sprite iconDefault;
     public Transform deckOriginPos;       // 发牌机位置
     public float cardFlySpeed = 0.3f;     // 飞牌速度
+    private Dictionary<uint, int> playerLastBets = new Dictionary<uint, int>();
 
     // 发牌总管队列
     private List<GameObject> dealRound1 = new List<GameObject>();
@@ -140,7 +148,6 @@ public class PokerUIManager : MonoBehaviour
 
     public void OnBtnCallClicked()
     {
-        if (AudioManager.Instance != null) AudioManager.Instance.PlayBet();
         if (PokerPlayer.LocalPlayer != null)
             PokerPlayer.LocalPlayer.CmdCall();
     }
@@ -206,7 +213,7 @@ public class PokerUIManager : MonoBehaviour
         int targetTotalBet = ServerGameManager.Instance.highestBet + raiseDelta;
         int actualCost = (ServerGameManager.Instance.highestBet - PokerPlayer.LocalPlayer.currentBet) + raiseDelta;
 
-        if (raiseTargetText != null) raiseTargetText.text = $"加注到: {targetTotalBet}";
+        if (raiseTargetText != null) raiseTargetText.text = $"{targetTotalBet}";
         if (raiseCostText != null) raiseCostText.text = $"需支付: {actualCost}";
     }
 
@@ -354,11 +361,13 @@ public class PokerUIManager : MonoBehaviour
         PokerPlayer[] allPlayers = FindObjectsOfType<PokerPlayer>();
         System.Array.Sort(allPlayers, (a, b) => a.netId.CompareTo(b.netId));
 
+        string currentActingPlayerName = "";
+
         // 刷新大厅人数和开始按钮状态
         if (mainMenuPanel != null && mainMenuPanel.activeSelf)
         {
             int pCount = allPlayers.Length;
-            if (txtPlayerCount != null) txtPlayerCount.text = $"{pCount}/6";
+            if (txtPlayerCount != null) txtPlayerCount.text = $"当前人数：{pCount}/6";
 
             // 房主的开始按钮控制：人数 >= 2 或者 勾选了补齐机器人，才能按！
             if (btnStartGame != null)
@@ -373,6 +382,31 @@ public class PokerUIManager : MonoBehaviour
 
         foreach (PokerPlayer p in allPlayers)
         {
+            if (p.isMyTurn) currentActingPlayerName = p.playerName;
+
+            // ==========================================
+            // 核心音效触发：监听全场任何人的筹码增加！
+            // ==========================================
+            if (!playerLastBets.ContainsKey(p.netId))
+            {
+                // 第一次见到这个人，先记下他的初始下注额
+                playerLastBets[p.netId] = p.currentBet;
+            }
+            else
+            {
+                // 如果他现在的下注额，比刚才记账本里的多，说明他刚扔了筹码！
+                if (p.currentBet > playerLastBets[p.netId])
+                {
+                    if (AudioManager.Instance != null) AudioManager.Instance.PlayBet();
+                    playerLastBets[p.netId] = p.currentBet; // 更新账本
+                }
+                // 如果他的下注额清零了（说明回合结束，筹码被扫进奖池了），重置账本
+                else if (p.currentBet == 0 && playerLastBets[p.netId] > 0)
+                {
+                    playerLastBets[p.netId] = 0;
+                }
+            }
+
             if (p.isLocalPlayer)
             {
                 SetTextAndRebuildLayout(myNameText, p.playerName);
@@ -408,7 +442,7 @@ public class PokerUIManager : MonoBehaviour
                     SetTextAndRebuildLayout(enemyChipsTexts[enemyIndex], $"{p.chips}");
                     SetTextAndRebuildLayout(enemyCurrentBetTexts[enemyIndex], $"{p.currentBet}");
                     bool iAmSensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
-                    string energyDisplay = iAmSensing ? $"{p.energy}/{currentMaxEnergy}" : "? / ?";
+                    string energyDisplay = iAmSensing ? $"{p.energy}/{currentMaxEnergy}" : "?";
                     SetTextAndRebuildLayout(enemyEnergyTexts[enemyIndex], energyDisplay);
                     if (enemyIndex < enemyRebuyNodes.Length && enemyRebuyNodes[enemyIndex] != null)
                     {
@@ -471,7 +505,21 @@ public class PokerUIManager : MonoBehaviour
 
             if (turnStatusText != null && !isShowingResult)
             {
-                string statusMsg = myTurn ? "轮到你了！请选择操作" : "正在等待对手行动...";
+                string statusMsg = "等待中...";
+                if (myTurn)
+                {
+                    statusMsg = "你的回合，请进行操作";
+                }
+                else if (string.IsNullOrEmpty(currentActingPlayerName))
+                {
+                    // 名字是空的，说明此时“导演”没收了所有人话筒，正在播动画！
+                    statusMsg = "正在发牌与结算中...";
+                }
+                else
+                {
+                    // 有人拿到了话筒，精准点名！
+                    statusMsg = $"等待玩家 [{currentActingPlayerName}] 行动...";
+                }
                 Color statusColor = myTurn ? colorMyTurn : colorWaiting;
 
                 // 同样做一次防重复刷新判定
@@ -521,7 +569,12 @@ public class PokerUIManager : MonoBehaviour
         }
         ClearArea(communityArea);
 
-        // 删掉旧的 resultText.gameObject.SetActive(false); 逻辑
+        if (myHandTypeNode != null) myHandTypeNode.SetActive(false);
+        if (enemyHandTypeNodes != null)
+        {
+            foreach (var node in enemyHandTypeNodes)
+                if (node != null) node.SetActive(false);
+        }
     }
     // ==========================================
     // 魔改技能 UI 接口
@@ -543,8 +596,8 @@ public class PokerUIManager : MonoBehaviour
         currentCastItem = go.GetComponent<SkillMessageItem>();
 
         string msg = (casterName == "你") ?
-            $"你正在发功：{skillName} ..." :
-            $"警告！{casterName} 正在对你使用：{skillName}！";
+            $"正在发功技能[{skillName}] ..." :
+            $"注意！{casterName} 正在对你释放技能[{skillName}]！";
 
         if (currentCastItem != null)
         {
@@ -782,6 +835,20 @@ public class PokerUIManager : MonoBehaviour
             PokerPlayer.LocalPlayer.CmdCastSkill(5, PokerPlayer.LocalPlayer.netId, 0, -1);
         }
     }
+
+    // ==========================================
+    // 技能说明浮窗控制
+    // ==========================================
+    public void OpenSkillInfoPanel()
+    {
+        if (skillInfoPanel != null) skillInfoPanel.SetActive(true);
+    }
+
+    public void CloseSkillInfoPanel()
+    {
+        if (skillInfoPanel != null) skillInfoPanel.SetActive(false);
+    }
+
     // ==========================================
     // 技能目标点选系统 (Targeting System)
     // ==========================================
@@ -1062,33 +1129,49 @@ public class PokerUIManager : MonoBehaviour
     }
     private System.Collections.IEnumerator MasterDealRoutine()
     {
-        // 核心魔法：等待当前这 1 帧结束！
-        // 此时服务器发来的所有 RPC 都已执行完毕，全场所有牌都已经生成并藏好在 Layout 里了！
         yield return new WaitForEndOfFrame();
         isDealScheduled = false;
 
-        // 强制所有区域刷新 Layout，计算出每一张牌最终完美的终点坐标
         ForceRebuildAllAreas();
 
-        // 1. 发全场第一张底牌 (一人一张！)
+        // 定义发牌的时间间隔。
+        // 如果你的飞行耗时(cardFlySpeed)是 0.3 秒，间隔设为 0.15 秒，
+        // 就意味着第一张飞了 1/2 的路程时，第二张就会起飞！
+        float dealInterval = 0.15f;
+
+        // 1. 发全场第一张底牌 
         foreach (var card in dealRound1)
         {
-            if (card != null) yield return StartCoroutine(FlySingleCard(card));
+            if (card != null)
+            {
+                // 注意：去掉了 yield return！让卡牌自己独立去飞
+                StartCoroutine(FlySingleCard(card));
+                // 只等 0.1 秒，就立刻发下一张
+                yield return new WaitForSeconds(dealInterval);
+            }
         }
 
-        // 2. 发全场第二张底牌 (一人一张！)
+        // 2. 发全场第二张底牌 
         foreach (var card in dealRound2)
         {
-            if (card != null) yield return StartCoroutine(FlySingleCard(card));
+            if (card != null)
+            {
+                StartCoroutine(FlySingleCard(card));
+                yield return new WaitForSeconds(dealInterval);
+            }
         }
 
         // 3. 发 5 张公共牌
         foreach (var card in dealCommunity)
         {
-            if (card != null) yield return StartCoroutine(FlySingleCard(card));
+            if (card != null)
+            {
+                StartCoroutine(FlySingleCard(card));
+                // 公共牌可以发得更快更爽，比如间隔 0.1 秒
+                yield return new WaitForSeconds(0.1f);
+            }
         }
 
-        // 动画播完，清空弹夹，准备下一局
         dealRound1.Clear();
         dealRound2.Clear();
         dealCommunity.Clear();
@@ -1138,9 +1221,36 @@ public class PokerUIManager : MonoBehaviour
 
         cardObj.transform.position = targetWorldPos;
         cardObj.transform.localScale = Vector3.one;
-
-        // 发完一张，停顿 0.08 秒！这就是德州扑克迷人的发牌节奏！
-        yield return new WaitForSeconds(0.08f);
     }
+    // ==========================================
+    // 最终牌型提示展示
+    // ==========================================
+    public void ShowPlayerHandType(PokerPlayer player, string handTypeStr, bool isWinner)
+    {
+        // 根据胜负状态决定颜色
+        Color targetColor = isWinner ? colorWinnerNode : colorLoserNode;
 
+        if (player.isLocalPlayer)
+        {
+            if (myHandTypeNode != null) myHandTypeNode.SetActive(true);
+            if (myHandTypeText != null)
+            {
+                myHandTypeText.text = handTypeStr;
+                myHandTypeText.color = targetColor; // 赋色！
+            }
+        }
+        else
+        {
+            int idx = GetEnemyIndex(player);
+            if (idx >= 0 && idx < enemyHandTypeNodes.Length && enemyHandTypeNodes[idx] != null)
+            {
+                enemyHandTypeNodes[idx].SetActive(true);
+                if (enemyHandTypeTexts[idx] != null)
+                {
+                    enemyHandTypeTexts[idx].text = handTypeStr;
+                    enemyHandTypeTexts[idx].color = targetColor; // 赋色！
+                }
+            }
+        }
+    }
 }

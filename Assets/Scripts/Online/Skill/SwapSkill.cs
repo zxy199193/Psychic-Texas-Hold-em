@@ -8,7 +8,7 @@ public class SwapSkill : BaseSkill
         skillID = 3;
         skillName = "换牌 (Swap)";
         energyCost = 3; // 基础耗蓝，同样有动态翻倍逻辑
-        castTime = 2f;
+        castTime = 5f;
     }
 
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
@@ -29,7 +29,7 @@ public class SwapSkill : BaseSkill
             }
 
             if (target != caster)
-                target.TargetReceiveSkillMessage(target.connectionToClient, $"警告！你的第 {targetIndex + 1} 张底牌被超能力篡改了！", 3);
+                target.TargetReceiveSkillMessage(target.connectionToClient, $"你的 {targetIndex + 1} 张手牌被改变了！", 3);
         }
         else if (targetType == 1)
         {
@@ -37,6 +37,6 @@ public class SwapSkill : BaseSkill
             serverContext.futureCommunityCards[targetIndex] = newCard;
             // 因为公牌还没翻开，所以全网的 UI 都不用更新。等荷官发牌时，发出来的自然就是这张新牌了！
         }
-        caster.TargetReceiveSkillMessage(caster.connectionToClient, "换牌成功！", 3);
+        caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功，{target.playerName}的手牌被改变了！", 3);
     }
 }
