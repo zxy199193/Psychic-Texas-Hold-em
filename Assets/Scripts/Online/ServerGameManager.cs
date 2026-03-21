@@ -170,7 +170,11 @@ public class ServerGameManager : NetworkBehaviour
                 Debug.Log($"悄悄告诉你，机器人 [{p.playerName}] 抽到的底牌是: {c1} 和 {c2}");
             }
 
-            p.TargetReceiveHoleCards(p.connectionToClient, c1, c2);
+            if (p.connectionToClient != null)
+            {
+                p.TargetReceiveHoleCards(p.connectionToClient, c1, c2);
+            }
+
             p.RpcShowEnemyCardBacks();
         }
 

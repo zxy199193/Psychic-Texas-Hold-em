@@ -26,10 +26,10 @@ public class SwapSkill : BaseSkill
             if (target.connectionToClient != null)
             {
                 target.TargetUpdateSingleHandCard(target.connectionToClient, targetIndex, newCard);
-            }
 
-            if (target != caster)
-                target.TargetReceiveSkillMessage(target.connectionToClient, $"你的 {targetIndex + 1} 张手牌被改变了！", 3);
+                if (target != caster)
+                    target.TargetReceiveSkillMessage(target.connectionToClient, $"你的第 {targetIndex + 1} 张手牌被改变了！", 3);
+            }
         }
         else if (targetType == 1)
         {
@@ -37,6 +37,10 @@ public class SwapSkill : BaseSkill
             serverContext.futureCommunityCards[targetIndex] = newCard;
             // 因为公牌还没翻开，所以全网的 UI 都不用更新。等荷官发牌时，发出来的自然就是这张新牌了！
         }
-        caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功，{target.playerName}的手牌被改变了！", 3);
+        if (caster.connectionToClient != null)
+        {
+            string targetName = (target != null) ? target.playerName : "公共牌";
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功，{targetName} 的手牌被改变了！", 3);
+        }
     }
 }

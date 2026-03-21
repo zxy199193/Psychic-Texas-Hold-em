@@ -26,9 +26,11 @@ public class PeekSkill : BaseSkill
         {
             cardToPeek = serverContext.futureCommunityCards[targetIndex];
         }
-
-        // 发送悄悄话给施法者：在你的屏幕上把这张牌翻过来看看！
-        caster.TargetPeekSingleCard(caster.connectionToClient, targetType, targetIndex, targetNetId, cardToPeek);
-        caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！你看到了{target.playerName} 的手牌！", 1);
+        if (caster.connectionToClient != null)
+        {
+            string targetName = (target != null) ? target.playerName : "公共牌";
+            caster.TargetPeekSingleCard(caster.connectionToClient, targetType, targetIndex, targetNetId, cardToPeek);
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！你看到了 {targetName} 的底牌！", 1);
+        }
     }
 }

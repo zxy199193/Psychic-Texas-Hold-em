@@ -25,8 +25,8 @@ public class PokerPlayer : NetworkBehaviour
     // 超能力施法与抵抗状态记录 (仅服务器使用)
     // ==========================================
     private Coroutine currentCastCoroutine;
-    private PokerPlayer incomingAttacker = null; // 记录当前谁正在攻击我
-    private int incomingResistCost = 0;          // 记录抵抗这次攻击需要多少蓝
+    public PokerPlayer incomingAttacker = null; // 记录当前谁正在攻击我
+    public int incomingResistCost = 0;          // 记录抵抗这次攻击需要多少蓝
     // ==========================================
     // 感应技能状态标记
     // ==========================================
@@ -156,6 +156,13 @@ public class PokerPlayer : NetworkBehaviour
     [Command]
     public void CmdCastSkill(int skillID, uint targetNetId, int targetType, int targetIndex)
     {
+        // 玩家客户端呼叫的指令，直接转交给服务器内核处理
+        ServerCastSkill(skillID, targetNetId, targetType, targetIndex);
+    }
+
+    [Server] // 机器人专用的施法后门
+    public void ServerCastSkill(int skillID, uint targetNetId, int targetType, int targetIndex)
+    {
         if (!skillDatabase.ContainsKey(skillID)) return;
         BaseSkill skillToCast = skillDatabase[skillID];
 
@@ -164,17 +171,17 @@ public class PokerPlayer : NetworkBehaviour
 
         if (skillID == 1) // 透视
         {
-            if (targetType == 1) actualEnergyCost *= 2; // 透视公牌，耗能 x2
+            if (targetType == 1) actualEnergyCost *= 2;
         }
         else if (skillID == 3) // 换牌
         {
             if (targetType == 0 && targetNetId != this.netId)
-                actualEnergyCost *= 2; // 换敌方手牌，耗能 x2
+                actualEnergyCost *= 2;
             else if (targetType == 1)
-                actualEnergyCost *= 3; // 换未翻开的公牌，耗能 x3
+                actualEnergyCost *= 3;
         }
 
-        // 2. 拦截检查：蓝够不够？(包含算好的动态蓝耗)
+        // 2. 拦截检查：蓝够不够？
         if (this.energy < actualEnergyCost)
         {
             TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！需要 {actualEnergyCost} 点能量。", 0);
@@ -186,7 +193,7 @@ public class PokerPlayer : NetworkBehaviour
             return;
         }
 
-        // 3. 解析目标玩家 (如果是对公牌施法，这个 targetPlayer 会是 null，这是正常的)
+        // 3. 解析目标玩家
         PokerPlayer targetPlayer = null;
         if (targetType == 0 && NetworkServer.spawned.TryGetValue(targetNetId, out NetworkIdentity targetIdentity))
         {
@@ -196,7 +203,7 @@ public class PokerPlayer : NetworkBehaviour
         // 4. 正式扣除计算后的蓝量！
         this.energy -= actualEnergyCost;
 
-        // 5. 开启私密读条 (这里传入的 targetType 和 targetIndex 之后会在技能的具体逻辑里用到)
+        // 5. 开启私密读条
         currentCastCoroutine = StartCoroutine(CastingRoutine(skillID, skillToCast, targetPlayer, targetType, targetIndex));
     }
 
@@ -210,7 +217,10 @@ public class PokerPlayer : NetworkBehaviour
                 p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}在正向{targetName}发动技能[{skill.skillName}]");
         }
         // 1. 告诉施法者自己：显示蓝色进度条（不带抵抗按钮）
-        TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skillID, skill.castTime, false, 0);
+        if (this.connectionToClient != null)
+        {
+            TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skillID, skill.castTime, false, 0);
+        }
 
         // 2. 告诉受害者：有人搞你！弹红色警报进度条！（带抵抗按钮）
         if (target != this && target != null)
@@ -254,6 +264,12 @@ public class PokerPlayer : NetworkBehaviour
     [Command]
     public void CmdResist()
     {
+        ServerResist(); // 玩家点按钮，走这里转交
+    }
+
+    [Server] // 机器人专用的自动抵抗后门
+    public void ServerResist()
+    {
         // 只有被攻击的人，且攻击者还在读条，且自己蓝够，才能抵抗
         if (incomingAttacker != null && incomingAttacker.isCasting)
         {
@@ -265,7 +281,8 @@ public class PokerPlayer : NetworkBehaviour
             }
             else
             {
-                TargetReceiveSkillMessage(this.connectionToClient, "能量不足，抵抗失败！", 99);
+                if (this.connectionToClient != null)
+                    TargetReceiveSkillMessage(this.connectionToClient, "能量不足，抵抗失败！", 99);
             }
         }
     }
