@@ -5,7 +5,7 @@ public class BlurSkill : BaseSkill
     public BlurSkill()
     {
         skillID = 4;             // 注册为 4 号技能
-        skillName = "模糊 (Blur)";
+        skillName = "模糊";
         energyCost = 1;          // 消耗 2 点能量 (对手抵抗只需 1 点)
         castTime = 3.0f;         // 读条 3 秒
     }

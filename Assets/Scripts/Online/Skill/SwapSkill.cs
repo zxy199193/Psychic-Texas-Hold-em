@@ -6,7 +6,7 @@ public class SwapSkill : BaseSkill
     public SwapSkill()
     {
         skillID = 3;
-        skillName = "»»ÅÆ (Swap)";
+        skillName = "»»ÅÆ";
         energyCost = 3; // »ù´¡ºÄÀ¶£¬Í¬ÑùÓÐ¶¯Ì¬·­±¶Âß¼­
         castTime = 5f;
     }

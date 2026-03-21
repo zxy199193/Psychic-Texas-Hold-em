@@ -6,7 +6,7 @@ public class PeekSkill : BaseSkill
     public PeekSkill()
     {
         skillID = 1;
-        skillName = "透视 (Peek)";
+        skillName = "透视";
         energyCost = 2;  // 基础耗蓝，服务器已写好了动态翻倍逻辑
         castTime = 4f;
     }

@@ -5,7 +5,7 @@ public class SensingSkill : BaseSkill
     public SensingSkill()
     {
         skillID = 5;
-        skillName = "感应 (Sensing)";
+        skillName = "感应";
         energyCost = 1;
         castTime = 1f;
     }
