@@ -169,27 +169,26 @@ public class PokerPlayer : NetworkBehaviour
         // 1. 动态耗蓝计算
         int actualEnergyCost = skillToCast.energyCost;
 
-        if (skillID == 1) // 透视
+        if (skillID == 1 || skillID == 3)
         {
             if (targetType == 1) actualEnergyCost *= 2;
-        }
-        else if (skillID == 3) // 换牌
-        {
-            if (targetType == 0 && targetNetId != this.netId)
-                actualEnergyCost *= 2;
-            else if (targetType == 1)
-                actualEnergyCost *= 3;
         }
 
         // 2. 拦截检查：蓝够不够？
         if (this.energy < actualEnergyCost)
         {
-            TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！需要 {actualEnergyCost} 点能量。", 0);
+            if (this.connectionToClient != null)
+            {
+                TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！需要 {actualEnergyCost} 点能量。", 0);
+            }
             return;
         }
         if (isCasting)
         {
-            TargetReceiveSkillMessage(this.connectionToClient, "正在发动技能...", 0);
+            if (this.connectionToClient != null)
+            {
+                TargetReceiveSkillMessage(this.connectionToClient, "正在发动技能...", 0);
+            }
             return;
         }
 
@@ -383,18 +382,25 @@ public class PokerPlayer : NetworkBehaviour
     private System.Collections.IEnumerator SensingRoutine(float duration)
     {
         serverIsSensing = true;
-        TargetSetSensingState(this.connectionToClient, true);
+
+        TargetSetSensingState(this.connectionToClient, true, duration);
 
         yield return new WaitForSeconds(duration);
 
         serverIsSensing = false;
-        TargetSetSensingState(this.connectionToClient, false);
+        TargetSetSensingState(this.connectionToClient, false, 0f);
     }
 
     [TargetRpc]
-    public void TargetSetSensingState(NetworkConnectionToClient conn, bool state)
+    public void TargetSetSensingState(NetworkConnectionToClient conn, bool state, float duration)
     {
-        localIsSensing = state; // 告诉本地客户端：你的感应状态变了
+        localIsSensing = state;
+
+        // 呼叫大管家开启或关闭倒计时 UI
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.ToggleSensingBuffUI(state, duration);
+        }
     }
 
     [TargetRpc] // 只有开启了感应的特定玩家才能收到这条日志

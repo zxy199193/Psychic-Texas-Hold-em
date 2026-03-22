@@ -246,39 +246,59 @@ public class PokerBot : NetworkBehaviour
         }
     }
     // ==========================================
-    // 超能力释放判定引擎
+    // 超能力判定引擎 (赛博捣乱升级版)
     // ==========================================
     private bool TryCastSuperpowers(float handStrength, int callAmount, int currentPot)
     {
-        int energy = myPlayer.energy;
-        if (energy <= 0) return false;
+        if (myPlayer.energy <= 0) return false;
 
-        // 仇恨锁定：专打领先者！
         PokerPlayer targetEnemy = GetHighestAggroEnemy();
+        int bb = ServerGameManager.Instance.bigBlind;
 
-        // 1. 换牌 (ID:3) - 改善自己的烂牌
-        if (handStrength < 40f && energy >= 2 && Random.Range(0, 100) < 50)
+        // 1. 攻击型换牌 (ID:3)：赛博捣乱！
+        // 逻辑：如果土豪下了重注(>2倍大盲)，且我蓝够(>=3)，40%概率强行废掉他的一张底牌！
+        if (callAmount > bb * 2 && myPlayer.energy >= 3 && targetEnemy != null && Random.Range(0, 100) < 40)
+        {
+            int targetCardIndex = Random.Range(0, 2); // 随机换掉他的第0张或第1张
+            Debug.Log($"机器人 [{myPlayer.playerName}] 觉得 [{targetEnemy.playerName}] 太嚣张了，发动换牌搞破坏！");
+            myPlayer.ServerCastSkill(3, targetEnemy.netId, 0, targetCardIndex);
+            return true;
+        }
+
+        // 2. 防守型换牌 (ID:3)：自力更生
+        // 逻辑：自己牌实在太烂(<40分)，且蓝够(>=3)，50%概率换掉自己的底牌博个梦
+        if (handStrength < 40f && myPlayer.energy >= 3 && Random.Range(0, 100) < 50)
         {
             int targetCardIndex = Random.Range(0, 2);
             myPlayer.ServerCastSkill(3, myPlayer.netId, 0, targetCardIndex);
             return true;
         }
 
-        // 2. 透视 (ID:1) - 看领先者的底牌
-        if (callAmount > ServerGameManager.Instance.bigBlind * 2 && handStrength >= 40f && handStrength < 80f && energy >= 1 && targetEnemy != null && Random.Range(0, 100) < 60)
+        // 3. 透视 (ID:1)：耗蓝2，知己知彼
+        // 逻辑：牌不好不坏很纠结，且面临大注，透视土豪的第0张底牌看看虚实
+        if (callAmount > bb * 2 && handStrength >= 40f && handStrength < 80f && myPlayer.energy >= 2 && targetEnemy != null && Random.Range(0, 100) < 60)
         {
             myPlayer.ServerCastSkill(1, targetEnemy.netId, 0, 0);
             return true;
         }
 
-        // 3. 模糊 (ID:4) - 自己牌好，弄瞎领先者的眼睛，不让他透视我！
-        if (handStrength >= 80f && energy >= 1 && targetEnemy != null && Random.Range(0, 100) < 40)
+        // 4. 模糊 (ID:4)：耗蓝1，扔烟雾弹
+        // 逻辑：拿到绝世好牌(>80分)，防一手真人玩家的透视，先糊住土豪的眼睛
+        if (handStrength >= 80f && myPlayer.energy >= 1 && targetEnemy != null && Random.Range(0, 100) < 40)
         {
             myPlayer.ServerCastSkill(4, targetEnemy.netId, 0, 0);
             return true;
         }
 
-        return false;
+        // 5. 感应 (ID:5)：耗蓝1，开启雷达
+        // 逻辑：蓝比较多(>=4)没地方用，且当前没在感应状态，30%概率开个感应听听响
+        if (myPlayer.energy >= 4 && !myPlayer.serverIsSensing && Random.Range(0, 100) < 30)
+        {
+            myPlayer.ServerCastSkill(5, myPlayer.netId, 0, 0);
+            return true;
+        }
+
+        return false; // 啥都没放
     }
     // ==========================================
     // 仇恨雷达：寻找领先者 (筹码最多的人)

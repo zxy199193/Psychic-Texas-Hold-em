@@ -7,7 +7,7 @@ public class SwapSkill : BaseSkill
     {
         skillID = 3;
         skillName = "换牌";
-        energyCost = 3; // 基础耗蓝，同样有动态翻倍逻辑
+        energyCost = 4; // 基础耗蓝，同样有动态翻倍逻辑
         castTime = 5f;
     }
 

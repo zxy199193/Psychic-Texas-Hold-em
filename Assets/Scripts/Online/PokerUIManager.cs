@@ -78,6 +78,11 @@ public class PokerUIManager : MonoBehaviour
     private bool isTargeting = false;
     private int targetingSkillID = -1;
     private Coroutine resistButtonCoroutine;
+    public GameObject sensingBuffNode;       // 整个 Buff 图标/倒计时所在的父节点
+    public UnityEngine.UI.Text sensingCountdownText;        // 显示数字的文本
+    public UnityEngine.UI.Button btnSensingSkill;           // 你的感应技能按钮 (用来禁用它)
+    private Coroutine sensingCountdownCoroutine;
+    public Material blurMaterial;             // 我们刚才做的高斯模糊材质球
 
     [Header("7. 消息瀑布流 (Message Feed)")]
     public Transform messageFeedContainer;
@@ -596,8 +601,8 @@ public class PokerUIManager : MonoBehaviour
         currentCastItem = go.GetComponent<SkillMessageItem>();
 
         string msg = (casterName == "你") ?
-            $"正在发功技能[{skillName}] ..." :
-            $"注意！{casterName} 正在对你释放技能[{skillName}]！";
+            $"正在发动技能[{skillName}] ..." :
+            $"注意！{casterName} 正在对你发动技能[{skillName}]！";
 
         if (currentCastItem != null)
         {
@@ -756,31 +761,22 @@ public class PokerUIManager : MonoBehaviour
     }
 
     // ==========================================
-    // 模糊技能视觉效果 (升级版)
+    // 模糊技能视觉效果 (动态抓取升级版)
     // ==========================================
     public void SetMyCardsBlurred(bool isBlurred)
     {
-        if (myHandArea != null)
-        {
-            foreach (Transform child in myHandArea)
-            {
-                // 1. 地毯式搜索：获取卡牌及其所有子节点上的全部 Image 组件
-                Image[] allImages = child.GetComponentsInChildren<Image>();
-                foreach (Image img in allImages)
-                {
-                    // 模糊时变成深灰色，恢复时变回纯白 (显示原本的颜色)
-                    img.color = isBlurred ? new Color(0.1f, 0.1f, 0.1f, 1f) : Color.white;
-                }
+        if (myHandArea == null) return;
 
-                // 2. 如果你的牌面数字/花色是用 Unity 原生的 Text 做的，也让它变暗或半透明
-                Text[] allTexts = child.GetComponentsInChildren<Text>();
-                foreach (Text txt in allTexts)
-                {
-                    Color c = txt.color;
-                    // 模糊时把文字透明度降到几乎看不见，恢复时调回 1
-                    c.a = isBlurred ? 0.05f : 1f;
-                    txt.color = c;
-                }
+        // 遍历你底牌区域下所有动态生成的卡牌
+        foreach (Transform child in myHandArea)
+        {
+            // 获取这张卡牌（以及它的花色、数字）身上的所有 Image 组件
+            Image[] allImages = child.GetComponentsInChildren<Image>();
+
+            foreach (Image img in allImages)
+            {
+                // 核心魔法：如果开启模糊，就把材质换成高斯模糊；解除则设为 null (恢复默认)
+                img.material = isBlurred ? blurMaterial : null;
             }
         }
     }
@@ -987,13 +983,8 @@ public class PokerUIManager : MonoBehaviour
         return null;
     }
 
-    // 专属透视：将选中的牌临时翻开 3 秒
+    // 专属透视：找到卡牌，一脚踢给它自己去播 X光动画
     public void ShowSpecificCardTemporarily(int targetType, int targetIndex, uint ownerNetId, Card card, float duration)
-    {
-        StartCoroutine(PeekSingleCardRoutine(targetType, targetIndex, ownerNetId, card, duration));
-    }
-
-    private System.Collections.IEnumerator PeekSingleCardRoutine(int targetType, int targetIndex, uint ownerNetId, Card card, float duration)
     {
         CardTarget targetObj = FindSpecificCardTarget(targetType, targetIndex, ownerNetId);
 
@@ -1001,15 +992,8 @@ public class PokerUIManager : MonoBehaviour
         if (targetObj != null && !targetObj.isRevealed)
         {
             CardView cv = targetObj.GetComponent<CardView>();
-            cv.SetCard(card, true); // 翻看正面
-
-            yield return new WaitForSeconds(duration);
-
-            // 3秒后，如果这张牌依然没有被荷官正常翻开，那就把它盖回去
-            if (targetObj != null && !targetObj.isRevealed)
-            {
-                cv.ShowBack();
-            }
+            // 直接把牌和时长传过去，剩下的动画交给卡牌自己负责！
+            cv.ShowPeekState(card, duration);
         }
     }
 
@@ -1252,5 +1236,45 @@ public class PokerUIManager : MonoBehaviour
                 }
             }
         }
+    }
+    // ==========================================
+    // 感应 Buff UI 调度器
+    // ==========================================
+    public void ToggleSensingBuffUI(bool isActive, float duration)
+    {
+        // 1. 锁死或解锁技能按钮
+        if (btnSensingSkill != null)
+            btnSensingSkill.interactable = !isActive;
+
+        if (isActive)
+        {
+            // 开启 Buff 节点并启动倒计时
+            if (sensingBuffNode != null) sensingBuffNode.SetActive(true);
+            if (sensingCountdownCoroutine != null) StopCoroutine(sensingCountdownCoroutine);
+            sensingCountdownCoroutine = StartCoroutine(SensingCountdownRoutine(duration));
+        }
+        else
+        {
+            // 关闭 Buff 节点
+            if (sensingBuffNode != null) sensingBuffNode.SetActive(false);
+            if (sensingCountdownCoroutine != null) StopCoroutine(sensingCountdownCoroutine);
+        }
+    }
+
+    private System.Collections.IEnumerator SensingCountdownRoutine(float duration)
+    {
+        float timeLeft = duration;
+        while (timeLeft > 0)
+        {
+            if (sensingCountdownText != null)
+            {
+                sensingCountdownText.text = $"{Mathf.CeilToInt(timeLeft)}s";
+            }
+            yield return new WaitForSeconds(1f);
+            timeLeft -= 1f;
+        }
+
+        // 倒计时结束，收起节点
+        if (sensingBuffNode != null) sensingBuffNode.SetActive(false);
     }
 }
