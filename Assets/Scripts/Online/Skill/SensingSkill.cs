@@ -12,7 +12,7 @@ public class SensingSkill : BaseSkill
 
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
-        caster.StartSensingBuff(30f);
+        caster.StartSensingBuff();
         if (caster.connectionToClient != null)
         {
             caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动成功！你感受到了全场的动向！", 5);

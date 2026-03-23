@@ -16,6 +16,7 @@ public class PokerUIManager : MonoBehaviour
     public Text txtPlayerCount;
     public Toggle toggleFillBots;
     public Toggle toggleOfflineMode;
+    public Toggle toggleShortDeck;
 
     [Header("2. 全局牌桌 UI (Table Core)")]
     public Transform communityArea;       // 公共牌区域
@@ -81,8 +82,8 @@ public class PokerUIManager : MonoBehaviour
     public GameObject sensingBuffNode;       // 整个 Buff 图标/倒计时所在的父节点
     public UnityEngine.UI.Text sensingCountdownText;        // 显示数字的文本
     public UnityEngine.UI.Button btnSensingSkill;           // 你的感应技能按钮 (用来禁用它)
-    private Coroutine sensingCountdownCoroutine;
     public Material blurMaterial;             // 我们刚才做的高斯模糊材质球
+    private bool isCurrentlyBlurred = false; // 记录当前是否处于被模糊状态
 
     [Header("7. 消息瀑布流 (Message Feed)")]
     public Transform messageFeedContainer;
@@ -311,7 +312,9 @@ public class PokerUIManager : MonoBehaviour
         {
             // 获取勾选框的状态，发给服务器
             bool fillBots = toggleFillBots != null && toggleFillBots.isOn;
-            PokerPlayer.LocalPlayer.CmdStartGame(fillBots);
+            bool isShortDeck = toggleShortDeck != null && toggleShortDeck.isOn; //读取短牌模式开关
+
+            PokerPlayer.LocalPlayer.CmdStartGame(fillBots, isShortDeck);
         }
     }
 
@@ -761,22 +764,32 @@ public class PokerUIManager : MonoBehaviour
     }
 
     // ==========================================
-    // 模糊技能视觉效果 (动态抓取升级版)
+    // 模糊技能视觉效果 (终极大范围致盲版)
     // ==========================================
     public void SetMyCardsBlurred(bool isBlurred)
     {
-        if (myHandArea == null) return;
+        isCurrentlyBlurred = isBlurred;
+        ApplyBlurToArea(myHandArea, isBlurred);
+        ApplyBlurToArea(communityArea, isBlurred); // 公共牌也一起变瞎！
+    }
 
-        // 遍历你底牌区域下所有动态生成的卡牌
-        foreach (Transform child in myHandArea)
+    private void ApplyBlurToArea(Transform area, bool isBlurred)
+    {
+        if (area == null) return;
+        foreach (Transform child in area)
         {
-            // 获取这张卡牌（以及它的花色、数字）身上的所有 Image 组件
-            Image[] allImages = child.GetComponentsInChildren<Image>();
+            //核心判断：如果是公共牌，且还没被荷官翻开，绝不模糊它！
+            CardTarget ct = child.GetComponent<CardTarget>();
+            bool shouldBlur = isBlurred;
+            if (ct != null && ct.targetType == 1 && !ct.isRevealed)
+            {
+                shouldBlur = false; // 强行免疫模糊
+            }
 
+            Image[] allImages = child.GetComponentsInChildren<Image>();
             foreach (Image img in allImages)
             {
-                // 核心魔法：如果开启模糊，就把材质换成高斯模糊；解除则设为 null (恢复默认)
-                img.material = isBlurred ? blurMaterial : null;
+                img.material = shouldBlur ? blurMaterial : null;
             }
         }
     }
@@ -962,6 +975,13 @@ public class PokerUIManager : MonoBehaviour
                 Transform cardObj = communityArea.GetChild(startIndex + i);
                 cardObj.GetComponent<CardView>().SetCard(cards[i], true);
                 cardObj.GetComponent<CardTarget>().isRevealed = true; // 状态更新为已翻开
+
+                // 新增感染机制：如果我当前正处于被模糊状态，这张刚翻开的公牌也要立刻变瞎！
+                if (isCurrentlyBlurred)
+                {
+                    Image[] allImages = cardObj.GetComponentsInChildren<Image>();
+                    foreach (Image img in allImages) img.material = blurMaterial;
+                }
             }
         }
     }
@@ -1237,44 +1257,14 @@ public class PokerUIManager : MonoBehaviour
             }
         }
     }
+
     // ==========================================
     // 感应 Buff UI 调度器
     // ==========================================
-    public void ToggleSensingBuffUI(bool isActive, float duration)
+    public void ToggleSensingBuffUI(bool isActive)
     {
-        // 1. 锁死或解锁技能按钮
-        if (btnSensingSkill != null)
-            btnSensingSkill.interactable = !isActive;
-
-        if (isActive)
-        {
-            // 开启 Buff 节点并启动倒计时
-            if (sensingBuffNode != null) sensingBuffNode.SetActive(true);
-            if (sensingCountdownCoroutine != null) StopCoroutine(sensingCountdownCoroutine);
-            sensingCountdownCoroutine = StartCoroutine(SensingCountdownRoutine(duration));
-        }
-        else
-        {
-            // 关闭 Buff 节点
-            if (sensingBuffNode != null) sensingBuffNode.SetActive(false);
-            if (sensingCountdownCoroutine != null) StopCoroutine(sensingCountdownCoroutine);
-        }
-    }
-
-    private System.Collections.IEnumerator SensingCountdownRoutine(float duration)
-    {
-        float timeLeft = duration;
-        while (timeLeft > 0)
-        {
-            if (sensingCountdownText != null)
-            {
-                sensingCountdownText.text = $"{Mathf.CeilToInt(timeLeft)}s";
-            }
-            yield return new WaitForSeconds(1f);
-            timeLeft -= 1f;
-        }
-
-        // 倒计时结束，收起节点
+        if (btnSensingSkill != null) btnSensingSkill.interactable = !isActive;
         if (sensingBuffNode != null) sensingBuffNode.SetActive(false);
+        if (sensingCountdownText != null) sensingCountdownText.gameObject.SetActive(false);
     }
 }

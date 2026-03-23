@@ -3,10 +3,11 @@ Shader "UI/SpriteHeavyBlur"
     Properties
     {
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
+        // 叠加一层暗色，让模糊后的牌变得暗淡，增加辨认难度
         _Color ("Tint", Color) = (0.7, 0.7, 0.7, 1) 
         _Size ("Blur Size", Range(0, 20)) = 6.0
-        _NoiseAmount ("Noise Amount", Range(0, 1)) = 0.6 
-        _ColorShiftSpeed ("Color Shift Speed", Range(0, 20)) = 5.0
+        // 保留了微弱的噪点功能，如果你连噪点都不想要，可以在材质球里把它拉到 0
+        _NoiseAmount ("Noise Amount", Range(0, 1)) = 0.1 
     }
 
     SubShader
@@ -51,7 +52,6 @@ Shader "UI/SpriteHeavyBlur"
             fixed4 _Color;
             float _Size;
             float _NoiseAmount;
-            float _ColorShiftSpeed;
 
             v2f vert(appdata_t v)
             {
@@ -71,14 +71,14 @@ Shader "UI/SpriteHeavyBlur"
             {
                 float2 uv = i.texcoord;
                 
-                // 提取当前像素最原始的颜色（主要为了拿到它真实的透明度）
+                // 1. 提取原始透明度 (完美保留圆角)
                 fixed4 originalColor = tex2D(_MainTex, uv);
 
                 float2 texel = _MainTex_TexelSize.xy * _Size;
                 fixed4 color = fixed4(0,0,0,0);
                 float totalWeight = 0;
 
-                // 暴力模糊
+                // 2. 依然保留 49 次采样的暴力平滑模糊，彻底打碎图形边缘
                 for (int x = -3; x <= 3; x++)
                 {
                     for (int y = -3; y <= 3; y++)
@@ -91,30 +91,17 @@ Shader "UI/SpriteHeavyBlur"
 
                 fixed4 blurColor = color / totalWeight;
 
-                // 提取亮度
-                float luminance = dot(blurColor.rgb, float3(0.299, 0.587, 0.114));
-
-                // 霓虹光谱偏移
-                float t = _Time.y * _ColorShiftSpeed;
-                float3 shiftColor = float3(
-                    sin(t) * 0.5 + 0.5,
-                    sin(t + 2.094) * 0.5 + 0.5,
-                    sin(t + 4.188) * 0.5 + 0.5
-                );
-                float3 psychoColor = float3(luminance, luminance, luminance) * shiftColor * 1.5;
-
-                // 动态噪点
+                // 3. 动态噪点 (如果你把面板里的 NoiseAmount 设为 0，这步就完全不生效)
                 float timeVal = _Time.y * 10.0;
                 float r = rand(uv + timeVal);
                 float g = rand(uv + timeVal + 1.0);
                 float b = rand(uv + timeVal + 2.0);
                 float3 noiseColor = float3(r, g, b);
 
-                // 终极混合
-                blurColor.rgb = lerp(psychoColor, noiseColor, _NoiseAmount);
+                // 混合原本的模糊颜色和噪点
+                blurColor.rgb = lerp(blurColor.rgb, noiseColor, _NoiseAmount);
 
-                // 将模糊后溢出的透明度，强制替换回原图精准的透明度！
-                // 这样四个透明的直角依然是透明的，完美保留圆角！
+                // 4. 将模糊后溢出的透明度，强制替换回原图精准的透明度！
                 blurColor.a = originalColor.a;
 
                 return blurColor * i.color;

@@ -40,6 +40,9 @@ public class ServerGameManager : NetworkBehaviour
     [Header("机器人配置")]
     public GameObject botPrefab; // 用来存放你的 BotPlayerPrefab
 
+    //全局模式标记
+    [SyncVar] public bool isShortDeckMode = false;
+
     private bool isFirstHand = true; // 记录是否是整个游戏的第一把
     private bool hasGameStarted = false;
     // 服务器私有的座位表
@@ -59,10 +62,10 @@ public class ServerGameManager : NetworkBehaviour
     // ==========================================
 
     [Server]
-    public void StartGameAction(bool fillBots)
+    public void StartGameAction(bool fillBots, bool isShortDeck)
     {
         if (hasGameStarted) return;
-
+        isShortDeckMode = isShortDeck;
         // 1. 盘点当前房间里的真人数量
         activePlayers.Clear();
         activePlayers.AddRange(FindObjectsOfType<PokerPlayer>());
@@ -126,7 +129,8 @@ public class ServerGameManager : NetworkBehaviour
         }
 
         deck = new Deck();
-        deck.Initialize();
+        deck.Initialize(isShortDeckMode);
+
         for (int i = 0; i < 5; i++)
         {
             futureCommunityCards[i] = deck.Draw();
@@ -158,6 +162,8 @@ public class ServerGameManager : NetworkBehaviour
             p.isFolded = false;
             p.isAllIn = false;
             p.hasActed = false;
+            p.serverIsSensing = false;
+            if (p.connectionToClient != null) p.TargetSetSensingState(p.connectionToClient, false);
 
             p.serverHand.Clear();
             Card c1 = deck.Draw();
@@ -762,23 +768,23 @@ public class ServerGameManager : NetworkBehaviour
         string c1 = GetCardFaceString(card1);
 
         if (rankString.Contains("RoyalFlush")) return "皇家同花顺";
-        if (rankString.Contains("StraightFlush")) return $"{c1}高同花顺";
-        if (rankString.Contains("FourOfAKind") || rankString.Contains("Quads")) return $"四条 {c1}";
+        if (rankString.Contains("StraightFlush")) return $"同花顺 [{c1}高]";
+        if (rankString.Contains("FourOfAKind") || rankString.Contains("Quads")) return $"四条 [{c1}]";
         if (rankString.Contains("FullHouse"))
         {
             string c2 = GetCardFaceString(card4); // 拿到葫芦的带牌
-            return $"葫芦 ({c1}带{c2})";
+            return $"葫芦 [{c1}带{c2}]";
         }
-        if (rankString.Contains("Flush")) return $"{c1}高同花";
-        if (rankString.Contains("Straight")) return $"{c1}高顺子";
-        if (rankString.Contains("ThreeOfAKind") || rankString.Contains("Trips") || rankString.Contains("Set")) return $"三条 {c1}";
+        if (rankString.Contains("Flush")) return $"同花 [{c1}高]";
+        if (rankString.Contains("Straight")) return $"顺子 [{c1}高]";
+        if (rankString.Contains("ThreeOfAKind") || rankString.Contains("Trips") || rankString.Contains("Set")) return $"三条 [{c1}]";
         if (rankString.Contains("TwoPair"))
         {
             string c2 = GetCardFaceString(card3); // 拿到两对的第二对
-            return $"{c1}-{c2} 两对";
+            return $"两对 [{c1}-{c2}]";
         }
-        if (rankString.Contains("Pair")) return $"一对 {c1}";
-        if (rankString.Contains("HighCard")) return $"{c1}高牌";
+        if (rankString.Contains("Pair")) return $"一对 [{c1}]";
+        if (rankString.Contains("HighCard")) return $"高牌 [{c1}]";
 
         return "未知牌型";
     }

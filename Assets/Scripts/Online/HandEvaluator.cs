@@ -9,8 +9,8 @@ public static class HandEvaluator
         Flush, FullHouse, FourOfAKind, StraightFlush, RoyalFlush
     }
 
-    // 注意：这里的返回值从 highCard 改名为了 score，因为它现在代表5张牌的总权重
-    public static (HandRank rank, int score) Evaluate(List<Card> hand)
+    // 传入 isShortDeck，识别特殊顺子
+    public static (HandRank rank, int score) Evaluate(List<Card> hand, bool isShortDeck = false)
     {
         var ranks = hand.Select(c => (int)c.rank).OrderByDescending(v => v).ToList();
         var suits = hand.Select(c => c.suit).ToList();
@@ -18,20 +18,49 @@ public static class HandEvaluator
         bool isFlush = suits.Distinct().Count() == 1;
         bool isStraight = ranks.Distinct().Count() == 5 && ranks.First() - ranks.Last() == 4;
 
-        // 统计相同点数，先按数量降序，再按点数降序
-        // 比如 6,6,6,A,8 会排成 -> 6, 6, 6, 14(A), 8
+        // 特殊顺子判断 (A作小牌)
+        bool isLowAceStraight = false;
+        if (isShortDeck)
+        {
+            // 短牌模式最小顺子：A-6-7-8-9 (14,9,8,7,6)
+            if (ranks.SequenceEqual(new List<int> { 14, 9, 8, 7, 6 }))
+            {
+                isStraight = true;
+                isLowAceStraight = true;
+            }
+        }
+        else
+            // 标准模式最小顺子：A-2-3-4-5 (顺手修复原版盲区)
+            if (ranks.SequenceEqual(new List<int> { 14, 5, 4, 3, 2 }))
+        {
+            isStraight = true;
+            isLowAceStraight = true;
+        }
+
         var rankGroups = hand.GroupBy(c => c.rank).OrderByDescending(g => g.Count()).ThenByDescending(g => g.Key).ToList();
+
+        // 如果是 A作小 顺子，强行把 A 移到数组最后，去算最低的权重
+        if (isLowAceStraight)
+        {
+            var aceGroup = rankGroups.First(g => (int)g.Key == 14);
+            rankGroups.Remove(aceGroup);
+            rankGroups.Add(aceGroup);
+        }
+
         int maxCount = rankGroups.First().Count();
         int secondCount = rankGroups.Count > 1 ? rankGroups[1].Count() : 0;
 
-        // 【核心修复】利用 16 进制移位，把 5 张牌的权重拼接成一个绝对分数
         int score = 0;
         int shift = 16;
         foreach (var group in rankGroups)
         {
             foreach (var card in group)
             {
-                score += ((int)card.rank) << shift;
+                int rankVal = (int)card.rank;
+                // 给 A 降权：短牌当 5 算，长牌当 1 算
+                if (isLowAceStraight && rankVal == 14) rankVal = isShortDeck ? 5 : 1;
+
+                score += rankVal << shift;
                 shift -= 4;
             }
         }
@@ -48,7 +77,19 @@ public static class HandEvaluator
         return (HandRank.HighCard, score);
     }
 
-    public static (HandRank rank, int score) GetBestHand(List<Card> playerHand, List<Card> community)
+    // 核心：动态获取权重 (让同花反杀葫芦)
+    private static int GetRankWeight(HandRank rank, bool isShortDeck)
+    {
+        if (!isShortDeck) return (int)rank;
+
+        if (rank == HandRank.Flush) return 6;     // 强行把同花分数从 5 提成 6
+        if (rank == HandRank.FullHouse) return 5; // 强行把葫芦分数从 6 降成 5
+
+        return (int)rank;
+    }
+
+    // 增加 isShortDeck 传递，并采用动态权重对比
+    public static (HandRank rank, int score) GetBestHand(List<Card> playerHand, List<Card> community, bool isShortDeck = false)
     {
         var allCards = new List<Card>();
         allCards.AddRange(playerHand);
@@ -59,10 +100,16 @@ public static class HandEvaluator
 
         foreach (var combo in combinations)
         {
-            var eval = Evaluate(combo);
-            // 牌型更大，或者牌型一样但综合分数 (score) 更大
-            if (eval.rank > best.Item1 || (eval.rank == best.Item1 && eval.score > best.Item2))
+            var eval = Evaluate(combo, isShortDeck);
+
+            // 使用动态权重作对比，而不是硬比 Enum
+            int currentWeight = GetRankWeight(eval.rank, isShortDeck);
+            int bestWeight = GetRankWeight(best.Item1, isShortDeck);
+
+            if (currentWeight > bestWeight || (currentWeight == bestWeight && eval.score > best.Item2))
+            {
                 best = eval;
+            }
         }
 
         return best;

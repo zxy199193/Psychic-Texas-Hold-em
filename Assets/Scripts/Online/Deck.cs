@@ -6,22 +6,25 @@ public class Deck
     private List<Card> cards = new List<Card>();
     private System.Random rng = new System.Random();
 
-    // 初始化并洗牌
-    public void Initialize()
+    public void Initialize(bool isShortDeck = false)
     {
         cards.Clear();
-        // 生成 52 张牌
         foreach (Suit s in System.Enum.GetValues(typeof(Suit)))
         {
             foreach (Rank r in System.Enum.GetValues(typeof(Rank)))
             {
+                // 如果是短牌模式，直接跳过 2、3、4、5
+                if (isShortDeck)
+                {
+                    if (r == Rank.Two || r == Rank.Three || r == Rank.Four || r == Rank.Five)
+                        continue;
+                }
                 cards.Add(new Card(s, r));
             }
         }
         Shuffle();
     }
 
-    // Fisher-Yates 洗牌算法
     public void Shuffle()
     {
         int n = cards.Count;
@@ -35,13 +38,12 @@ public class Deck
         }
     }
 
-    // 抽一张牌
     public Card Draw()
     {
         if (cards.Count == 0)
         {
             Debug.LogError("牌库空了！");
-            return new Card(Suit.Spade, Rank.Two); // 默认防报错
+            return new Card(Suit.Spade, Rank.Six); // 防报错默认给张 6
         }
         Card c = cards[0];
         cards.RemoveAt(0);

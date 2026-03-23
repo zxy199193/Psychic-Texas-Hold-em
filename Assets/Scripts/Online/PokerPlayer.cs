@@ -64,10 +64,10 @@ public class PokerPlayer : NetworkBehaviour
     }
 
     [Command]
-    public void CmdStartGame(bool fillBots)
+    public void CmdStartGame(bool fillBots, bool isShortDeck)
     {
         // 只有服务器能决定是否开始
-        ServerGameManager.Instance.StartGameAction(fillBots);
+        ServerGameManager.Instance.StartGameAction(fillBots, isShortDeck);
     }
 
     // --------------------------------------------------------
@@ -169,11 +169,6 @@ public class PokerPlayer : NetworkBehaviour
         // 1. 动态耗蓝计算
         int actualEnergyCost = skillToCast.energyCost;
 
-        if (skillID == 1 || skillID == 3)
-        {
-            if (targetType == 1) actualEnergyCost *= 2;
-        }
-
         // 2. 拦截检查：蓝够不够？
         if (this.energy < actualEnergyCost)
         {
@@ -224,7 +219,7 @@ public class PokerPlayer : NetworkBehaviour
         // 2. 告诉受害者：有人搞你！弹红色警报进度条！（带抵抗按钮）
         if (target != this && target != null)
         {
-            int resistCost = Mathf.Max(0, skill.energyCost - 1); // 动态计算抵抗耗蓝：对方耗蓝减1
+            int resistCost = skill.energyCost;
             if (target.connectionToClient != null)
             {
                 target.TargetStartCastingUI(target.connectionToClient, this.playerName, skill.skillName, skillID, skill.castTime, true, resistCost);
@@ -374,32 +369,19 @@ public class PokerPlayer : NetworkBehaviour
         }
     }
     // 开启 30 秒感应 Buff
-    public void StartSensingBuff(float duration)
-    {
-        StartCoroutine(SensingRoutine(duration));
-    }
-
-    private System.Collections.IEnumerator SensingRoutine(float duration)
+    public void StartSensingBuff()
     {
         serverIsSensing = true;
-
-        TargetSetSensingState(this.connectionToClient, true, duration);
-
-        yield return new WaitForSeconds(duration);
-
-        serverIsSensing = false;
-        TargetSetSensingState(this.connectionToClient, false, 0f);
+        TargetSetSensingState(this.connectionToClient, true);
     }
 
     [TargetRpc]
-    public void TargetSetSensingState(NetworkConnectionToClient conn, bool state, float duration)
+    public void TargetSetSensingState(NetworkConnectionToClient conn, bool state)
     {
         localIsSensing = state;
-
-        // 呼叫大管家开启或关闭倒计时 UI
         if (PokerUIManager.Instance != null)
         {
-            PokerUIManager.Instance.ToggleSensingBuffUI(state, duration);
+            PokerUIManager.Instance.ToggleSensingBuffUI(state);
         }
     }
 
