@@ -32,6 +32,9 @@ public class PokerUIManager : MonoBehaviour
     private List<GameObject> activePotUIItems = new List<GameObject>();
     public Color colorWinnerNode = Color.red;     // 赢家颜色 (默认红)
     public Color colorLoserNode = Color.blue;     // 输家颜色 (默认蓝)
+    public GameObject nextHandCountdownNode; // 倒计时的总节点 (背景框)
+    public Text nextHandCountdownText;       // 倒计时的文字
+    private Coroutine countdownCoroutine;    // 记录倒计时协程，方便打断
 
     [Header("3. 本地玩家 UI (Local Player)")]
     public Transform myHandArea;          // 你的底牌区域
@@ -420,7 +423,7 @@ public class PokerUIManager : MonoBehaviour
                 SetTextAndRebuildLayout(myNameText, p.playerName);
                 SetTextAndRebuildLayout(myChipsText, $"{p.chips}");
                 SetTextAndRebuildLayout(myCurrentBetText, $"{p.currentBet}");
-                SetTextAndRebuildLayout(myEnergyText, $"{p.energy}/{currentMaxEnergy}");
+                SetTextAndRebuildLayout(myEnergyText, $"{p.energy}");
                 if (myRebuyNode != null) myRebuyNode.SetActive(p.rebuyCount > 0);
                 if (myRebuyText != null && p.rebuyCount > 0) myRebuyText.text = $"{p.rebuyCount}";
                 if (p.isDealer) UpdateDealerButton(myDealerPos);
@@ -450,7 +453,7 @@ public class PokerUIManager : MonoBehaviour
                     SetTextAndRebuildLayout(enemyChipsTexts[enemyIndex], $"{p.chips}");
                     SetTextAndRebuildLayout(enemyCurrentBetTexts[enemyIndex], $"{p.currentBet}");
                     bool iAmSensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
-                    string energyDisplay = iAmSensing ? $"{p.energy}/{currentMaxEnergy}" : "?";
+                    string energyDisplay = iAmSensing ? $"{p.energy}" : "?";
                     SetTextAndRebuildLayout(enemyEnergyTexts[enemyIndex], energyDisplay);
                     if (enemyIndex < enemyRebuyNodes.Length && enemyRebuyNodes[enemyIndex] != null)
                     {
@@ -547,10 +550,10 @@ public class PokerUIManager : MonoBehaviour
         }
     }
     // 【新增】显示结算横幅
-    public void ShowResult(string message)
+    public void ShowResult(string message, int waitTime)
     {
         if (AudioManager.Instance != null) AudioManager.Instance.PlayWinChips();
-        isShowingResult = true; // 上锁！不准 Update() 刷新回合提示了
+        isShowingResult = true;
 
         if (turnStatusText != null)
         {
@@ -558,16 +561,36 @@ public class PokerUIManager : MonoBehaviour
             turnStatusText.color = colorResult;
             turnStatusText.gameObject.SetActive(true);
 
-            // 顺手也给它刷新一下布局
             RectTransform parentRect = turnStatusText.transform.parent.GetComponent<RectTransform>();
             if (parentRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
         }
+
+        // 核心：使用服务器发来的动态时间启动倒计时！
+        if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
+        countdownCoroutine = StartCoroutine(CountdownToNextHand(waitTime));
+    }
+    private System.Collections.IEnumerator CountdownToNextHand(int seconds)
+    {
+        if (nextHandCountdownNode != null) nextHandCountdownNode.SetActive(true);
+
+        for (int i = seconds; i > 0; i--)
+        {
+            if (nextHandCountdownText != null)
+                nextHandCountdownText.text = $"{i}";
+
+            yield return new WaitForSeconds(1f); // 每秒跳一次
+        }
+
+        if (nextHandCountdownNode != null) nextHandCountdownNode.SetActive(false);
     }
 
     // 【修改】清空桌面时，把结算横幅也藏起来
     public void ClearAllTable()
     {
         isShowingResult = false; // 解锁！新牌局开始，交还给回合提示
+
+        if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
+        if (nextHandCountdownNode != null) nextHandCountdownNode.SetActive(false);
 
         ClearArea(myHandArea);
         SetMyCardsBlurred(false);
@@ -1020,12 +1043,12 @@ public class PokerUIManager : MonoBehaviour
     // 专属变牌：永久更新我自己的某一张底牌
     public void UpdateMySingleCard(int targetIndex, Card newCard)
     {
-        // 找到属于我自己的那张特定底牌
         CardTarget targetObj = FindSpecificCardTarget(0, targetIndex, PokerPlayer.LocalPlayer.netId);
         if (targetObj != null)
         {
             CardView cv = targetObj.GetComponent<CardView>();
-            cv.SetCard(newCard, true); // 永久展示新牌
+            // 调用我们新写的白光遮罩特效！
+            cv.SwapWithWhiteMask(newCard);
         }
     }
 

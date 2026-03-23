@@ -140,4 +140,59 @@ public class CardView : MonoBehaviour
             cardBackOverlay.color = c;
         }
     }
+    // ==========================================
+    // 赛博换牌：白光遮罩平滑过渡特效
+    // ==========================================
+    public void SwapWithWhiteMask(Card newCard)
+    {
+        StartCoroutine(WhiteMaskSwapRoutine(newCard));
+    }
+
+    private System.Collections.IEnumerator WhiteMaskSwapRoutine(Card newCard)
+    {
+        // 1. 动态创建一个白色遮罩层
+        GameObject maskObj = new GameObject("WhiteFlashMask");
+        maskObj.transform.SetParent(this.transform, false);
+
+        // 2. 把它拉伸铺满整张牌
+        RectTransform rect = maskObj.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.sizeDelta = Vector2.zero;
+
+        // 3. 加上 Image 组件，初始设为纯白色，但完全透明 (Alpha = 0)
+        Image maskImage = maskObj.AddComponent<Image>();
+        maskImage.color = new Color(1f, 1f, 1f, 0f);
+
+        float fadeSpeed = 0.3f; // 渐变所需的时间（越小越快）
+
+        // 4. 淡入：透明 -> 实心白
+        float t = 0;
+        while (t < 1f)
+        {
+            t += Time.deltaTime / fadeSpeed;
+            // 使用 Lerp 平滑过渡透明度
+            maskImage.color = new Color(1f, 1f, 1f, Mathf.Lerp(0f, 1f, t));
+            yield return null; // 等待下一帧
+        }
+        maskImage.color = Color.white; // 确保彻底变白
+
+        // 5. 核心：在屏幕最白、完全看不见底图的瞬间，偷梁换柱！
+        SetCard(newCard, true);
+
+        // 可选：让白屏保持极其短暂的一瞬间，增加视觉冲击力
+        yield return new WaitForSeconds(0.1f);
+
+        // 6. 淡出：实心白 -> 透明
+        t = 0;
+        while (t < 1f)
+        {
+            t += Time.deltaTime / fadeSpeed;
+            maskImage.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0f, t));
+            yield return null;
+        }
+
+        // 7. 特效结束，销毁遮罩，不留痕迹
+        Destroy(maskObj);
+    }
 }

@@ -30,8 +30,8 @@ public class PokerBot : NetworkBehaviour
         isThinking = true;
 
         // 拟人化思考延迟：越到后期想得越久
-        float thinkTime = Random.Range(1.5f, 3.0f);
-        if (ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.River) thinkTime += 1.0f;
+        float thinkTime = Random.Range(0.5f, 1.2f);
+        if (ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.River) thinkTime += 0.3f;
         yield return new WaitForSeconds(thinkTime);
 
         // --------------------------------------------------------

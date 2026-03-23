@@ -308,7 +308,7 @@ public class ServerGameManager : NetworkBehaviour
             winner.chips += totalWin;
             winner.energy = Mathf.Clamp(winner.energy + winnerBonus, 0, maxEnergy);
 
-            RpcShowResult($"{winner.playerName} 赢得 {totalWin} 筹码！(对手弃牌)");
+            RpcShowResult($"{winner.playerName} 赢得 {totalWin} 筹码！(对手弃牌)", 3);
             StartCoroutine(WaitAndStartNextHand(3f));
             return;
         }
@@ -372,18 +372,19 @@ public class ServerGameManager : NetworkBehaviour
             p.RpcRevealHoleCards(p.serverHand[0], p.serverHand[1], professionalName, isWinner);
         }
 
-        RpcShowResult(resultMsg);
+        RpcShowResult(resultMsg, 10);
         StartCoroutine(WaitAndStartNextHand(10f));
     }
 
     // 服务器拿大喇叭宣布比赛结果
     [ClientRpc]
-    private void RpcShowResult(string message)
+    private void RpcShowResult(string message, int waitTime)
     {
         Debug.Log(message);
         if (PokerUIManager.Instance != null)
         {
-            PokerUIManager.Instance.ShowResult(message);
+            // 把时间透传给 UI 大管家
+            PokerUIManager.Instance.ShowResult(message, waitTime);
         }
     }
 
