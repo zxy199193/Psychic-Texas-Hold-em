@@ -21,6 +21,9 @@ public class AudioManager : MonoBehaviour
     public AudioClip skillSuccessClip;  // 技能生效的“叮”声
     public AudioClip skillFailClip;     // 技能失败/被抵抗的“玻璃碎裂”声
 
+    [Header("系统提示音效")]
+    public AudioClip yourTurnClip;
+
     private void Awake()
     {
         // 经典的单例模式
@@ -79,4 +82,5 @@ public class AudioManager : MonoBehaviour
             loopingSource.Stop();
         }
     }
+    public void PlayYourTurn() { PlaySFX(yourTurnClip); }
 }

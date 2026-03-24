@@ -49,6 +49,8 @@ public class PokerUIManager : MonoBehaviour
     public GameObject myFoldNode;
     public GameObject myHandTypeNode; // 牌型显示的背景框节点
     public Text myHandTypeText;       // 牌型文字
+    public GameObject myTurnHighlightNode; //轮到自己时的黄色高亮边框节点
+    private bool wasMyTurnLastFrame = false; // 记录上一帧是不是我的回合，防止音效每秒响60次
 
     [Header("4. 对手玩家 UI (Enemy Players)")]
     public GameObject[] enemySeats;       // 对手座位总节点
@@ -64,6 +66,8 @@ public class PokerUIManager : MonoBehaviour
     public GameObject[] enemyFoldNodes;
     public GameObject[] enemyHandTypeNodes;
     public Text[] enemyHandTypeTexts;
+    public GameObject[] enemyDisconnectNodes; //拖入 5 个“掉线”文字的 UI 节点
+    public GameObject[] enemyTurnHighlightNodes; // 轮到对手时的高亮边框节点数组
 
     [Header("5. 基础操作与加注面板 (Actions)")]
     public Button btnFold;
@@ -73,6 +77,12 @@ public class PokerUIManager : MonoBehaviour
     public Slider raiseSlider;
     public Text raiseTargetText;
     public Text raiseCostText;
+    public Button btnMinusBet;         // 减 1 筹码
+    public Button btnPlusBet;          // 加 1 筹码
+    public Button btnHalfPot;          // 1/2 池
+    public Button btnTwoThirdsPot;     // 2/3 池
+    public Button btnFullPot;          // 满池 (1个池)
+    public Button btnAllIn;            // All-in
 
     [Header("6. 技能系统 UI (Skills & Targeting)")]
     public GameObject targetingMask;      // 点选技能时的黑幕
@@ -175,7 +185,7 @@ public class PokerUIManager : MonoBehaviour
         int callAmount = highestBet - p.currentBet;
 
         // 最小加注幅度（至少是大盲注）
-        int minRaiseDelta = ServerGameManager.Instance.bigBlind;
+        int minRaiseDelta = ServerGameManager.Instance.currentMinRaise;
         // 最大能加注的幅度（我所有的筹码 - 需要跟注的钱）
         int maxRaiseDelta = p.chips - callAmount;
 
@@ -224,6 +234,11 @@ public class PokerUIManager : MonoBehaviour
 
         if (raiseTargetText != null) raiseTargetText.text = $"{targetTotalBet}";
         if (raiseCostText != null) raiseCostText.text = $"需支付: {actualCost}";
+        if (btnMinusBet != null)
+            btnMinusBet.interactable = (raiseSlider.value > raiseSlider.minValue);
+
+        if (btnPlusBet != null)
+            btnPlusBet.interactable = (raiseSlider.value < raiseSlider.maxValue);
     }
 
     // 3. 绑定给面板上的“确定加注”按钮
@@ -236,7 +251,66 @@ public class PokerUIManager : MonoBehaviour
         }
         CloseRaisePanel();
     }
+    // ==========================================
+    // 加注面板增强：加减微调与底池快捷键
+    // ==========================================
 
+    // 1. 微调：减 1 筹码
+    public void OnBtnMinusBetClicked()
+    {
+        if (raiseSlider != null)
+        {
+            // Mathf.Max 保证不会低于滑动条允许的最小值 (大盲注或当前最小加注限额)
+            raiseSlider.value = Mathf.Max(raiseSlider.minValue, raiseSlider.value - 1);
+        }
+    }
+
+    // 2. 微调：加 1 筹码
+    public void OnBtnPlusBetClicked()
+    {
+        if (raiseSlider != null)
+        {
+            // Mathf.Min 保证不会超过 All-in 的总额
+            raiseSlider.value = Mathf.Min(raiseSlider.maxValue, raiseSlider.value + 1);
+        }
+    }
+
+    // 3. 通用计算方法：按底池比例跳转滑块
+    private void SetRaiseSliderToPotFraction(float fraction)
+    {
+        if (PokerPlayer.LocalPlayer == null || ServerGameManager.Instance == null || raiseSlider == null) return;
+
+        int highestBet = ServerGameManager.Instance.highestBet;
+        int callAmount = highestBet - PokerPlayer.LocalPlayer.currentBet;
+
+        // 计算当前桌面上总共可见的底池大小 (主池 + 所有人面前还没收走的下注)
+        int currentTotalPot = 0;
+        foreach (int potAmount in ServerGameManager.Instance.syncPotAmounts) currentTotalPot += potAmount;
+
+        PokerPlayer[] allPlayers = FindObjectsOfType<PokerPlayer>();
+        foreach (PokerPlayer p in allPlayers)
+        {
+            currentTotalPot += p.currentBet;
+        }
+
+        // 行业标准算法：假想我们先跟注 (Call) 进去，此时的底池大小
+        int potAfterCall = currentTotalPot + callAmount;
+
+        // 我们要额外“加注”的部分 (raiseDelta)，就是假想底池乘以比例
+        int targetRaiseDelta = Mathf.RoundToInt(potAfterCall * fraction);
+
+        // 强行改变滑动条的值，且限制在合法范围内 (不能小于底线，也不能超过 All-in)
+        raiseSlider.value = Mathf.Clamp(targetRaiseDelta, raiseSlider.minValue, raiseSlider.maxValue);
+    }
+
+    // 4. 绑定给快捷按钮的 4 个方法
+    public void OnBtnHalfPotClicked() { SetRaiseSliderToPotFraction(0.5f); }
+    public void OnBtnTwoThirdsPotClicked() { SetRaiseSliderToPotFraction(0.6667f); }
+    public void OnBtnFullPotClicked() { SetRaiseSliderToPotFraction(1.0f); }
+    public void OnBtnAllInClicked()
+    {
+        if (raiseSlider != null) raiseSlider.value = raiseSlider.maxValue;
+    }
     // 4. 绑定给透明遮罩的点击事件
     public void CloseRaisePanel()
     {
@@ -389,7 +463,15 @@ public class PokerUIManager : MonoBehaviour
         }
 
         // 准备一个记录哪些座位被坐了的数组
+        bool[] isSeatDisconnected = new bool[enemySeats.Length];
         bool[] seatOccupied = new bool[enemySeats.Length];
+        int totalSeats = ServerGameManager.Instance != null ? ServerGameManager.Instance.totalSeatCount : 0;
+
+        // 默认把这局所有“分配了座位”的位置标为“已掉线”
+        for (int i = 0; i < totalSeats - 1 && i < enemySeats.Length; i++)
+        {
+            isSeatDisconnected[i] = true;
+        }
 
         foreach (PokerPlayer p in allPlayers)
         {
@@ -440,6 +522,19 @@ public class PokerUIManager : MonoBehaviour
                     Texture2D tex = GetSteamAvatar(p.steamId);
                     if (tex != null) myAvatarImage.texture = tex;
                 }
+                // 触发专属音效 (只有当 isMyTurn 从 false 变成 true 的那一瞬间才响)
+                if (p.isMyTurn && !wasMyTurnLastFrame)
+                {
+                    if (AudioManager.Instance != null) AudioManager.Instance.PlayYourTurn();
+                }
+                wasMyTurnLastFrame = p.isMyTurn; // 更新状态记录
+
+                // 控制本地高亮边框的显示与隐藏
+                if (myTurnHighlightNode != null)
+                {
+                    if (myTurnHighlightNode.activeSelf != p.isMyTurn)
+                        myTurnHighlightNode.SetActive(p.isMyTurn);
+                }
             }
             else
             {
@@ -449,6 +544,7 @@ public class PokerUIManager : MonoBehaviour
                 {
                     seatOccupied[enemyIndex] = true; // 标记这个座位有人坐了！
                     // 使用智能刷新方法更新对手 UI
+                    isSeatDisconnected[enemyIndex] = false;
                     SetTextAndRebuildLayout(enemyNameTexts[enemyIndex], p.playerName);
                     SetTextAndRebuildLayout(enemyChipsTexts[enemyIndex], $"{p.chips}");
                     SetTextAndRebuildLayout(enemyCurrentBetTexts[enemyIndex], $"{p.currentBet}");
@@ -487,6 +583,11 @@ public class PokerUIManager : MonoBehaviour
                             }
                         }
                     }
+                    if (enemyTurnHighlightNodes != null && enemyIndex < enemyTurnHighlightNodes.Length && enemyTurnHighlightNodes[enemyIndex] != null)
+                    {
+                        if (enemyTurnHighlightNodes[enemyIndex].activeSelf != p.isMyTurn)
+                            enemyTurnHighlightNodes[enemyIndex].SetActive(p.isMyTurn);
+                    }
                 }
             }
         }
@@ -497,10 +598,27 @@ public class PokerUIManager : MonoBehaviour
             {
                 if (enemySeats[i] != null)
                 {
-                    // 状态不一样才去改 SetActive，极致节省性能
-                    if (enemySeats[i].activeSelf != seatOccupied[i])
+                    // 座位显示条件：正常坐着，或者属于这局被分配了座位但人没了(幽灵)
+                    bool shouldShowSeat = seatOccupied[i] || isSeatDisconnected[i];
+                    if (enemySeats[i].activeSelf != shouldShowSeat)
+                        enemySeats[i].SetActive(shouldShowSeat);
+
+                    // 控制掉线警报节点
+                    if (enemyDisconnectNodes != null && i < enemyDisconnectNodes.Length && enemyDisconnectNodes[i] != null)
                     {
-                        enemySeats[i].SetActive(seatOccupied[i]);
+                        if (enemyDisconnectNodes[i].activeSelf != isSeatDisconnected[i])
+                            enemyDisconnectNodes[i].SetActive(isSeatDisconnected[i]);
+
+                        // 如果掉线了，顺便把他的牌压暗，筹码归零
+                        if (isSeatDisconnected[i])
+                        {
+                            SetAreaDarkened(enemyHandAreas[i], true);
+                            if (enemyCurrentBetTexts[i] != null) enemyCurrentBetTexts[i].text = "0";
+                            if (enemyTurnHighlightNodes != null && i < enemyTurnHighlightNodes.Length && enemyTurnHighlightNodes[i] != null)
+                            {
+                                enemyTurnHighlightNodes[i].SetActive(false);
+                            }
+                        }
                     }
                 }
             }
@@ -509,6 +627,9 @@ public class PokerUIManager : MonoBehaviour
         if (PokerPlayer.LocalPlayer != null)
         {
             bool myTurn = PokerPlayer.LocalPlayer.isMyTurn;
+            bool isSpectating = PokerPlayer.LocalPlayer.seatIndex == -1 &&
+                                ServerGameManager.Instance != null &&
+                                ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle;
 
             if (btnFold != null) btnFold.interactable = myTurn;
             if (btnCall != null) btnCall.interactable = myTurn;
@@ -628,7 +749,8 @@ public class PokerUIManager : MonoBehaviour
 
         string msg = (casterName == "你") ?
             $"正在发动技能[{skillName}] ..." :
-            $"注意！{casterName} 正在对你发动技能[{skillName}]！";
+            //$"注意！{casterName} 正在对你发动技能[{skillName}]！";
+            $"注意！有人正在对你发动技能[{skillName}]！";
 
         if (currentCastItem != null)
         {
@@ -689,31 +811,17 @@ public class PokerUIManager : MonoBehaviour
             HideResistButtonState();
         }
     }
-
     public int GetEnemyIndex(PokerPlayer player)
     {
-        PokerPlayer[] allPlayers = FindObjectsOfType<PokerPlayer>();
-        System.Array.Sort(allPlayers, (a, b) => a.netId.CompareTo(b.netId));
+        if (PokerPlayer.LocalPlayer == null || player.seatIndex < 0 || PokerPlayer.LocalPlayer.seatIndex < 0) return -1;
+        if (ServerGameManager.Instance == null || ServerGameManager.Instance.totalSeatCount <= 0) return -1;
 
-        int myGlobalIndex = -1;
-        int targetGlobalIndex = -1;
-
-        // 1. 找到在全局座位表中，我坐在哪，目标坐在哪
-        for (int i = 0; i < allPlayers.Length; i++)
-        {
-            if (allPlayers[i].isLocalPlayer) myGlobalIndex = i;
-            if (allPlayers[i] == player) targetGlobalIndex = i;
-        }
-
-        if (myGlobalIndex == -1 || targetGlobalIndex == -1) return -1;
-
-        // 2. 环形计算距离：不管总共有多少人，(目标位置 - 我的位置 + 总人数) % 总人数
-        // 算出来的距离如果是 1，说明他是我的顺时针下家 (左手边)；如果是 2，说明是下下家 (右手边)
-        int relativeSeat = (targetGlobalIndex - myGlobalIndex + allPlayers.Length) % allPlayers.Length;
-
-        // 3. 相对距离 1 的人放进 enemyIndex 0 槽位，相对距离 2 的人放进 enemyIndex 1 槽位
+        int total = ServerGameManager.Instance.totalSeatCount;
+        // 环形距离计算
+        int relativeSeat = (player.seatIndex - PokerPlayer.LocalPlayer.seatIndex + total) % total;
         return relativeSeat - 1;
     }
+
     public void DrawEnemyCardBacks(PokerPlayer enemy)
     {
         int idx = GetEnemyIndex(enemy);

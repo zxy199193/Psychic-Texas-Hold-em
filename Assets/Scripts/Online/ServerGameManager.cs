@@ -13,8 +13,9 @@ public class ServerGameManager : NetworkBehaviour
     [Header("服务器运行状态 (仅方便在面板查看)")]
     public GamePhase currentPhase = GamePhase.Idle;
     [Header("下注与回合管理 (同步变量)")]
-    [Header("下注与回合管理 (同步变量)")]
     public readonly SyncList<int> syncPotAmounts = new SyncList<int>(); // 全网同步的各池金额（[0]是主池，[1]是边池1...）
+    
+    [SyncVar] public int totalSeatCount = 0; // 当前局分配好的总座位数
 
     // 服务器私有：用来记录每个池子具体有哪些人有资格分钱
     public class ServerPot
@@ -24,6 +25,7 @@ public class ServerGameManager : NetworkBehaviour
     }
     private List<ServerPot> serverPots = new List<ServerPot>();
     [SyncVar] public int highestBet = 0;    // 当前这轮最高的下注额
+    [SyncVar] public int currentMinRaise = 10;
     [SyncVar] public int currentPlayerIndex = 0; // 当前轮到谁说话了
 
     [Header("能量系统配置")]
@@ -57,6 +59,24 @@ public class ServerGameManager : NetworkBehaviour
     {
         Instance = this;
     }
+
+    // 每帧监控当前说话的玩家是否突然蒸发
+    [ServerCallback]
+    private void Update()
+    {
+        if (hasGameStarted && currentPhase != GamePhase.Idle && currentPhase != GamePhase.Showdown)
+        {
+            if (activePlayers.Count > 0 && currentPlayerIndex >= 0 && currentPlayerIndex < activePlayers.Count)
+            {
+                if (activePlayers[currentPlayerIndex] == null)
+                {
+                    Debug.LogWarning("当前说话的玩家已掉线，系统自动跳过！");
+                    CheckAndMove(); // 触发检测，底层的判空逻辑会把它当做已弃牌处理
+                }
+            }
+        }
+    }
+
     // ==========================================
     // 游戏流程控制接口
     // ==========================================
@@ -114,11 +134,19 @@ public class ServerGameManager : NetworkBehaviour
         activePlayers.AddRange(FindObjectsOfType<PokerPlayer>());
         activePlayers.Sort((a, b) => a.netId.CompareTo(b.netId));
 
+        //分配座位和记录总人数
+        totalSeatCount = activePlayers.Count;
+        for (int i = 0; i < activePlayers.Count; i++)
+        {
+            activePlayers[i].seatIndex = i;
+        }
+
         serverPots.Clear();
         serverPots.Add(new ServerPot()); // 创建主池
         syncPotAmounts.Clear();
         syncPotAmounts.Add(0);           // UI 同步主池
         highestBet = 0;
+        currentMinRaise = bigBlind; // 每一轮开始，最小加注幅度重置为大盲
 
         if (activePlayers.Count == 0) return;
 
@@ -231,7 +259,11 @@ public class ServerGameManager : NetworkBehaviour
         SweepBetsIntoPots();
         // 【新增拦截】如果场上没弃牌的人只剩 1 个了，直接提前结束！不需要发剩下的公共牌了。
         int activeCount = 0;
-        foreach (var p in activePlayers) { if (!p.isFolded) activeCount++; }
+        foreach (var p in activePlayers)
+        {
+            if (p == null) continue;
+            if (!p.isFolded) activeCount++;
+        }
 
         if (activeCount == 1)
         {
@@ -241,8 +273,10 @@ public class ServerGameManager : NetworkBehaviour
 
         // 1. 清空上一轮的下注状态
         highestBet = 0;
+        currentMinRaise = bigBlind;
         foreach (var p in activePlayers)
         {
+            if (p == null) continue;
             p.currentBet = 0;
             p.hasActed = false;
         }
@@ -262,6 +296,7 @@ public class ServerGameManager : NetworkBehaviour
         int playersCanAct = 0;
         foreach (var p in activePlayers)
         {
+            if (p == null) continue;
             if (!p.isFolded && !p.isAllIn && p.chips > 0) playersCanAct++;
         }
 
@@ -293,7 +328,11 @@ public class ServerGameManager : NetworkBehaviour
         if (activePlayers.Count > 0) dealerIndex = (dealerIndex + 1) % activePlayers.Count;
 
         List<PokerPlayer> survivors = new List<PokerPlayer>();
-        foreach (var p in activePlayers) { if (!p.isFolded) survivors.Add(p); }
+        foreach (var p in activePlayers)
+        {
+            if (p == null) continue;
+            if (!p.isFolded) survivors.Add(p);
+        }
 
         //用来记录谁在这局里赢到了钱（哪怕只是边池）
         HashSet<PokerPlayer> ultimateWinners = new HashSet<PokerPlayer>();
@@ -326,12 +365,12 @@ public class ServerGameManager : NetworkBehaviour
 
             // 寻找最大牌型（支持平局并列）
             List<PokerPlayer> winners = new List<PokerPlayer>();
-            var bestHandResult = HandEvaluator.GetBestHand(eligible[0].serverHand, serverCommunityCards);
+            var bestHandResult = HandEvaluator.GetBestHand(eligible[0].serverHand, serverCommunityCards, isShortDeckMode);
             winners.Add(eligible[0]);
 
             for (int i = 1; i < eligible.Count; i++)
             {
-                var currentResult = HandEvaluator.GetBestHand(eligible[i].serverHand, serverCommunityCards);
+                var currentResult = HandEvaluator.GetBestHand(eligible[i].serverHand, serverCommunityCards, isShortDeckMode);
                 if (currentResult.rank > bestHandResult.rank ||
                    (currentResult.rank == bestHandResult.rank && currentResult.score > bestHandResult.score))
                 {
@@ -364,7 +403,7 @@ public class ServerGameManager : NetworkBehaviour
             // 判断他是不是赢家
             bool isWinner = ultimateWinners.Contains(p) || survivors.Count == 1;
 
-            var finalHand = HandEvaluator.GetBestHand(p.serverHand, serverCommunityCards);
+            var finalHand = HandEvaluator.GetBestHand(p.serverHand, serverCommunityCards, isShortDeckMode);
 
             // 直接把完整的 score 分数传进去，让翻译官自己去拆解！
             string professionalName = GetProfessionalHandName(finalHand.rank.ToString(), finalHand.score);
@@ -496,7 +535,7 @@ public class ServerGameManager : NetworkBehaviour
         {
             totalNeeded = player.chips;
             player.isAllIn = true;
-            player.TargetReceiveSkillMessage(player.connectionToClient, "All-in！！", 0);
+            player.TargetReceiveSkillMessage(player.connectionToClient, "All-in!!", 0);
         }
 
         player.chips -= totalNeeded;
@@ -505,11 +544,16 @@ public class ServerGameManager : NetworkBehaviour
         // 刷新最高下注额
         if (player.currentBet > highestBet)
         {
+            int actualRaiseDelta = player.currentBet - highestBet;
             highestBet = player.currentBet;
-
+            if (actualRaiseDelta > currentMinRaise)
+            {
+                currentMinRaise = actualRaiseDelta;
+            }
             // 【核心修正】有人加注了，其他没弃牌且没 All-in 的人，必须重新表态
             foreach (var p in activePlayers)
             {
+                if (p == null) continue;
                 if (!p.isFolded && !p.isAllIn) p.hasActed = false;
             }
         }
@@ -531,14 +575,13 @@ public class ServerGameManager : NetworkBehaviour
         {
             int nextIndex = (currentPlayerIndex + 1) % activePlayers.Count;
             attempts++;
-
+            PokerPlayer nextP = activePlayers[nextIndex];
             // 核心跳过条件：没弃牌、没All-in，且手里还有钱的人，才有资格拿到话筒
-            if (!activePlayers[nextIndex].isFolded &&
-                !activePlayers[nextIndex].isAllIn &&
-                activePlayers[nextIndex].chips > 0)
+            if (nextP != null && !nextP.isFolded && !nextP.isAllIn && nextP.chips > 0)
             {
                 GiveTurnTo(nextIndex);
-                Debug.Log($"轮到 {activePlayers[currentPlayerIndex].playerName} 说话了！");
+                // 这里原本的打印也需要改，否则也会空引用报错
+                Debug.Log($"轮到 {nextP.playerName} 说话了！");
                 return;
             }
             currentPlayerIndex = nextIndex;
@@ -560,15 +603,21 @@ public class ServerGameManager : NetworkBehaviour
         // 遍历所有人，只有序号对应的人才能拿到话筒
         for (int i = 0; i < activePlayers.Count; i++)
         {
-            activePlayers[i].isMyTurn = (i == index);
+            if (activePlayers[i] != null)
+            {
+                activePlayers[i].isMyTurn = (i == index);
+            }
         }
 
         //【终极驱动】：荷官亲自把话筒塞给该玩家，如果他是机器人，直接踢他一脚强制思考！
-        PokerBot bot = activePlayers[index].GetComponent<PokerBot>();
-        if (bot != null)
+        if (activePlayers[index] != null)
         {
-            Debug.Log($"荷官：轮到机器人 {activePlayers[index].playerName} 说话了！");
-            bot.TriggerBotTurn();
+            PokerBot bot = activePlayers[index].GetComponent<PokerBot>();
+            if (bot != null)
+            {
+                Debug.Log($"荷官：轮到机器人 {activePlayers[index].playerName} 说话了！");
+                bot.TriggerBotTurn();
+            }
         }
     }
     // ==========================================
@@ -584,6 +633,7 @@ public class ServerGameManager : NetworkBehaviour
 
         foreach (var p in activePlayers)
         {
+            if (p == null) continue;
             if (p.isFolded) continue;
             activeCount++;
 
@@ -610,7 +660,10 @@ public class ServerGameManager : NetworkBehaviour
     [Server]
     private void CheckAndMove()
     {
-        activePlayers[currentPlayerIndex].isMyTurn = false;
+        if (activePlayers[currentPlayerIndex] != null)
+        {
+            activePlayers[currentPlayerIndex].isMyTurn = false;
+        }
 
         int playersCanAct;
         bool isComplete = IsBettingRoundComplete(out playersCanAct);
@@ -675,6 +728,7 @@ public class ServerGameManager : NetworkBehaviour
         List<PokerPlayer> bettors = new List<PokerPlayer>();
         foreach (var p in activePlayers)
         {
+            if (p == null) continue;
             if (p.currentBet > 0) bettors.Add(p);
         }
 

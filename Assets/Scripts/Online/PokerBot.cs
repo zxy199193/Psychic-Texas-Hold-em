@@ -51,7 +51,7 @@ public class PokerBot : NetworkBehaviour
         // --------------------------------------------------------
         // 第二阶段：评估自身战力 (Hand Strength: 0 ~ 100)
         // --------------------------------------------------------
-        var bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards);
+        var bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards, ServerGameManager.Instance.isShortDeckMode);
         float handStrength = CalculateHandStrengthScore(bestHand.rank, bestHand.score);
         
         // ==========================================
@@ -65,7 +65,7 @@ public class PokerBot : NetworkBehaviour
             yield return new WaitForSeconds(0.5f); // 稍微缓冲一下
 
             // 重新评估战力！(万一刚才换到了一张 A 呢！)
-            bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards);
+            bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards, ServerGameManager.Instance.isShortDeckMode);
             handStrength = CalculateHandStrengthScore(bestHand.rank, bestHand.score);
         }
         // ==========================================
@@ -234,7 +234,7 @@ public class PokerBot : NetworkBehaviour
         if (myPlayer.incomingAttacker != null && myPlayer.incomingAttacker.isCasting)
         {
             // 赶紧看一眼自己的牌有多大
-            var bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards);
+            var bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards, ServerGameManager.Instance.isShortDeckMode);
             float handStrength = CalculateHandStrengthScore(bestHand.rank, bestHand.score);
 
             // 逻辑：如果我的牌还不错（> 50分，至少是一对A或以上），并且蓝够！

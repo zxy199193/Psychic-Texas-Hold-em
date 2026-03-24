@@ -21,6 +21,7 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar] public bool hasActed = false;
     [SyncVar] public bool isCasting = false; // 全场同步：我正在发功！
     [SyncVar] public bool isDealer = false;
+    [SyncVar] public int seatIndex = -1; // 固定座位号，防掉线漂移
     // ==========================================
     // 超能力施法与抵抗状态记录 (仅服务器使用)
     // ==========================================
@@ -54,6 +55,7 @@ public class PokerPlayer : NetworkBehaviour
             // 没开 Steam 测试时的降级方案
             CmdSetSteamInfo("Player_" + Random.Range(1000, 9999), 0);
         }
+        CmdRequestSyncTable();
     }
 
     [Command]
@@ -193,6 +195,21 @@ public class PokerPlayer : NetworkBehaviour
         {
             targetPlayer = targetIdentity.GetComponent<PokerPlayer>();
         }
+        // ==========================================
+        // 目标保护与防状态覆盖
+        // ==========================================
+        if (targetPlayer != null && targetPlayer != this)
+        {
+            // 如果目标已经被别人锁定了，拒绝施法，且不扣蓝！
+            if (targetPlayer.incomingAttacker != null)
+            {
+                if (this.connectionToClient != null)
+                {
+                    TargetReceiveSkillMessage(this.connectionToClient, $"[{targetPlayer.playerName}] 正在遭受其他玩家的技能，暂时无法使用！", 0);
+                }
+                return;
+            }
+        }
 
         // 4. 正式扣除计算后的蓝量！
         this.energy -= actualEnergyCost;
@@ -240,7 +257,10 @@ public class PokerPlayer : NetworkBehaviour
             if (target != this && target != null)
             {
                 if (target.connectionToClient != null) TargetStopCastingUI(target.connectionToClient);
-                target.incomingAttacker = null;
+                if (target.incomingAttacker == this)
+                {
+                    target.incomingAttacker = null;
+                }
             }
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
@@ -390,5 +410,37 @@ public class PokerPlayer : NetworkBehaviour
     {
         if (PokerUIManager.Instance != null)
             PokerUIManager.Instance.ShowSensingLog(logMsg);
+    }
+    // ==========================================
+    // 中途加入 / 观战同步系统
+    // ==========================================
+
+    [Command]
+    public void CmdRequestSyncTable()
+    {
+        if (ServerGameManager.Instance == null) return;
+
+        // 如果游戏已经开始了（不是大厅闲置状态），就把已经翻开的公牌发给这个新来的客户端！
+        if (ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle &&
+            ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.PreFlop)
+        {
+            int revealedCount = ServerGameManager.Instance.serverCommunityCards.Count;
+            if (revealedCount > 0)
+            {
+                // 把 List 转成数组发过去
+                TargetCatchUpCommunityCards(this.connectionToClient, revealedCount, ServerGameManager.Instance.serverCommunityCards.ToArray());
+            }
+        }
+    }
+
+    [TargetRpc]
+    public void TargetCatchUpCommunityCards(NetworkConnectionToClient target, int count, Card[] cards)
+    {
+        Debug.Log($"[观战同步] 接收到桌面上已翻开的 {count} 张公共牌！");
+        if (PokerUIManager.Instance != null)
+        {
+            // 复用我们之前的发牌函数，瞬间把牌翻开！
+            PokerUIManager.Instance.RevealCommunityCards(0, count, cards);
+        }
     }
 }
