@@ -191,11 +191,35 @@ public class ServerGameManager : NetworkBehaviour
             p.isAllIn = false;
             p.hasActed = false;
             p.serverIsSensing = false;
+            p.interferenceStacks = 0;
+            p.serverHasReflectWall = false;
+            p.serverIsMindControlled = false;
             if (p.connectionToClient != null) p.TargetSetSensingState(p.connectionToClient, false);
 
             p.serverHand.Clear();
-            Card c1 = deck.Draw();
-            Card c2 = deck.Draw();
+            Card c1, c2;
+
+            // ==========================================
+            // 发牌拦截：检查是否有“许愿” Buff
+            // ==========================================
+            if (p.serverHasWishBuff)
+            {
+                // 使用我们刚写的“出老千”发牌器！
+                c1 = deck.DrawWishCard();
+                c2 = deck.DrawWishCard();
+
+                // 【核心细节】：发完牌后，把 Buff 消耗掉！否则他以后把把都是天胡
+                p.serverHasWishBuff = false;
+
+                Debug.Log($"[许愿生效] 玩家 {p.playerName} 通过许愿获得了 {c1} 和 {c2}");
+            }
+            else
+            {
+                // 普通玩家，正常发牌
+                c1 = deck.Draw();
+                c2 = deck.Draw();
+            }
+            // ==========================================
             p.serverHand.Add(c1);
             p.serverHand.Add(c2);
 
@@ -494,6 +518,12 @@ public class ServerGameManager : NetworkBehaviour
     public void HandlePlayerFold(PokerPlayer player)
     {
         if (activePlayers[currentPlayerIndex] != player) return;
+        if (player.serverIsMindControlled)
+        {
+            if (player.connectionToClient != null)
+                player.TargetReceiveSkillMessage(player.connectionToClient, "你处于被脑控状态，无法弃牌！", 9);
+            return;
+        }
         player.isFolded = true;
         player.hasActed = true; // 【新增】
         Debug.Log($"{player.playerName} 弃牌");
@@ -854,5 +884,15 @@ public class ServerGameManager : NetworkBehaviour
         if (cardValue == 12) return "Q";
         if (cardValue == 11) return "J";
         return cardValue.ToString(); // 2~10 直接返回数字
+    }
+
+    [ClientRpc]
+    public void RpcUpdateCommunityCard(int cardIndex, Suit newSuit, Rank newRank)
+    {
+        if (PokerUIManager.Instance != null)
+        {
+            // 强制刷新桌面上对应位置的那张公共牌的 UI
+            PokerUIManager.Instance.UpdateCommunityCardUI(cardIndex, newSuit, newRank);
+        }
     }
 }

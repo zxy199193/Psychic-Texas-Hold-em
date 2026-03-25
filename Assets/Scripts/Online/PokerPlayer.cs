@@ -33,9 +33,32 @@ public class PokerPlayer : NetworkBehaviour
     // ==========================================
     public bool serverIsSensing = false; // 服务器记录：此人是否开启了感应
     public bool localIsSensing = false;  // 客户端记录：我本地是否开启了感应 (用于UI刷新)
+    // ==========================================
+    // 防御技能状态标记
+    // ==========================================
+    public bool serverHasReflectWall = false; // 服务器记录：此人是否开启了反射壁
+    // ==========================================
+    // 跨局增益状态标记
+    // ==========================================
+    public bool serverHasWishBuff = false; // 服务器记录：下局是否要发大牌
     // --- 以下变量只在 Server 端有意义，客户端即使读取也是空的或者不同步的 ---
     // 服务器用来记录该玩家当前底牌的私密列表
     public List<Card> serverHand = new List<Card>();
+    // ==========================================
+    // 干扰技能专用的 Debuff 层数 (每局重置)
+    // ==========================================
+    public int interferenceStacks = 0;
+    // ==========================================
+    // 脑控技能状态标记
+    // ==========================================
+    public bool serverIsMindControlled = false; // 服务器记录：该玩家是否被脑控
+    public bool localIsMindControlled = false;  // 客户端记录：本地 UI 锁死判定
+    // ==========================================
+    // 10 号技能专用的第二目标缓存
+    // ==========================================
+    [HideInInspector] public uint dualTargetNetId;
+    [HideInInspector] public int dualTargetType;
+    [HideInInspector] public int dualTargetIndex;
 
     public override void OnStartLocalPlayer()
     {
@@ -91,9 +114,27 @@ public class PokerPlayer : NetworkBehaviour
     public void RpcShowEnemyCardBacks()
     {
         if (isLocalPlayer) return;
+
+        // 开启协程，等待座位数据同步完毕后再画牌
+        StartCoroutine(WaitAndDrawEnemyCards());
+    }
+
+    // 专治网络延迟的缓冲协程
+    private System.Collections.IEnumerator WaitAndDrawEnemyCards()
+    {
+        // 核心：死等！直到自己的座位、对手的座位、全场总人数都不再是初始值 (-1 或 0)
+        while (PokerPlayer.LocalPlayer == null ||
+               PokerPlayer.LocalPlayer.seatIndex < 0 ||
+               this.seatIndex < 0 ||
+               ServerGameManager.Instance == null ||
+               ServerGameManager.Instance.totalSeatCount <= 0)
+        {
+            yield return null; // 等待下一帧
+        }
+
+        // 数据全部就绪，精准锁定座位，画出牌背！
         if (PokerUIManager.Instance != null)
         {
-            // 告诉 UI：给我 (this) 这个特定的对手画牌背！
             PokerUIManager.Instance.DrawEnemyCardBacks(this);
         }
     }
@@ -153,6 +194,11 @@ public class PokerPlayer : NetworkBehaviour
         skillDatabase.Add(3, new SwapSkill());
         skillDatabase.Add(4, new BlurSkill());
         skillDatabase.Add(5, new SensingSkill());
+        skillDatabase.Add(6, new InterfereSkill());
+        skillDatabase.Add(7, new ReflectWallSkill());
+        skillDatabase.Add(8, new WishSkill());
+        skillDatabase.Add(9, new MindControlSkill());
+        skillDatabase.Add(10, new ExchangeSkill());
     }
 
     [Command]
@@ -227,24 +273,61 @@ public class PokerPlayer : NetworkBehaviour
             if (p.serverIsSensing && p != this)
                 p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}在正向{targetName}发动技能[{skill.skillName}]");
         }
+
         // 1. 告诉施法者自己：显示蓝色进度条（不带抵抗按钮）
         if (this.connectionToClient != null)
         {
             TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skillID, skill.castTime, false, 0);
         }
 
+        // ==========================================
+        // 【新增修复】：提前找出第二目标，让它的作用域跨越整个协程
+        // ==========================================
+        PokerPlayer target2 = null;
+        if (skillID == 10 && this.dualTargetType == 0)
+        {
+            foreach (var p in ServerGameManager.Instance.activePlayers)
+            {
+                if (p.netId == this.dualTargetNetId) { target2 = p; break; }
+            }
+        }
+
         // 2. 告诉受害者：有人搞你！弹红色警报进度条！（带抵抗按钮）
         if (target != this && target != null)
         {
             int resistCost = skill.energyCost;
+            bool canResist = true;
+
+            // 如果受害者身上有反射壁，直接禁用他的抵抗按钮，让他舒舒服服看戏！
+            if (target.serverHasReflectWall)
+            {
+                canResist = false;
+            }
+
             if (target.connectionToClient != null)
             {
-                target.TargetStartCastingUI(target.connectionToClient, this.playerName, skill.skillName, skillID, skill.castTime, true, resistCost);
+                target.TargetStartCastingUI(target.connectionToClient, this.playerName, skill.skillName, skillID, skill.castTime, canResist, resistCost);
             }
-            // 服务器给受害者打上标记，允许他在这段时间内进行抵抗
             target.incomingAttacker = this;
             target.incomingResistCost = resistCost;
         }
+
+        // ==========================================
+        // 【新增修复】：10号技能专属的“第二目标”警告与抵抗判定
+        // ==========================================
+        if (target2 != this && target2 != null && target2 != target)
+        {
+            int resistCost2 = skill.energyCost;
+            bool canResist2 = !target2.serverHasReflectWall; // 有反射壁就不让抵抗，看戏
+
+            if (target2.connectionToClient != null)
+            {
+                target2.TargetStartCastingUI(target2.connectionToClient, this.playerName, skill.skillName, skillID, skill.castTime, canResist2, resistCost2);
+            }
+            target2.incomingAttacker = this;
+            target2.incomingResistCost = resistCost2;
+        }
+        // ==========================================
 
         yield return new WaitForSeconds(skill.castTime);
 
@@ -262,10 +345,65 @@ public class PokerPlayer : NetworkBehaviour
                     target.incomingAttacker = null;
                 }
             }
+
+            // ==========================================
+            // 【新增修复】：读条顺利结束，清理第二目标的警报
+            // ==========================================
+            if (target2 != this && target2 != null)
+            {
+                if (target2.connectionToClient != null) TargetStopCastingUI(target2.connectionToClient);
+                if (target2.incomingAttacker == this) target2.incomingAttacker = null;
+            }
+            // ==========================================
+
+            // 干扰技能的核心：结算失败率！
+            if (interferenceStacks > 0)
+            {
+                int failChance = interferenceStacks * 20;
+                int roll = Random.Range(0, 100); // 掷骰子 0~99
+
+                if (roll < failChance)
+                {
+                    if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"技能【{skill.skillName}】释放失败了！", 99);
+                    foreach (var p in ServerGameManager.Instance.activePlayers)
+                    {
+                        if (p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName} 的技能释放失败了！");
+                    }
+                    yield break; // 核心：直接 return，哑火
+                }
+            }
+
+            // 反射壁核心：智能避让与源头反噬
+            if (target != this && target != null && targetType == 0 && target.serverHasReflectWall)
+            {
+                List<PokerPlayer> unshieldedTargets = new List<PokerPlayer>();
+                List<PokerPlayer> allOtherTargets = new List<PokerPlayer>();
+
+                foreach (var p in ServerGameManager.Instance.activePlayers)
+                {
+                    if (p != target && !p.isFolded)
+                    {
+                        allOtherTargets.Add(p);
+                        if (!p.serverHasReflectWall) unshieldedTargets.Add(p);
+                    }
+                }
+
+                PokerPlayer newTarget = this;
+                string extraMsg = "";
+
+                if (unshieldedTargets.Count > 0) newTarget = unshieldedTargets[Random.Range(0, unshieldedTargets.Count)];
+                else { newTarget = this; extraMsg = "（全场反射壁共振，引发终极反噬！）"; }
+
+                if (target.connectionToClient != null) target.TargetReceiveSkillMessage(target.connectionToClient, $"成功反弹了 {this.playerName} 的【{skill.skillName}】！", 7);
+                if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"遭到反射壁反弹！技能误伤了 {newTarget.playerName}！{extraMsg}", 99);
+                if (newTarget != this && newTarget.connectionToClient != null) newTarget.TargetReceiveSkillMessage(newTarget.connectionToClient, $"注意！{this.playerName} 对 {target.playerName} 释放的【{skill.skillName}】被反弹给了你！", 99);
+
+                target = newTarget;
+            }
+
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
-                if (p.serverIsSensing && p != this)
-                    p.TargetReceiveSensingLog(p.connectionToClient, "使用成功！");
+                if (p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, "使用成功！");
             }
             skill.Execute(this, target, targetType, targetIndex, ServerGameManager.Instance);
         }
@@ -320,10 +458,20 @@ public class PokerPlayer : NetworkBehaviour
                 TargetStopCastingUI(resister.connectionToClient);
                 resister.TargetReceiveSkillMessage(resister.connectionToClient, $"你成功抵挡住了 {this.playerName} 的技能！", 99);
             }
+
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
                 if (p.serverIsSensing && p != this && p != resister)
                     p.TargetReceiveSensingLog(p.connectionToClient, "使用失败！");
+
+                // ==========================================
+                // 防止多人被锁定！强行解除全场所有被我攻击的人的受击状态
+                // ==========================================
+                if (p.incomingAttacker == this)
+                {
+                    p.incomingAttacker = null; // 解除锁定
+                    if (p.connectionToClient != null) p.TargetStopCastingUI(p.connectionToClient); // 强制关闭他们的抵抗面板
+                }
             }
         }
     }
@@ -420,19 +568,31 @@ public class PokerPlayer : NetworkBehaviour
     {
         if (ServerGameManager.Instance == null) return;
 
-        // 如果游戏已经开始了（不是大厅闲置状态），就把已经翻开的公牌发给这个新来的客户端！
-        if (ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle &&
-            ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.PreFlop)
+        // 1. 只要游戏已经开始了（不是大厅闲置状态），新进来的玩家就必须隐藏主菜单！
+        if (ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle)
         {
-            int revealedCount = ServerGameManager.Instance.serverCommunityCards.Count;
-            if (revealedCount > 0)
+            TargetHideMainMenuForLateJoiner(this.connectionToClient);
+
+            // 2. 只有在过了 PreFlop 阶段（意味着桌上有已经翻开的公牌了），才需要同步公牌数据
+            if (ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.PreFlop)
             {
-                // 把 List 转成数组发过去
-                TargetCatchUpCommunityCards(this.connectionToClient, revealedCount, ServerGameManager.Instance.serverCommunityCards.ToArray());
+                int revealedCount = ServerGameManager.Instance.serverCommunityCards.Count;
+                if (revealedCount > 0)
+                {
+                    TargetCatchUpCommunityCards(this.connectionToClient, revealedCount, ServerGameManager.Instance.serverCommunityCards.ToArray());
+                }
             }
         }
     }
 
+    [TargetRpc]
+    public void TargetHideMainMenuForLateJoiner(NetworkConnectionToClient target)
+    {
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.HideMainMenu();
+        }
+    }
     [TargetRpc]
     public void TargetCatchUpCommunityCards(NetworkConnectionToClient target, int count, Card[] cards)
     {
@@ -442,5 +602,36 @@ public class PokerPlayer : NetworkBehaviour
             // 复用我们之前的发牌函数，瞬间把牌翻开！
             PokerUIManager.Instance.RevealCommunityCards(0, count, cards);
         }
+    }
+    // 受到脑控时的处理逻辑
+    public void ApplyMindControl()
+    {
+        serverIsMindControlled = true;
+
+        if (this.connectionToClient != null)
+        {
+            // 同步给本地 UI
+            TargetSetMindControlState(this.connectionToClient, true);
+            // 弹个惊悚的提示
+            TargetReceiveSkillMessage(this.connectionToClient, "警告！你的大脑被黑入，本局无法执行【弃牌】指令！", 9);
+        }
+    }
+
+    [TargetRpc]
+    public void TargetSetMindControlState(NetworkConnectionToClient conn, bool state)
+    {
+        localIsMindControlled = state;
+    }
+    // 专门给 10 号技能使用的双目标施法指令
+    [Command]
+    public void CmdCastDualTargetSkill(int skillID, uint netId1, int type1, int idx1, uint netId2, int type2, int idx2)
+    {
+        // 暂存目标 2 的信息在服务器上
+        this.dualTargetNetId = netId2;
+        this.dualTargetType = type2;
+        this.dualTargetIndex = idx2;
+
+        // 复用原有的单目标施法流程，把目标 1 传进去启动协程
+        ServerCastSkill(skillID, netId1, type1, idx1);
     }
 }

@@ -97,6 +97,7 @@ public class PokerUIManager : MonoBehaviour
     public UnityEngine.UI.Button btnSensingSkill;           // 你的感应技能按钮 (用来禁用它)
     public Material blurMaterial;             // 我们刚才做的高斯模糊材质球
     private bool isCurrentlyBlurred = false; // 记录当前是否处于被模糊状态
+    private CardTarget firstSelectedCard = null;
 
     [Header("7. 消息瀑布流 (Message Feed)")]
     public Transform messageFeedContainer;
@@ -170,6 +171,22 @@ public class PokerUIManager : MonoBehaviour
         if (PokerPlayer.LocalPlayer != null)
             PokerPlayer.LocalPlayer.CmdCall();
     }
+    public void OnBtnReflectWallClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            // 自己对自己释放，不需要坐标
+            PokerPlayer.LocalPlayer.CmdCastSkill(7, PokerPlayer.LocalPlayer.netId, 0, -1);
+        }
+    }
+    public void OnBtnWishClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            // 许愿是对自己用的，不需要黑幕点选目标
+            PokerPlayer.LocalPlayer.CmdCastSkill(8, PokerPlayer.LocalPlayer.netId, 0, -1);
+        }
+    }
 
     // ==========================================
     // 动态加注面板系统
@@ -188,6 +205,12 @@ public class PokerUIManager : MonoBehaviour
         int minRaiseDelta = ServerGameManager.Instance.currentMinRaise;
         // 最大能加注的幅度（我所有的筹码 - 需要跟注的钱）
         int maxRaiseDelta = p.chips - callAmount;
+
+        if (maxRaiseDelta < 0)
+        {
+            Debug.LogWarning("你的筹码已不足以支持加注操作！只能跟注(All-in)或弃牌。");
+            return; // 直接 return，连面板都不让它弹出来！
+        }
 
         if (raisePanel != null) raisePanel.SetActive(true);
 
@@ -631,7 +654,8 @@ public class PokerUIManager : MonoBehaviour
                                 ServerGameManager.Instance != null &&
                                 ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle;
 
-            if (btnFold != null) btnFold.interactable = myTurn;
+            if (btnFold != null)
+                btnFold.interactable = myTurn && !isSpectating && !PokerPlayer.LocalPlayer.localIsMindControlled;
             if (btnCall != null) btnCall.interactable = myTurn;
             if (btnRaise != null) btnRaise.interactable = myTurn;
 
@@ -734,6 +758,9 @@ public class PokerUIManager : MonoBehaviour
 
     public void OnBtnPeekClicked() { EnterTargetingMode(1); }
     public void OnBtnBlurClicked() { EnterTargetingMode(4); }
+    public void OnBtnInterfereClicked() { EnterTargetingMode(6); }
+    public void OnBtnMindControlClicked() { EnterTargetingMode(9); }
+    public void OnBtnExchangeClicked() { EnterTargetingMode(10); }
 
     // 2. 显示施法进度条
     // 2. 生成带有进度条和抵抗按钮的施法消息
@@ -994,6 +1021,7 @@ public class PokerUIManager : MonoBehaviour
     // ==========================================
     private void EnterTargetingMode(int skillID)
     {
+        firstSelectedCard = null;
         isTargeting = true;
         targetingSkillID = skillID;
         if (targetingMask != null) targetingMask.SetActive(true);
@@ -1020,6 +1048,14 @@ public class PokerUIManager : MonoBehaviour
         targetingSkillID = -1;
         if (targetingMask != null) targetingMask.SetActive(false);
 
+        // 如果选了一半玩家按右键/ESC取消了施法，恢复第一张牌的状态
+        if (firstSelectedCard != null)
+        {
+            SetSingleCardDarkened(firstSelectedCard, false);
+            SetCardMarker(firstSelectedCard, false); // 隐藏选中标记
+            firstSelectedCard = null;
+        }
+
         // 所有牌恢复原状
         CardTarget[] allCards = FindObjectsOfType<CardTarget>();
         foreach (var c in allCards)
@@ -1035,12 +1071,13 @@ public class PokerUIManager : MonoBehaviour
             if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
             if (c.targetType == 1 && !c.isRevealed) return true;
         }
-        else if (skillID == 3) // 换牌：所有人手牌、未翻开的公牌
+        else if (skillID == 3 || skillID == 10) // 换牌：所有人手牌、未翻开的公牌
         {
             if (c.targetType == 0) return true;
             if (c.targetType == 1 && !c.isRevealed) return true;
         }
-        else if (skillID == 4) // 模糊：敌方手牌
+        // 【修改】模糊、干扰、脑控：目标都是敌方的任意一张手牌（代表选中该玩家）
+        else if (skillID == 4 || skillID == 6 || skillID == 9) 
         {
             if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
         }
@@ -1051,7 +1088,7 @@ public class PokerUIManager : MonoBehaviour
     {
         if (!isTargeting || !IsValidTarget(c, targetingSkillID)) return;
 
-        if (targetingSkillID == 4) // 模糊特权：悬停一张，两张同亮！
+        if (targetingSkillID == 4 || targetingSkillID == 6 || targetingSkillID == 9)
         {
             CardTarget[] allCards = FindObjectsOfType<CardTarget>();
             foreach (var card in allCards)
@@ -1076,6 +1113,48 @@ public class PokerUIManager : MonoBehaviour
     public void OnCardClicked(CardTarget c)
     {
         if (!isTargeting || !IsValidTarget(c, targetingSkillID)) return;
+
+        // ==========================================
+        // 10 号技能专属的“两次点击与撤销”判定
+        // ==========================================
+        if (targetingSkillID == 10)
+        {
+            if (firstSelectedCard == null)
+            {
+                // 第一次点击：记录、压暗、显示标记！
+                firstSelectedCard = c;
+                SetSingleCardDarkened(c, true);
+                SetCardMarker(c, true);
+                return;
+            }
+            else
+            {
+                // 已经选了一张了，这是第二次点击
+                if (firstSelectedCard == c)
+                {
+                    // 两次点的是同一张牌！反悔了！
+                    SetSingleCardDarkened(firstSelectedCard, false);
+                    SetCardMarker(firstSelectedCard, false);
+                    firstSelectedCard = null; // 清空记录，重新开始选第一张
+                    return;
+                }
+
+                // 点的是另一张牌：双目标收集完毕，发招！
+                PokerPlayer.LocalPlayer.CmdCastDualTargetSkill(
+                    10,
+                    firstSelectedCard.ownerNetId, firstSelectedCard.targetType, firstSelectedCard.targetIndex,
+                    c.ownerNetId, c.targetType, c.targetIndex
+                );
+
+                // 发招后：清理第一张牌的状态、隐藏标记
+                SetSingleCardDarkened(firstSelectedCard, false);
+                SetCardMarker(firstSelectedCard, false);
+                firstSelectedCard = null;
+
+                CancelTargeting(); // 关闭黑幕，退出施法模式
+                return;
+            }
+        }
 
         // 致命一击：把精准坐标发给服务器！
         PokerPlayer.LocalPlayer.CmdCastSkill(targetingSkillID, c.ownerNetId, c.targetType, c.targetIndex);
@@ -1397,5 +1476,87 @@ public class PokerUIManager : MonoBehaviour
         if (btnSensingSkill != null) btnSensingSkill.interactable = !isActive;
         if (sensingBuffNode != null) sensingBuffNode.SetActive(false);
         if (sensingCountdownText != null) sensingCountdownText.gameObject.SetActive(false);
+    }
+    // ==========================================
+    // 刷新单张公共牌 UI (被 10 号技能调用)
+    // ==========================================
+    // ==========================================
+    // 刷新单张公共牌 UI (被 10 号技能调用)
+    // ==========================================
+    public void UpdateCommunityCardUI(int cardIndex, Suit newSuit, Rank newRank)
+    {
+        // 确保公共牌父节点存在，且索引没有越界
+        if (communityArea != null && cardIndex >= 0 && cardIndex < communityArea.childCount)
+        {
+            Transform cardObj = communityArea.GetChild(cardIndex);
+            CardView cv = cardObj.GetComponent<CardView>();
+
+            if (cv != null)
+            {
+                // 创建一张临时卡牌喂给它自己的方法
+                Card tempCard = new Card();
+                tempCard.suit = newSuit;
+                tempCard.rank = newRank;
+
+                // 复用你已经写好的 SetCard 刷新图片！
+                cv.SetCard(tempCard, true);
+
+                // 顺手恢复高亮颜色
+                Image[] allImages = cardObj.GetComponentsInChildren<Image>();
+                foreach (Image img in allImages)
+                {
+                    img.color = Color.white;
+                }
+            }
+        }
+    }
+    // ==========================================
+    // 视觉效果：单张卡牌变暗 (专供 10 号技能使用)
+    // ==========================================
+    private void SetSingleCardDarkened(CardTarget c, bool isDarkened)
+    {
+        if (c == null) return;
+
+        // 直接获取这张牌自己以及身上所有的 Image 组件，不再用 foreach 去找子物体
+        UnityEngine.UI.Image[] allImages = c.GetComponentsInChildren<UnityEngine.UI.Image>();
+        foreach (UnityEngine.UI.Image img in allImages)
+        {
+            if (isDarkened)
+            {
+                img.color = new Color(0.3f, 0.3f, 0.3f, 1f); // 变暗
+            }
+            else
+            {
+                // 恢复时防止覆盖掉“模糊”技能特有的暗度
+                if (img.color == new Color(0.3f, 0.3f, 0.3f, 1f))
+                {
+                    img.color = Color.white;
+                }
+            }
+        }
+    }
+    // ==========================================
+    // 视觉效果：控制卡牌选中标记的显示/隐藏
+    // ==========================================
+    private void SetCardMarker(CardTarget c, bool show)
+    {
+        if (c == null) return;
+
+        // 尝试寻找你刚才在预制体里添加的那个名叫 "SelectedMarker" 的节点
+        Transform marker = c.transform.Find("SelectedMarker");
+        if (marker != null)
+        {
+            marker.gameObject.SetActive(show);
+        }
+        else
+        {
+            // 【备选方案】：如果你没在预制体里加节点，我们就简单粗暴地把它染成绿色！
+            UnityEngine.UI.Image[] allImages = c.GetComponentsInChildren<UnityEngine.UI.Image>();
+            foreach (UnityEngine.UI.Image img in allImages)
+            {
+                if (show) img.color = Color.green;
+                else if (img.color == Color.green) img.color = Color.white;
+            }
+        }
     }
 }

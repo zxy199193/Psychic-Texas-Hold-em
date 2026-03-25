@@ -49,4 +49,32 @@ public class Deck
         cards.RemoveAt(0);
         return c;
     }
+    // ==========================================
+    // 许愿技能专用：定向抽取 J, Q, K, A
+    // ==========================================
+    public Card DrawWishCard()
+    {
+        // 1. 找出当前牌库里所有符合条件的大牌 (11=J, 12=Q, 13=K, 14=A)
+        List<Card> highCards = cards.FindAll(c =>
+            c.rank == Rank.Jack ||
+            c.rank == Rank.Queen ||
+            c.rank == Rank.King ||
+            c.rank == Rank.Ace);
+
+        // 2. 如果牌库里还有大牌（通常是足够的）
+        if (highCards.Count > 0)
+        {
+            // 随机挑出其中一张
+            int randomIndex = rng.Next(highCards.Count);
+            Card selectedCard = highCards[randomIndex];
+
+            // 核心：必须把这张牌从真实的剩余牌库中抽走，防止发出重复的牌！
+            cards.Remove(selectedCard);
+            return selectedCard;
+        }
+
+        // 3. 极端兜底情况（基本不可能发生）：大牌都被抽光了，只能正常发一张
+        Debug.LogWarning("牌库里的大牌被抽光了，许愿降级为普通抽牌！");
+        return Draw();
+    }
 }
