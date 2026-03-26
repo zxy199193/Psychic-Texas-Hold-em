@@ -17,6 +17,15 @@ public class SkillConfig
     public bool requiresTargeting; // true: 需要选牌(如换牌/透视), false: 瞬发/对自己释放(如反射壁/许愿)
 }
 
+[System.Serializable]
+public class TrinketConfig
+{
+    public int trinketID;
+    public string trinketName;
+    public Sprite icon;
+    public string description;
+}
+
 public class PokerUIManager : MonoBehaviour
 {
     public static PokerUIManager Instance;
@@ -70,6 +79,8 @@ public class PokerUIManager : MonoBehaviour
     public Text myHandTypeText;       // 牌型文字
     public GameObject myTurnHighlightNode; //轮到自己时的黄色高亮边框节点
     private bool wasMyTurnLastFrame = false; // 记录上一帧是不是我的回合，防止音效每秒响60次
+    public Transform inGameTrinketContainer; // 饰品排列的 Layout 容器节点
+    public GameObject inGameTrinketPrefab;   // 局内饰品预制体
 
     [Header("4. 对手玩家 UI (Enemy Players)")]
     public GameObject[] enemySeats;       // 对手座位总节点
@@ -140,6 +151,16 @@ public class PokerUIManager : MonoBehaviour
     [Header("9. 战前技能装配 (Loadout System)")]
     public List<SkillConfig> allSkillConfigs = new List<SkillConfig>(); // 你在面板里填的所有技能数据
 
+    [Header("10. 战前饰品装配 (Trinket System)")]
+    public List<TrinketConfig> allTrinketConfigs = new List<TrinketConfig>();
+    public Transform lobbyTrinketContainer;
+    public GameObject lobbyTrinketItemPrefab;
+    private List<int> localSelectedTrinkets = new List<int>();
+    public Text selectedTrinketCountText;
+    public int maxTrinketSelection = 1;
+
+    private bool hasSyncedSkillsThisSession = false; // 用于联网自动同步防漏
+
     [Header("局内动态技能栏 UI")]
     public Transform inGameSkillBar;          // 局内底部真正的技能栏 Layout 节点
     public GameObject inGameSkillBtnPrefab;   // 局内实际使用的技能按钮预制体
@@ -154,6 +175,7 @@ public class PokerUIManager : MonoBehaviour
     {
         Instance = this;
         InitLobbySkillSelection();
+        InitLobbyTrinketSelection();
     }
 
     public void ShowMyHoleCards(Card c1, Card c2)
@@ -442,6 +464,7 @@ public class PokerUIManager : MonoBehaviour
             skillSelectionPanel.SetActive(false);
         }
         GenerateInGameSkillBar();
+        GenerateInGameTrinketUI();
     }
     // 动态生成局内技能栏
     // 安全赋值工具：防止文本组件挂错导致崩溃
@@ -515,7 +538,66 @@ public class PokerUIManager : MonoBehaviour
             }
         }
     }
+    // 动态生成局内饰品 UI (支持多饰品 & 自动悬停绑定)
+    private void GenerateInGameTrinketUI()
+    {
+        // 1. 先清空容器里的旧数据
+        ClearArea(inGameTrinketContainer);
 
+        if (inGameTrinketContainer == null || inGameTrinketPrefab == null) return;
+
+        // 2. 遍历你选中的所有饰品
+        foreach (int equippedID in localSelectedTrinkets)
+        {
+            TrinketConfig config = allTrinketConfigs.Find(c => c.trinketID == equippedID);
+            if (config == null) continue;
+
+            // 3. 生成饰品图标实例
+            GameObject go = Instantiate(inGameTrinketPrefab, inGameTrinketContainer);
+
+            // 4. 使用神级工具寻找子节点 (名字必须和预制体里的一致)
+            UnityEngine.UI.Image iconImg = go.GetComponent<UnityEngine.UI.Image>();
+            Transform tooltipTransform = DeepFind(go.transform, "Tip");
+            Transform nameTransform = DeepFind(go.transform, "Text Name");
+            Transform descTransform = DeepFind(go.transform, "Text Des");
+
+            // 赋值图标
+            if (iconImg != null) iconImg.sprite = config.icon;
+
+            GameObject tooltipObj = null;
+            if (tooltipTransform != null)
+            {
+                tooltipObj = tooltipTransform.gameObject;
+                tooltipObj.SetActive(false); // 初始状态隐藏浮窗
+            }
+
+            // 赋值文字
+            SafeSetText(nameTransform, config.trinketName);
+            SafeSetText(descTransform, config.description);
+
+            // ==========================================
+            // 5. 核心魔法：代码全自动绑定鼠标悬停事件！
+            // ==========================================
+            if (tooltipObj != null)
+            {
+                // 动态给这个图标挂上 EventTrigger 组件
+                UnityEngine.EventSystems.EventTrigger trigger = go.GetComponent<UnityEngine.EventSystems.EventTrigger>();
+                if (trigger == null) trigger = go.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+
+                // 注册“鼠标移入”事件：显示它自己的浮窗
+                UnityEngine.EventSystems.EventTrigger.Entry enterEntry = new UnityEngine.EventSystems.EventTrigger.Entry();
+                enterEntry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerEnter;
+                enterEntry.callback.AddListener((data) => { tooltipObj.SetActive(true); });
+                trigger.triggers.Add(enterEntry);
+
+                // 注册“鼠标移出”事件：隐藏浮窗
+                UnityEngine.EventSystems.EventTrigger.Entry exitEntry = new UnityEngine.EventSystems.EventTrigger.Entry();
+                exitEntry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerExit;
+                exitEntry.callback.AddListener((data) => { tooltipObj.SetActive(false); });
+                trigger.triggers.Add(exitEntry);
+            }
+        }
+    }
     // 统一的技能发包枢纽
     private void OnDynamicSkillClicked(SkillConfig config)
     {
@@ -535,6 +617,17 @@ public class PokerUIManager : MonoBehaviour
 
     private void Update()
     {
+        // 全自动防漏同步器
+        if (PokerPlayer.LocalPlayer != null && !hasSyncedSkillsThisSession)
+        {
+            PokerPlayer.LocalPlayer.CmdUpdateEquippedSkills(localSelectedSkills.ToArray());
+            PokerPlayer.LocalPlayer.CmdUpdateEquippedTrinkets(localSelectedTrinkets.ToArray());
+            hasSyncedSkillsThisSession = true;
+        }
+        else if (PokerPlayer.LocalPlayer == null)
+        {
+            hasSyncedSkillsThisSession = false;
+        }
         // 1. 刷新全局的奖池和最高下注额
         if (ServerGameManager.Instance != null)
         {
@@ -1720,8 +1813,8 @@ public class PokerUIManager : MonoBehaviour
             // 使用 ? 安全符，找不到对应的 Text 节点就不赋值，不会报错
             if (nameTransform != null) nameTransform.GetComponent<UnityEngine.UI.Text>().text = config.skillName;
             if (descTransform != null) descTransform.GetComponent<UnityEngine.UI.Text>().text = config.description;
-            if (timeTransform != null) timeTransform.GetComponent<UnityEngine.UI.Text>().text = config.castTime > 0 ? $"读条: {config.castTime}秒" : "瞬发";
-            if (costTransform != null) costTransform.GetComponent<UnityEngine.UI.Text>().text = $"耗蓝: {config.energyCost}";
+            if (timeTransform != null) timeTransform.GetComponent<UnityEngine.UI.Text>().text = config.castTime > 0 ? $"{config.castTime}" : "0";
+            if (costTransform != null) costTransform.GetComponent<UnityEngine.UI.Text>().text = $"{config.energyCost}";
 
             // 5. 绑定点击事件：选中或取消选中
             btn.onClick.AddListener(() =>
@@ -1748,6 +1841,63 @@ public class PokerUIManager : MonoBehaviour
                 if (PokerPlayer.LocalPlayer != null)
                 {
                     PokerPlayer.LocalPlayer.CmdUpdateEquippedSkills(localSelectedSkills.ToArray());
+                }
+            });
+        }
+    }
+    public void InitLobbyTrinketSelection()
+    {
+        ClearArea(lobbyTrinketContainer);
+        localSelectedTrinkets.Clear();
+        if (selectedTrinketCountText != null) selectedTrinketCountText.text = $"已选饰品: 0/{maxTrinketSelection}";
+
+        foreach (var config in allTrinketConfigs)
+        {
+            if (config == null) continue;
+
+            GameObject go = Instantiate(lobbyTrinketItemPrefab, lobbyTrinketContainer);
+
+            Transform iconTransform = DeepFind(go.transform, "Image Icon");
+            Transform nameTransform = DeepFind(go.transform, "Text Name");
+            Transform descTransform = DeepFind(go.transform, "Text Des");
+            Transform markerTransform = DeepFind(go.transform, "Image Selection Marker");
+
+            if (iconTransform == null || markerTransform == null) continue;
+
+            UnityEngine.UI.Image iconImg = iconTransform.GetComponent<UnityEngine.UI.Image>();
+            if (iconImg != null) iconImg.sprite = config.icon;
+
+            markerTransform.gameObject.SetActive(false);
+            SafeSetText(nameTransform, config.trinketName);
+            SafeSetText(descTransform, config.description);
+
+            UnityEngine.UI.Button btn = go.GetComponent<UnityEngine.UI.Button>();
+            if (btn == null) continue;
+
+            btn.onClick.AddListener(() =>
+            {
+                if (localSelectedTrinkets.Contains(config.trinketID))
+                {
+                    localSelectedTrinkets.Remove(config.trinketID);
+                    markerTransform.gameObject.SetActive(false);
+                }
+                else
+                {
+                    if (localSelectedTrinkets.Count >= maxTrinketSelection)
+                    {
+                        Debug.LogWarning($"最多只能选 {maxTrinketSelection} 个饰品！");
+                        return;
+                    }
+                    localSelectedTrinkets.Add(config.trinketID);
+                    markerTransform.gameObject.SetActive(true);
+                }
+
+                if (selectedTrinketCountText != null)
+                    selectedTrinketCountText.text = $"已选饰品: {localSelectedTrinkets.Count}/{maxTrinketSelection}";
+
+                if (PokerPlayer.LocalPlayer != null)
+                {
+                    PokerPlayer.LocalPlayer.CmdUpdateEquippedTrinkets(localSelectedTrinkets.ToArray());
                 }
             });
         }

@@ -77,4 +77,26 @@ public class Deck
         Debug.LogWarning("牌库里的大牌被抽光了，许愿降级为普通抽牌！");
         return Draw();
     }
+
+    // ==========================================
+    // 饰品【神像】专用：极限抽取 Q, K, A
+    // ==========================================
+    public Card DrawSuperWishCard()
+    {
+        List<Card> superCards = cards.FindAll(c =>
+            c.rank == Rank.Queen ||
+            c.rank == Rank.King ||
+            c.rank == Rank.Ace);
+
+        if (superCards.Count > 0)
+        {
+            int randomIndex = rng.Next(superCards.Count);
+            Card selectedCard = superCards[randomIndex];
+            cards.Remove(selectedCard);
+            return selectedCard;
+        }
+
+        Debug.LogWarning("牌库里的 QKA 被抽光了！神像降级为普通许愿(含J)！");
+        return DrawWishCard(); // 兜底：去找 JQKA
+    }
 }

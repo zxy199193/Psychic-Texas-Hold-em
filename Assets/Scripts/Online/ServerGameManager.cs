@@ -112,6 +112,9 @@ public class ServerGameManager : NetworkBehaviour
                         botPlayer.equippedSkills.Add(allSkillPool[randIdx]);
                         allSkillPool.RemoveAt(randIdx); // 抽走不放回
                     }
+                    // 给机器人随机发 1 个饰品 (ID 1~8)
+                    botPlayer.equippedTrinkets.Clear();
+                    botPlayer.equippedTrinkets.Add(Random.Range(1, 9));
                 }
             }
         }
@@ -190,8 +193,14 @@ public class ServerGameManager : NetworkBehaviour
         // ==========================================
         foreach (PokerPlayer p in activePlayers)
         {
-            if (isFirstHand) p.energy = initialEnergy;
-            else p.energy = Mathf.Clamp(p.energy + roundEnergyRegen, 0, maxEnergy);
+            // 1. 获取饰品修饰后的属性！
+            int playerMaxEnergy = p.GetMaxEnergy(maxEnergy);
+            int playerRegen = p.GetEnergyRegen(roundEnergyRegen);
+            int playerInit = p.GetInitialEnergy(initialEnergy);
+
+            // 【王冠起效】：自动回蓝与初始蓝量被覆盖
+            if (isFirstHand) p.energy = playerInit;
+            else p.energy = Mathf.Clamp(p.energy + playerRegen, 0, playerMaxEnergy);
 
             // 这里的重置必须放在扣盲注前面，否则会把盲注洗掉！
             p.currentBet = 0;
@@ -199,7 +208,7 @@ public class ServerGameManager : NetworkBehaviour
             p.isAllIn = false;
             p.hasActed = false;
             p.serverIsSensing = false;
-            p.interferenceStacks = 0;
+            p.interferenceRate = 0;
             p.serverHasReflectWall = false;
             p.serverIsMindControlled = false;
             if (p.connectionToClient != null) p.TargetSetSensingState(p.connectionToClient, false);
@@ -212,18 +221,25 @@ public class ServerGameManager : NetworkBehaviour
             // ==========================================
             if (p.serverHasWishBuff)
             {
-                // 使用我们刚写的“出老千”发牌器！
-                c1 = deck.DrawWishCard();
-                c2 = deck.DrawWishCard();
-
-                // 【核心细节】：发完牌后，把 Buff 消耗掉！否则他以后把把都是天胡
+                // 【神像起效】：如果有神像，用超级发牌器！
+                if (p.equippedTrinkets.Contains(8))
+                {
+                    c1 = deck.DrawSuperWishCard();
+                    c2 = deck.DrawSuperWishCard();
+                }
+                else
+                {
+                    c1 = deck.DrawWishCard();
+                    c2 = deck.DrawWishCard();
+                }
                 p.serverHasWishBuff = false;
-
-                Debug.Log($"[许愿生效] 玩家 {p.playerName} 通过许愿获得了 {c1} 和 {c2}");
             }
             else
             {
-                // 普通玩家，正常发牌
+                // ==========================================
+                // 【致命修复】：兜底的正常发牌逻辑！
+                // 绝大多数没有许愿的人，都必须从牌堆正常抽两张！
+                // ==========================================
                 c1 = deck.Draw();
                 c2 = deck.Draw();
             }
@@ -377,7 +393,10 @@ public class ServerGameManager : NetworkBehaviour
             foreach (var pot in serverPots) totalWin += pot.amount;
 
             winner.chips += totalWin;
-            winner.energy = Mathf.Clamp(winner.energy + winnerBonus, 0, maxEnergy);
+            // 【王冠起效】
+            int playerMaxE = winner.GetMaxEnergy(maxEnergy);
+            int actualBonus = winner.GetWinEnergyBonus(winnerBonus);
+            winner.energy = Mathf.Clamp(winner.energy + actualBonus, 0, playerMaxE);
 
             RpcShowResult($"{winner.playerName} 赢得 {totalWin} 筹码！(对手弃牌)", 3);
             StartCoroutine(WaitAndStartNextHand(3f));

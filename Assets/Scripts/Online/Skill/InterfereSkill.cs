@@ -10,24 +10,15 @@ public class InterfereSkill : BaseSkill
         castTime = 1.0f;         // 读条 1 秒
     }
 
-    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
+    public override void Execute(PokerPlayer caster, PokerPlayer target1, int type1, int index1, ServerGameManager serverContext)
     {
-        if (target == null) return;
+        // 核心：调用施法者的饰品计算器！(没音叉就是 20，有音叉就是 30)
+        int rateToAdd = caster.GetInterfereRate(20);
 
-        // 核心逻辑：给目标叠加上 1 层干扰 Debuff
-        target.interferenceStacks++;
+        // 直接做加法！比如 A(30) + B(20) = 50% 总失败率！
+        target1.interferenceRate += rateToAdd;
 
-        // 告诉受害者客户端：你中招了！
-        if (target.connectionToClient != null)
-        {
-            int failChance = target.interferenceStacks * 20;
-            target.TargetReceiveSkillMessage(target.connectionToClient, $"你受到了干扰，本局技能有{failChance}%概率失败！", 6);
-        }
-
-        // 悄悄话通知施法者：施法成功
         if (caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！{target.playerName} 被施加了干扰！", 6);
-        }
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"干扰成功！[{target1.playerName}] 的下一次施法有 {target1.interferenceRate}% 的概率直接哑火！", 5);
     }
 }
