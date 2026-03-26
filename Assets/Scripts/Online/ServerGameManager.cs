@@ -86,11 +86,11 @@ public class ServerGameManager : NetworkBehaviour
     {
         if (hasGameStarted) return;
         isShortDeckMode = isShortDeck;
-        // 1. 盘点当前房间里的真人数量
+
         activePlayers.Clear();
         activePlayers.AddRange(FindObjectsOfType<PokerPlayer>());
 
-        // 2. 智能补位逻辑：如果勾选了补齐机器人，且人数不足 6 人
+        // 2. 智能补位逻辑：生成机器人并分配随机技能
         if (fillBots)
         {
             int botsNeeded = 6 - activePlayers.Count;
@@ -99,17 +99,25 @@ public class ServerGameManager : NetworkBehaviour
                 if (botPrefab != null)
                 {
                     GameObject botGo = Instantiate(botPrefab);
+                    PokerPlayer botPlayer = botGo.GetComponent<PokerPlayer>();
                     NetworkServer.Spawn(botGo); // 瞬间生成并同步给全网
+
+                    // 给机器人随机抽取最多 5 个技能
+                    List<int> allSkillPool = new List<int> { 2, 3, 4, 5, 6, 7, 8, 9 };
+                    botPlayer.equippedSkills.Clear();
+                    for (int s = 0; s < 3; s++) // 抽3个
+                    {
+                        if (allSkillPool.Count == 0) break;
+                        int randIdx = Random.Range(0, allSkillPool.Count);
+                        botPlayer.equippedSkills.Add(allSkillPool[randIdx]);
+                        allSkillPool.RemoveAt(randIdx); // 抽走不放回
+                    }
                 }
             }
         }
 
         hasGameStarted = true;
-
-        // 3. 广播给全网所有玩家：把主菜单遮罩收起来！
         RpcHideMainMenu();
-
-        // 4. 荷官开始洗牌发牌！
         StartNewHand();
     }
 

@@ -4,7 +4,7 @@ public class WishSkill : BaseSkill
 {
     public WishSkill()
     {
-        skillID = 8;             // 注册为 8 号技能
+        skillID = 6;             // 注册为 8 号技能
         skillName = "许愿";
         energyCost = 5;          // 耗蓝 5
         castTime = 5.0f;         // 读条 5 秒

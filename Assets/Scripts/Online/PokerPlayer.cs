@@ -23,6 +23,10 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar] public bool isDealer = false;
     [SyncVar] public int seatIndex = -1; // 固定座位号，防掉线漂移
     // ==========================================
+    // 玩家当前装备的技能库 (最大长度 5)
+    // ==========================================
+    public readonly SyncList<int> equippedSkills = new SyncList<int>();
+    // ==========================================
     // 超能力施法与抵抗状态记录 (仅服务器使用)
     // ==========================================
     private Coroutine currentCastCoroutine;
@@ -54,7 +58,7 @@ public class PokerPlayer : NetworkBehaviour
     public bool serverIsMindControlled = false; // 服务器记录：该玩家是否被脑控
     public bool localIsMindControlled = false;  // 客户端记录：本地 UI 锁死判定
     // ==========================================
-    // 10 号技能专用的第二目标缓存
+    // 7 号技能专用的第二目标缓存
     // ==========================================
     [HideInInspector] public uint dualTargetNetId;
     [HideInInspector] public int dualTargetType;
@@ -180,6 +184,19 @@ public class PokerPlayer : NetworkBehaviour
     {
         ServerGameManager.Instance.HandlePlayerRaise(this, amount);
     }
+
+    [Command]
+    public void CmdUpdateEquippedSkills(int[] selectedSkillIDs)
+    {
+        // 游戏一旦开始就不能换技能了 (后续加中场休息再放开这个限制)
+        if (ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle) return;
+
+        equippedSkills.Clear();
+        foreach (int id in selectedSkillIDs)
+        {
+            equippedSkills.Add(id);
+        }
+    }
     // ==========================================
     // 魔改技能系统核心
     // ==========================================
@@ -190,15 +207,15 @@ public class PokerPlayer : NetworkBehaviour
     public override void OnStartServer()
     {
         base.OnStartServer();
-        skillDatabase.Add(1, new PeekSkill());
+        skillDatabase.Add(1, new SensingSkill());
+        skillDatabase.Add(2, new PeekSkill());
         skillDatabase.Add(3, new SwapSkill());
         skillDatabase.Add(4, new BlurSkill());
-        skillDatabase.Add(5, new SensingSkill());
-        skillDatabase.Add(6, new InterfereSkill());
-        skillDatabase.Add(7, new ReflectWallSkill());
-        skillDatabase.Add(8, new WishSkill());
+        skillDatabase.Add(5, new InterfereSkill());
+        skillDatabase.Add(6, new WishSkill());
+        skillDatabase.Add(7, new ExchangeSkill());
+        skillDatabase.Add(8, new ReflectWallSkill());
         skillDatabase.Add(9, new MindControlSkill());
-        skillDatabase.Add(10, new ExchangeSkill());
     }
 
     [Command]
@@ -212,6 +229,15 @@ public class PokerPlayer : NetworkBehaviour
     public void ServerCastSkill(int skillID, uint targetNetId, int targetType, int targetIndex)
     {
         if (!skillDatabase.ContainsKey(skillID)) return;
+        // ==========================================
+        // 【安全锁】：只能使用自己装备了的技能！
+        // ==========================================
+        if (!equippedSkills.Contains(skillID))
+        {
+            if (this.connectionToClient != null)
+                TargetReceiveSkillMessage(this.connectionToClient, "非法操作：你并未装备该技能！", 0);
+            return;
+        }
         BaseSkill skillToCast = skillDatabase[skillID];
 
         // 1. 动态耗蓝计算
@@ -284,7 +310,7 @@ public class PokerPlayer : NetworkBehaviour
         // 【新增修复】：提前找出第二目标，让它的作用域跨越整个协程
         // ==========================================
         PokerPlayer target2 = null;
-        if (skillID == 10 && this.dualTargetType == 0)
+        if (skillID == 7 && this.dualTargetType == 0)
         {
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
@@ -313,7 +339,7 @@ public class PokerPlayer : NetworkBehaviour
         }
 
         // ==========================================
-        // 【新增修复】：10号技能专属的“第二目标”警告与抵抗判定
+        // 【新增修复】：7号技能专属的“第二目标”警告与抵抗判定
         // ==========================================
         if (target2 != this && target2 != null && target2 != target)
         {
@@ -622,7 +648,7 @@ public class PokerPlayer : NetworkBehaviour
     {
         localIsMindControlled = state;
     }
-    // 专门给 10 号技能使用的双目标施法指令
+    // 专门给 7 号技能使用的双目标施法指令
     [Command]
     public void CmdCastDualTargetSkill(int skillID, uint netId1, int type1, int idx1, uint netId2, int type2, int idx2)
     {

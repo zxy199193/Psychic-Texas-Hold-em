@@ -3,6 +3,20 @@ using Steamworks;
 using UnityEngine;
 using UnityEngine.UI;
 
+
+// 序列化的技能配置类，方便在 Inspector 里直接编辑
+[System.Serializable]
+public class SkillConfig
+{
+    public int skillID;
+    public string skillName;
+    public Sprite icon;
+    public int energyCost;
+    public float castTime;
+    public string description;
+    public bool requiresTargeting; // true: 需要选牌(如换牌/透视), false: 瞬发/对自己释放(如反射壁/许愿)
+}
+
 public class PokerUIManager : MonoBehaviour
 {
     public static PokerUIManager Instance;
@@ -17,6 +31,11 @@ public class PokerUIManager : MonoBehaviour
     public Toggle toggleFillBots;
     public Toggle toggleOfflineMode;
     public Toggle toggleShortDeck;
+    public GameObject skillSelectionPanel;
+    public Transform lobbySkillContainer;     // 大厅里装 10 个备选技能的 Layout 节点
+    public GameObject lobbySkillItemPrefab;   // 大厅里的技能图标预制体
+    private List<int> localSelectedSkills = new List<int>(); // 本地当前选中的技能
+    public Text selectedCountText;            // 显示 "已选 3/5" 的文字
 
     [Header("2. 全局牌桌 UI (Table Core)")]
     public Transform communityArea;       // 公共牌区域
@@ -118,6 +137,13 @@ public class PokerUIManager : MonoBehaviour
     public float cardFlySpeed = 0.3f;     // 飞牌速度
     private Dictionary<uint, int> playerLastBets = new Dictionary<uint, int>();
 
+    [Header("9. 战前技能装配 (Loadout System)")]
+    public List<SkillConfig> allSkillConfigs = new List<SkillConfig>(); // 你在面板里填的所有技能数据
+
+    [Header("局内动态技能栏 UI")]
+    public Transform inGameSkillBar;          // 局内底部真正的技能栏 Layout 节点
+    public GameObject inGameSkillBtnPrefab;   // 局内实际使用的技能按钮预制体
+
     // 发牌总管队列
     private List<GameObject> dealRound1 = new List<GameObject>();
     private List<GameObject> dealRound2 = new List<GameObject>();
@@ -127,6 +153,7 @@ public class PokerUIManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        InitLobbySkillSelection();
     }
 
     public void ShowMyHoleCards(Card c1, Card c2)
@@ -170,22 +197,6 @@ public class PokerUIManager : MonoBehaviour
     {
         if (PokerPlayer.LocalPlayer != null)
             PokerPlayer.LocalPlayer.CmdCall();
-    }
-    public void OnBtnReflectWallClicked()
-    {
-        if (PokerPlayer.LocalPlayer != null)
-        {
-            // 自己对自己释放，不需要坐标
-            PokerPlayer.LocalPlayer.CmdCastSkill(7, PokerPlayer.LocalPlayer.netId, 0, -1);
-        }
-    }
-    public void OnBtnWishClicked()
-    {
-        if (PokerPlayer.LocalPlayer != null)
-        {
-            // 许愿是对自己用的，不需要黑幕点选目标
-            PokerPlayer.LocalPlayer.CmdCastSkill(8, PokerPlayer.LocalPlayer.netId, 0, -1);
-        }
     }
 
     // ==========================================
@@ -404,6 +415,7 @@ public class PokerUIManager : MonoBehaviour
         // 只有房主能看到“开始游戏”和“机器人补位”
         if (btnStartGame != null) btnStartGame.gameObject.SetActive(isHost);
         if (toggleFillBots != null) toggleFillBots.gameObject.SetActive(isHost);
+        if (skillSelectionPanel != null) skillSelectionPanel.SetActive(true);
     }
 
     public void OnBtnStartGameClicked()
@@ -425,7 +437,102 @@ public class PokerUIManager : MonoBehaviour
         {
             mainMenuPanel.SetActive(false);
         }
+        if (skillSelectionPanel != null)
+        {
+            skillSelectionPanel.SetActive(false);
+        }
+        GenerateInGameSkillBar();
     }
+    // 动态生成局内技能栏
+    // 安全赋值工具：防止文本组件挂错导致崩溃
+    private void SafeSetText(Transform node, string content)
+    {
+        if (node == null) return;
+
+        UnityEngine.UI.Text txt = node.GetComponent<UnityEngine.UI.Text>();
+        if (txt != null)
+        {
+            txt.text = content;
+        }
+        else
+        {
+            Debug.LogError($"【UI错误】节点 '{node.name}' 找到了，但它身上没有普通的 'Text' 组件！");
+        }
+    }
+    // 动态生成局内技能栏 (支持显示名字 & 保留常驻技能版)
+    private void GenerateInGameSkillBar()
+    {
+        if (inGameSkillBar != null)
+        {
+            foreach (Transform child in inGameSkillBar)
+            {
+                if (child.name.Contains("(Clone)"))
+                {
+                    Destroy(child.gameObject);
+                }
+            }
+        }
+
+        if (PokerPlayer.LocalPlayer == null) return;
+
+        // 这里继续使用我们上次改的优先读取本地配置 localSelectedSkills
+        foreach (int equippedID in localSelectedSkills)
+        {
+            SkillConfig config = allSkillConfigs.Find(c => c.skillID == equippedID);
+            if (config == null) continue;
+
+            GameObject btnGo = Instantiate(inGameSkillBtnPrefab, inGameSkillBar);
+
+            Transform iconTransform = DeepFind(btnGo.transform, "Image Icon");
+            Transform costTransform = DeepFind(btnGo.transform, "Text Cost");
+            Transform nameTransform = DeepFind(btnGo.transform, "Text Name"); // 查找名字节点
+
+            // 安全赋值图标
+            if (iconTransform != null)
+            {
+                UnityEngine.UI.Image iconImg = iconTransform.GetComponent<UnityEngine.UI.Image>();
+                if (iconImg != null) iconImg.sprite = config.icon;
+                else Debug.LogWarning($"【局内UI警告】'Image Icon' 节点上没有 Image 组件！");
+            }
+            else
+            {
+                Debug.LogWarning($"【局内UI警告】找不到 'Image Icon' 节点！");
+            }
+
+            // 安全赋值耗蓝与名字
+            SafeSetText(costTransform, config.energyCost.ToString());
+            SafeSetText(nameTransform, config.skillName); // 赋值技能名字
+
+            // 安全获取按钮并绑定事件
+            UnityEngine.UI.Button btn = btnGo.GetComponent<UnityEngine.UI.Button>();
+            if (btn != null)
+            {
+                btn.onClick.AddListener(() => OnDynamicSkillClicked(config));
+            }
+            else
+            {
+                Debug.LogError($"【局内UI错误】技能按钮预制体最外层没有挂载 Button 组件！");
+            }
+        }
+    }
+
+    // 统一的技能发包枢纽
+    private void OnDynamicSkillClicked(SkillConfig config)
+    {
+        if (PokerPlayer.LocalPlayer == null) return;
+
+        if (config.requiresTargeting)
+        {
+            // 如果是换牌、透视这种需要点选目标的，调出黑幕
+            EnterTargetingMode(config.skillID);
+        }
+        else
+        {
+            // 如果是许愿、反射壁、感应这种给自己上的，直接向服务器瞬发！
+            PokerPlayer.LocalPlayer.CmdCastSkill(config.skillID, PokerPlayer.LocalPlayer.netId, 0, -1);
+        }
+    }
+
     private void Update()
     {
         // 1. 刷新全局的奖池和最高下注额
@@ -755,12 +862,33 @@ public class PokerUIManager : MonoBehaviour
     // ==========================================
     // 魔改技能 UI 接口
     // ==========================================
-
-    public void OnBtnPeekClicked() { EnterTargetingMode(1); }
+    public void OnBtnResistClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            PokerPlayer.LocalPlayer.CmdResist();
+            HideResistButtonState();
+        }
+    }
+    public void OnBtnSensingClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdCastSkill(1, PokerPlayer.LocalPlayer.netId, 0, -1);
+    }
+    public void OnBtnPeekClicked() { EnterTargetingMode(2); }
+    public void OnBtnSwapClicked() { EnterTargetingMode(3); }
     public void OnBtnBlurClicked() { EnterTargetingMode(4); }
-    public void OnBtnInterfereClicked() { EnterTargetingMode(6); }
+    public void OnBtnInterfereClicked() { EnterTargetingMode(5); }
+    public void OnBtnWishClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdCastSkill(6, PokerPlayer.LocalPlayer.netId, 0, -1);
+    }
+    public void OnBtnExchangeClicked() { EnterTargetingMode(7); }
+    public void OnBtnReflectWallClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdCastSkill(8, PokerPlayer.LocalPlayer.netId, 0, -1);
+    }
     public void OnBtnMindControlClicked() { EnterTargetingMode(9); }
-    public void OnBtnExchangeClicked() { EnterTargetingMode(10); }
+    
 
     // 2. 显示施法进度条
     // 2. 生成带有进度条和抵抗按钮的施法消息
@@ -829,15 +957,6 @@ public class PokerUIManager : MonoBehaviour
         }
     }
 
-    public void OnBtnSwapClicked() { EnterTargetingMode(3); }
-    public void OnBtnResistClicked()
-    {
-        if (PokerPlayer.LocalPlayer != null)
-        {
-            PokerPlayer.LocalPlayer.CmdResist();
-            HideResistButtonState();
-        }
-    }
     public int GetEnemyIndex(PokerPlayer player)
     {
         if (PokerPlayer.LocalPlayer == null || player.seatIndex < 0 || PokerPlayer.LocalPlayer.seatIndex < 0) return -1;
@@ -962,12 +1081,12 @@ public class PokerUIManager : MonoBehaviour
     {
         switch (skillID)
         {
-            case 1: return iconPeek;
-            case 3: return iconSwap;
-            case 4: return iconBlur;
-            case 5: return iconSensing;
-            case 99: return iconResist; // 给抵抗专门留个特殊 ID
-            default: return iconDefault;// 0 或未匹配的 ID 不显示图标
+            case 1: return iconSensing;   // 1 是感知
+            case 2: return iconPeek;      // 2 是透视
+            case 3: return iconSwap;      // 3 是换牌
+            case 4: return iconBlur;      // 4 是模糊
+            case 99: return iconResist;
+            default: return iconDefault;
         }
     }
 
@@ -991,16 +1110,6 @@ public class PokerUIManager : MonoBehaviour
     public void ShowSensingLog(string message)
     {
         SpawnTextMessage($"[感应] {message}", 5, 4f);
-    }
-
-    // 绑定给“感应”技能按钮
-    public void OnBtnSensingClicked()
-    {
-        // 感应是给自己上的 Buff，所以目标是自己
-        if (PokerPlayer.LocalPlayer != null)
-        {
-            PokerPlayer.LocalPlayer.CmdCastSkill(5, PokerPlayer.LocalPlayer.netId, 0, -1);
-        }
     }
 
     // ==========================================
@@ -1066,18 +1175,18 @@ public class PokerUIManager : MonoBehaviour
     }
     private bool IsValidTarget(CardTarget c, int skillID)
     {
-        if (skillID == 1) // 透视：敌方手牌、未翻开的公牌
+        if (skillID == 2) // 透视：敌方手牌、未翻开的公牌
         {
             if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
             if (c.targetType == 1 && !c.isRevealed) return true;
         }
-        else if (skillID == 3 || skillID == 10) // 换牌：所有人手牌、未翻开的公牌
+        else if (skillID == 3 || skillID == 7) // 换牌：所有人手牌、未翻开的公牌
         {
             if (c.targetType == 0) return true;
             if (c.targetType == 1 && !c.isRevealed) return true;
         }
         // 【修改】模糊、干扰、脑控：目标都是敌方的任意一张手牌（代表选中该玩家）
-        else if (skillID == 4 || skillID == 6 || skillID == 9) 
+        else if (skillID == 4 || skillID == 5 || skillID == 9) 
         {
             if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
         }
@@ -1088,7 +1197,7 @@ public class PokerUIManager : MonoBehaviour
     {
         if (!isTargeting || !IsValidTarget(c, targetingSkillID)) return;
 
-        if (targetingSkillID == 4 || targetingSkillID == 6 || targetingSkillID == 9)
+        if (targetingSkillID == 4 || targetingSkillID == 5 || targetingSkillID == 9)
         {
             CardTarget[] allCards = FindObjectsOfType<CardTarget>();
             foreach (var card in allCards)
@@ -1115,9 +1224,9 @@ public class PokerUIManager : MonoBehaviour
         if (!isTargeting || !IsValidTarget(c, targetingSkillID)) return;
 
         // ==========================================
-        // 10 号技能专属的“两次点击与撤销”判定
+        // 7 号技能专属的“两次点击与撤销”判定
         // ==========================================
-        if (targetingSkillID == 10)
+        if (targetingSkillID == 7)
         {
             if (firstSelectedCard == null)
             {
@@ -1141,7 +1250,7 @@ public class PokerUIManager : MonoBehaviour
 
                 // 点的是另一张牌：双目标收集完毕，发招！
                 PokerPlayer.LocalPlayer.CmdCastDualTargetSkill(
-                    10,
+                    7,
                     firstSelectedCard.ownerNetId, firstSelectedCard.targetType, firstSelectedCard.targetIndex,
                     c.ownerNetId, c.targetType, c.targetIndex
                 );
@@ -1478,10 +1587,7 @@ public class PokerUIManager : MonoBehaviour
         if (sensingCountdownText != null) sensingCountdownText.gameObject.SetActive(false);
     }
     // ==========================================
-    // 刷新单张公共牌 UI (被 10 号技能调用)
-    // ==========================================
-    // ==========================================
-    // 刷新单张公共牌 UI (被 10 号技能调用)
+    // 刷新单张公共牌 UI (被 7 号技能调用)
     // ==========================================
     public void UpdateCommunityCardUI(int cardIndex, Suit newSuit, Rank newRank)
     {
@@ -1511,7 +1617,7 @@ public class PokerUIManager : MonoBehaviour
         }
     }
     // ==========================================
-    // 视觉效果：单张卡牌变暗 (专供 10 号技能使用)
+    // 视觉效果：单张卡牌变暗 (专供 7 号技能使用)
     // ==========================================
     private void SetSingleCardDarkened(CardTarget c, bool isDarkened)
     {
@@ -1558,5 +1664,98 @@ public class PokerUIManager : MonoBehaviour
                 else if (img.color == Color.green) img.color = Color.white;
             }
         }
+    }
+    // ==========================================
+    // 战前技能配置系统 (Loadout)
+    // ==========================================
+
+    // 深度递归查找子节点（不管嵌套多少层都能找到！）
+    private Transform DeepFind(Transform parent, string targetName)
+    {
+        Transform result = parent.Find(targetName);
+        if (result != null) return result;
+        foreach (Transform child in parent)
+        {
+            result = DeepFind(child, targetName);
+            if (result != null) return result;
+        }
+        return null; // 找遍了全家也没找到
+    }
+
+    // 初始化大厅技能配置
+    public void InitLobbySkillSelection()
+    {
+        ClearArea(lobbySkillContainer);
+        localSelectedSkills.Clear();
+        UpdateSelectedCountText();
+
+        foreach (var config in allSkillConfigs)
+        {
+            GameObject go = Instantiate(lobbySkillItemPrefab, lobbySkillContainer);
+
+            // 1. 使用神级工具进行深度查找，无视层级嵌套！
+            Transform iconTransform = DeepFind(go.transform, "Image Icon");
+            Transform nameTransform = DeepFind(go.transform, "Text Name");
+            Transform descTransform = DeepFind(go.transform, "Text Des");
+            Transform timeTransform = DeepFind(go.transform, "Text Time");
+            Transform costTransform = DeepFind(go.transform, "Text Cost");
+            Transform markerTransform = DeepFind(go.transform, "Image Selection Marker");
+
+            // 2. 致命错误拦截：如果连图标或标记都找不到，直接跳过这个技能，绝不崩溃！
+            if (iconTransform == null || markerTransform == null)
+            {
+                Debug.LogError($"【致命错误】预制体中缺少名字为 'Image Icon' 或 'Image Selection Marker' 的节点！技能 [{config.skillName}] 加载失败。");
+                continue;
+            }
+
+            // 3. 安全获取组件
+            UnityEngine.UI.Image iconImg = iconTransform.GetComponent<UnityEngine.UI.Image>();
+            GameObject selectedMarker = markerTransform.gameObject;
+            UnityEngine.UI.Button btn = go.GetComponent<UnityEngine.UI.Button>();
+
+            // 4. 赋值
+            iconImg.sprite = config.icon;
+            selectedMarker.SetActive(false); // 默认不选中
+
+            // 使用 ? 安全符，找不到对应的 Text 节点就不赋值，不会报错
+            if (nameTransform != null) nameTransform.GetComponent<UnityEngine.UI.Text>().text = config.skillName;
+            if (descTransform != null) descTransform.GetComponent<UnityEngine.UI.Text>().text = config.description;
+            if (timeTransform != null) timeTransform.GetComponent<UnityEngine.UI.Text>().text = config.castTime > 0 ? $"读条: {config.castTime}秒" : "瞬发";
+            if (costTransform != null) costTransform.GetComponent<UnityEngine.UI.Text>().text = $"耗蓝: {config.energyCost}";
+
+            // 5. 绑定点击事件：选中或取消选中
+            btn.onClick.AddListener(() =>
+            {
+                if (localSelectedSkills.Contains(config.skillID))
+                {
+                    localSelectedSkills.Remove(config.skillID);
+                    selectedMarker.SetActive(false);
+                }
+                else
+                {
+                    if (localSelectedSkills.Count >= 3)
+                    {
+                        Debug.LogWarning("最多只能选 3 个技能！");
+                        return; // 满了不让选
+                    }
+                    localSelectedSkills.Add(config.skillID);
+                    selectedMarker.SetActive(true);
+                }
+
+                UpdateSelectedCountText();
+
+                // 每次点击都悄悄同步给服务器
+                if (PokerPlayer.LocalPlayer != null)
+                {
+                    PokerPlayer.LocalPlayer.CmdUpdateEquippedSkills(localSelectedSkills.ToArray());
+                }
+            });
+        }
+    }
+
+    private void UpdateSelectedCountText()
+    {
+        if (selectedCountText != null)
+            selectedCountText.text = $"已选技能：{localSelectedSkills.Count}/3";
     }
 }

@@ -4,7 +4,7 @@ public class SensingSkill : BaseSkill
 {
     public SensingSkill()
     {
-        skillID = 5;
+        skillID = 1;
         skillName = "¸ÐÓ¦";
         energyCost = 1;
         castTime = 1f;

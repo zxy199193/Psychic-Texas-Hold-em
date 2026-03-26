@@ -4,7 +4,7 @@ public class ReflectWallSkill : BaseSkill
 {
     public ReflectWallSkill()
     {
-        skillID = 7;             // 注册为 7 号技能
+        skillID = 8;             // 注册为 7 号技能
         skillName = "反射壁";
         energyCost = 8;          // 耗蓝 8
         castTime = 5.0f;         // 读条 5 秒

@@ -4,7 +4,7 @@ public class ExchangeSkill : BaseSkill
 {
     public ExchangeSkill()
     {
-        skillID = 10;            // 注册为 10 号技能
+        skillID = 7;            // 注册为 7 号技能
         skillName = "数据交换";
         energyCost = 7;          // 耗能 7
         castTime = 5.0f;         // 读条 5 秒
@@ -37,7 +37,7 @@ public class ExchangeSkill : BaseSkill
         if (!card1Nullable.HasValue || !card2Nullable.HasValue)
         {
             if (caster.connectionToClient != null)
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, "交换失败：目标卡牌已失效！", 10);
+                caster.TargetReceiveSkillMessage(caster.connectionToClient, "交换失败：目标卡牌已失效！", 7);
             return;
         }
         Card card1 = card1Nullable.Value;
@@ -48,7 +48,7 @@ public class ExchangeSkill : BaseSkill
         SetCard(target2, type2, index2, card1, serverContext);
 
         if (caster.connectionToClient != null)
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "数据交换完毕！", 10);
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, "数据交换完毕！", 7);
     }
 
     // 辅助方法：读取卡牌

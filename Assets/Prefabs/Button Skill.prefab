@@ -88,7 +88,7 @@ GameObject:
   - component: {fileID: 8038858948193791941}
   - component: {fileID: 2541350269727314525}
   m_Layer: 5
-  m_Name: Text
+  m_Name: Text Name
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -182,7 +182,7 @@ GameObject:
   - component: {fileID: 5653247118137032119}
   - component: {fileID: 2792343073223569350}
   m_Layer: 5
-  m_Name: Text (Legacy)
+  m_Name: Text Cost
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

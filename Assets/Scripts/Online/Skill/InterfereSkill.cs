@@ -4,7 +4,7 @@ public class InterfereSkill : BaseSkill
 {
     public InterfereSkill()
     {
-        skillID = 6;             // 注册为 6 号技能
+        skillID = 5;             // 注册为 6 号技能
         skillName = "干扰";
         energyCost = 1;          // 耗蓝 1
         castTime = 1.0f;         // 读条 1 秒
