@@ -45,6 +45,11 @@ public class PokerUIManager : MonoBehaviour
     public GameObject lobbySkillItemPrefab;   // 大厅里的技能图标预制体
     private List<int> localSelectedSkills = new List<int>(); // 本地当前选中的技能
     public Text selectedCountText;            // 显示 "已选 3/5" 的文字
+    public GameObject halftimeUIGroup;     // 包含所有中场专属按钮的父节点
+    public UnityEngine.UI.Text txtHalftimeRoundTitle; // 顶部标题："第 X 圈"
+    public UnityEngine.UI.Text txtHalftimeReadyCount; // "已准备: 1/6"
+    public UnityEngine.UI.Text txtHalftimeReadyBtnText; // "准备OK" / "取消准备"
+    public UnityEngine.UI.Button btnHalftimeStartHost;  // 房主的开始按钮
 
     [Header("2. 全局牌桌 UI (Table Core)")]
     public Transform communityArea;       // 公共牌区域
@@ -199,8 +204,11 @@ public class PokerUIManager : MonoBehaviour
     public void ClearArea(Transform area)
     {
         if (area == null) return;
-        foreach (Transform child in area)
+        // 倒序遍历并脱离父节点，完美避开 Unity 销毁延迟引发的排版 Bug
+        for (int i = area.childCount - 1; i >= 0; i--)
         {
+            Transform child = area.GetChild(i);
+            child.SetParent(null);
             Destroy(child.gameObject);
         }
     }
@@ -652,7 +660,7 @@ public class PokerUIManager : MonoBehaviour
                 string label = (i == 0) ? "" : $"边池 {i}: ";
                 SetTextAndRebuildLayout(txt, $"{label}{potList[i]}");
 
-                //【新增 UI 优化】：如果边池是 0 块钱，直接隐藏整个节点（主池 0 块也保留）
+                //如果边池是 0 块钱，直接隐藏整个节点（主池 0 块也保留）
                 activePotUIItems[i].SetActive(i == 0 || potList[i] > 0);
             }
 
@@ -695,7 +703,37 @@ public class PokerUIManager : MonoBehaviour
         {
             isSeatDisconnected[i] = true;
         }
+        // ==========================================
+        // 【新增】：中场休息界面实时刷新
+        // ==========================================
+        if (ServerGameManager.Instance != null && ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.Halftime)
+        {
+            if (PokerPlayer.LocalPlayer != null)
+            {
+                int totalPlayers = ServerGameManager.Instance.activePlayers.Count;
+                int readyCount = 0;
+                foreach (var p in ServerGameManager.Instance.activePlayers)
+                {
+                    if (p.isReady) readyCount++;
+                }
 
+                // 刷新准备人数
+                if (txtHalftimeReadyCount != null) txtHalftimeReadyCount.text = $"已准备: {readyCount}/{totalPlayers}";
+
+                // 刷新我自己的按钮文字
+                if (txtHalftimeReadyBtnText != null)
+                {
+                    txtHalftimeReadyBtnText.text = PokerPlayer.LocalPlayer.isReady ? "取消准备" : "准备OK";
+                }
+
+                // 刷新房主的开始按钮
+                if (btnHalftimeStartHost != null)
+                {
+                    btnHalftimeStartHost.gameObject.SetActive(PokerPlayer.LocalPlayer.isServer);
+                    btnHalftimeStartHost.interactable = (readyCount == totalPlayers); // 人齐了才能点！
+                }
+            }
+        }
         foreach (PokerPlayer p in allPlayers)
         {
             if (p.isMyTurn) currentActingPlayerName = p.playerName;
@@ -894,7 +932,7 @@ public class PokerUIManager : MonoBehaviour
             CancelTargeting();
         }
     }
-    // 【新增】显示结算横幅
+    // 显示结算横幅
     public void ShowResult(string message, int waitTime)
     {
         if (AudioManager.Instance != null) AudioManager.Instance.PlayWinChips();
@@ -1779,14 +1817,12 @@ public class PokerUIManager : MonoBehaviour
     public void InitLobbySkillSelection()
     {
         ClearArea(lobbySkillContainer);
-        localSelectedSkills.Clear();
+        // 【注意：这里绝对不能写 localSelectedSkills.Clear() ！】
         UpdateSelectedCountText();
 
         foreach (var config in allSkillConfigs)
         {
             GameObject go = Instantiate(lobbySkillItemPrefab, lobbySkillContainer);
-
-            // 1. 使用神级工具进行深度查找，无视层级嵌套！
             Transform iconTransform = DeepFind(go.transform, "Image Icon");
             Transform nameTransform = DeepFind(go.transform, "Text Name");
             Transform descTransform = DeepFind(go.transform, "Text Des");
@@ -1794,31 +1830,30 @@ public class PokerUIManager : MonoBehaviour
             Transform costTransform = DeepFind(go.transform, "Text Cost");
             Transform markerTransform = DeepFind(go.transform, "Image Selection Marker");
 
-            // 2. 致命错误拦截：如果连图标或标记都找不到，直接跳过这个技能，绝不崩溃！
-            if (iconTransform == null || markerTransform == null)
-            {
-                Debug.LogError($"【致命错误】预制体中缺少名字为 'Image Icon' 或 'Image Selection Marker' 的节点！技能 [{config.skillName}] 加载失败。");
-                continue;
-            }
+            if (iconTransform == null || markerTransform == null) continue;
 
-            // 3. 安全获取组件
             UnityEngine.UI.Image iconImg = iconTransform.GetComponent<UnityEngine.UI.Image>();
             GameObject selectedMarker = markerTransform.gameObject;
             UnityEngine.UI.Button btn = go.GetComponent<UnityEngine.UI.Button>();
 
-            // 4. 赋值
             iconImg.sprite = config.icon;
-            selectedMarker.SetActive(false); // 默认不选中
 
-            // 使用 ? 安全符，找不到对应的 Text 节点就不赋值，不会报错
+            // 【核心修复】：动态判断是否要点亮绿框，不再写死 false
+            selectedMarker.SetActive(localSelectedSkills.Contains(config.skillID));
+
             if (nameTransform != null) nameTransform.GetComponent<UnityEngine.UI.Text>().text = config.skillName;
             if (descTransform != null) descTransform.GetComponent<UnityEngine.UI.Text>().text = config.description;
             if (timeTransform != null) timeTransform.GetComponent<UnityEngine.UI.Text>().text = config.castTime > 0 ? $"{config.castTime}" : "0";
             if (costTransform != null) costTransform.GetComponent<UnityEngine.UI.Text>().text = $"{config.energyCost}";
 
-            // 5. 绑定点击事件：选中或取消选中
             btn.onClick.AddListener(() =>
             {
+                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isReady)
+                {
+                    Debug.LogWarning("你已准备！请先取消准备再修改配置。");
+                    return;
+                }
+
                 if (localSelectedSkills.Contains(config.skillID))
                 {
                     localSelectedSkills.Remove(config.skillID);
@@ -1829,34 +1864,29 @@ public class PokerUIManager : MonoBehaviour
                     if (localSelectedSkills.Count >= 3)
                     {
                         Debug.LogWarning("最多只能选 3 个技能！");
-                        return; // 满了不让选
+                        return;
                     }
                     localSelectedSkills.Add(config.skillID);
                     selectedMarker.SetActive(true);
                 }
-
                 UpdateSelectedCountText();
-
-                // 每次点击都悄悄同步给服务器
-                if (PokerPlayer.LocalPlayer != null)
-                {
-                    PokerPlayer.LocalPlayer.CmdUpdateEquippedSkills(localSelectedSkills.ToArray());
-                }
+                if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdUpdateEquippedSkills(localSelectedSkills.ToArray());
             });
         }
     }
     public void InitLobbyTrinketSelection()
     {
         ClearArea(lobbyTrinketContainer);
-        localSelectedTrinkets.Clear();
-        if (selectedTrinketCountText != null) selectedTrinketCountText.text = $"已选饰品: 0/{maxTrinketSelection}";
+        // 【注意：这里绝对不能写 localSelectedTrinkets.Clear() ！】
+
+        if (selectedTrinketCountText != null)
+            selectedTrinketCountText.text = $"已选饰品: {localSelectedTrinkets.Count}/{maxTrinketSelection}";
 
         foreach (var config in allTrinketConfigs)
         {
             if (config == null) continue;
 
             GameObject go = Instantiate(lobbyTrinketItemPrefab, lobbyTrinketContainer);
-
             Transform iconTransform = DeepFind(go.transform, "Image Icon");
             Transform nameTransform = DeepFind(go.transform, "Text Name");
             Transform descTransform = DeepFind(go.transform, "Text Des");
@@ -1867,7 +1897,9 @@ public class PokerUIManager : MonoBehaviour
             UnityEngine.UI.Image iconImg = iconTransform.GetComponent<UnityEngine.UI.Image>();
             if (iconImg != null) iconImg.sprite = config.icon;
 
-            markerTransform.gameObject.SetActive(false);
+            // 【核心修复】：动态点亮饰品绿框！
+            markerTransform.gameObject.SetActive(localSelectedTrinkets.Contains(config.trinketID));
+
             SafeSetText(nameTransform, config.trinketName);
             SafeSetText(descTransform, config.description);
 
@@ -1876,6 +1908,12 @@ public class PokerUIManager : MonoBehaviour
 
             btn.onClick.AddListener(() =>
             {
+                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isReady)
+                {
+                    Debug.LogWarning("你已准备！请先取消准备再修改配置。");
+                    return;
+                }
+
                 if (localSelectedTrinkets.Contains(config.trinketID))
                 {
                     localSelectedTrinkets.Remove(config.trinketID);
@@ -1894,18 +1932,62 @@ public class PokerUIManager : MonoBehaviour
 
                 if (selectedTrinketCountText != null)
                     selectedTrinketCountText.text = $"已选饰品: {localSelectedTrinkets.Count}/{maxTrinketSelection}";
-
-                if (PokerPlayer.LocalPlayer != null)
-                {
-                    PokerPlayer.LocalPlayer.CmdUpdateEquippedTrinkets(localSelectedTrinkets.ToArray());
-                }
+                if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdUpdateEquippedTrinkets(localSelectedTrinkets.ToArray());
             });
         }
     }
-
     private void UpdateSelectedCountText()
     {
         if (selectedCountText != null)
             selectedCountText.text = $"已选技能：{localSelectedSkills.Count}/3";
+    }
+    // ==========================================
+    // 中场休息面板控制
+    // ==========================================
+    public void ShowHalftimePanel(int roundCount)
+    {
+        // 1. 强制清空桌面，关闭局内技能栏
+        ClearAllTable();
+        if (inGameSkillBar != null) ClearArea(inGameSkillBar);
+        if (inGameTrinketContainer != null) ClearArea(inGameTrinketContainer);
+
+        // 2. 调出总配置面板，但隐藏大厅特有的按钮
+        if (skillSelectionPanel != null) skillSelectionPanel.SetActive(true);
+        if (btnStartGame != null) btnStartGame.gameObject.SetActive(false);
+        if (halftimeUIGroup != null) halftimeUIGroup.SetActive(true);
+
+        if (txtHalftimeRoundTitle != null) txtHalftimeRoundTitle.text = $"第 {roundCount} 圈结束 - 中场休息";
+
+        // 3. 核心：强制把本地的选择，覆盖为服务器里你当前真正的装备！
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            localSelectedSkills = new List<int>(PokerPlayer.LocalPlayer.equippedSkills);
+            localSelectedTrinkets = new List<int>(PokerPlayer.LocalPlayer.equippedTrinkets);
+        }
+
+        // 4. 重新刷一遍图标生成，让绿框完美停留在你当前的装备上！
+        InitLobbySkillSelection();
+        InitLobbyTrinketSelection();
+    }
+
+    public void HideHalftimePanel()
+    {
+        if (skillSelectionPanel != null) skillSelectionPanel.SetActive(false);
+        if (halftimeUIGroup != null) halftimeUIGroup.SetActive(false);
+
+        // 游戏重新开始了，把底部的技能栏再刷出来！
+        GenerateInGameSkillBar();
+        GenerateInGameTrinketUI();
+    }
+
+    // 给 UI 按钮绑定的快捷事件
+    public void OnBtnHalftimeReadyClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdToggleReady();
+    }
+
+    public void OnBtnHalftimeStartClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdStartNextRoundFromHalftime();
     }
 }

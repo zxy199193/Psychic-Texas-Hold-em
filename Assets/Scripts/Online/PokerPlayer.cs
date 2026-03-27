@@ -21,6 +21,7 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar] public bool isCasting = false;
     [SyncVar] public bool isDealer = false;
     [SyncVar] public int seatIndex = -1;
+    [SyncVar] public bool isReady = false;
 
     // ==========================================
     // 玩家当前装备的技能库与饰品库
@@ -146,7 +147,13 @@ public class PokerPlayer : NetworkBehaviour
     [Command]
     public void CmdUpdateEquippedSkills(int[] selectedSkillIDs)
     {
-        if (ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle) return;
+        // 允许在 大厅(Idle) 和 中场休息(Halftime) 时修改
+        if (ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle &&
+            ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Halftime) return;
+
+        // 如果玩家已经点击了“准备”，服务器拒绝接收他修改配置的请求！
+        if (this.isReady) return;
+
         equippedSkills.Clear();
         foreach (int id in selectedSkillIDs) equippedSkills.Add(id);
     }
@@ -154,7 +161,11 @@ public class PokerPlayer : NetworkBehaviour
     [Command]
     public void CmdUpdateEquippedTrinkets(int[] selectedTrinketIDs)
     {
-        if (ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle) return;
+        if (ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle &&
+            ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Halftime) return;
+
+        if (this.isReady) return;
+
         equippedTrinkets.Clear();
         foreach (int id in selectedTrinketIDs) equippedTrinkets.Add(id);
     }
@@ -600,5 +611,33 @@ public class PokerPlayer : NetworkBehaviour
         foreach (int id in equippedTrinkets)
             if (trinketDatabase.TryGetValue(id, out BaseTrinket trinket)) finalValue = trinket.ModifyInterfereRate(finalValue, this);
         return finalValue;
+    }
+    [Command]
+    public void CmdToggleReady()
+    {
+        // 切换准备状态 (如果是 true 就变 false，反之亦然)
+        isReady = !isReady;
+    }
+
+    [Command]
+    public void CmdStartNextRoundFromHalftime()
+    {
+        if (!isServer) return; // 只有房主能点
+
+        // 检查是不是所有存活玩家都准备了
+        bool allReady = true;
+        foreach (var p in ServerGameManager.Instance.activePlayers)
+        {
+            if (!p.isReady)
+            {
+                allReady = false;
+                break;
+            }
+        }
+
+        if (allReady)
+        {
+            ServerGameManager.Instance.StartNextRoundFromHalftime();
+        }
     }
 }

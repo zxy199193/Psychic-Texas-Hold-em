@@ -8,7 +8,7 @@ public class ServerGameManager : NetworkBehaviour
     private Deck deck;
 
     // 【新增】游戏阶段枚举
-    public enum GamePhase { Idle, PreFlop, Flop, Turn, River, Showdown }
+    public enum GamePhase { Idle, PreFlop, Flop, Turn, River, Showdown, Halftime }
 
     [Header("服务器运行状态 (仅方便在面板查看)")]
     public GamePhase currentPhase = GamePhase.Idle;
@@ -38,6 +38,10 @@ public class ServerGameManager : NetworkBehaviour
     public int smallBlind = 5;
     public int bigBlind = 10;
     public int dealerIndex = 0; // 记录当前谁是庄家
+
+    [Header("中场休息控制")]
+    [SyncVar] public int currentRoundCount = 1;     // 当前是第几圈
+    [SyncVar] public int handsPlayedThisRound = 0;  // 这一圈已经打了几把了
 
     [Header("机器人配置")]
     public GameObject botPrefab; // 用来存放你的 BotPlayerPrefab
@@ -399,7 +403,7 @@ public class ServerGameManager : NetworkBehaviour
             winner.energy = Mathf.Clamp(winner.energy + actualBonus, 0, playerMaxE);
 
             RpcShowResult($"{winner.playerName} 赢得 {totalWin} 筹码！(对手弃牌)", 3);
-            StartCoroutine(WaitAndStartNextHand(3f));
+            StartCoroutine(HandleRoundEnd(3f));
             return;
         }
 
@@ -463,7 +467,64 @@ public class ServerGameManager : NetworkBehaviour
         }
 
         RpcShowResult(resultMsg, 10);
-        StartCoroutine(WaitAndStartNextHand(10f));
+        StartCoroutine(HandleRoundEnd(10f));
+    }
+
+    // ==========================================
+    // 中场休息调度系统
+    // ==========================================
+    private System.Collections.IEnumerator HandleRoundEnd(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        handsPlayedThisRound++;
+
+        // 如果这一圈打的把数，等于当前场上存活的玩家数，说明每个人都当过庄家了！一圈结束！
+        if (handsPlayedThisRound >= activePlayers.Count)
+        {
+            currentPhase = GamePhase.Halftime;
+            RpcEnterHalftime(currentRoundCount);
+
+            // ==========================================
+            // 全自动逼迫机器人按下准备按钮！
+            // ==========================================
+            foreach (var p in activePlayers)
+            {
+                if (p != null && p.GetComponent<PokerBot>() != null)
+                {
+                    p.isReady = true; // 机器人秒准备！(因为是SyncVar，会自动同步给所有玩家的 UI)
+                }
+            }
+        }
+        else
+        {
+            StartNewHand(); // 还没打满一圈，正常发下一把的牌
+        }
+    }
+
+    [ClientRpc]
+    private void RpcEnterHalftime(int roundCount)
+    {
+        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowHalftimePanel(roundCount);
+    }
+
+    [Server]
+    public void StartNextRoundFromHalftime()
+    {
+        currentRoundCount++;       // 圈数 +1
+        handsPlayedThisRound = 0;  // 把数清零
+
+        // 强行把所有人的准备状态重置为 false
+        foreach (var p in activePlayers) p.isReady = false;
+
+        RpcHideHalftimePanel();
+        StartNewHand(); // 正式开始新一圈的发牌！
+    }
+
+    [ClientRpc]
+    private void RpcHideHalftimePanel()
+    {
+        if (PokerUIManager.Instance != null) PokerUIManager.Instance.HideHalftimePanel();
     }
 
     // 服务器拿大喇叭宣布比赛结果
