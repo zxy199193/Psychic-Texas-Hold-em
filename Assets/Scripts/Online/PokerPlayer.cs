@@ -362,7 +362,7 @@ public class PokerPlayer : NetworkBehaviour
                 if (unshieldedTargets.Count > 0) newTarget = unshieldedTargets[Random.Range(0, unshieldedTargets.Count)];
                 else { newTarget = this; extraMsg = "（全场反射壁共振，引发终极反噬！）"; }
 
-                if (target.connectionToClient != null) target.TargetReceiveSkillMessage(target.connectionToClient, $"成功反弹了 {this.playerName} 的【{skill.skillName}】！", 7);
+                if (target.connectionToClient != null) target.TargetReceiveSkillMessage(target.connectionToClient, $"成功反弹了 {this.playerName} 的【{skill.skillName}】！", 8);
                 if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"遭到反射壁反弹！技能误伤了 {newTarget.playerName}！{extraMsg}", 99);
                 if (newTarget != this && newTarget.connectionToClient != null) newTarget.TargetReceiveSkillMessage(newTarget.connectionToClient, $"注意！{this.playerName} 对 {target.playerName} 释放的【{skill.skillName}】被反弹给了你！", 99);
 

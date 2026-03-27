@@ -17,7 +17,7 @@ public class WishSkill : BaseSkill
 
         if (caster.connectionToClient != null)
         {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "许愿成功！", 8);
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, "许愿成功！", this.skillID);
         }
     }
 }

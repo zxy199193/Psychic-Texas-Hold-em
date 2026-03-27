@@ -37,6 +37,8 @@ public class PokerUIManager : MonoBehaviour
     public Button btnExitGame;
     public Button btnStartGame;
     public Text txtPlayerCount;
+    public Text txtLobbyReadyCount;
+    public GameObject lobbyUIGroup;
     public Toggle toggleFillBots;
     public Toggle toggleOfflineMode;
     public Toggle toggleShortDeck;
@@ -45,6 +47,8 @@ public class PokerUIManager : MonoBehaviour
     public GameObject lobbySkillItemPrefab;   // 大厅里的技能图标预制体
     private List<int> localSelectedSkills = new List<int>(); // 本地当前选中的技能
     public Text selectedCountText;            // 显示 "已选 3/5" 的文字
+    public Button btnLobbyReady;
+    public Text txtLobbyReadyBtnText;
     public GameObject halftimeUIGroup;     // 包含所有中场专属按钮的父节点
     public UnityEngine.UI.Text txtHalftimeRoundTitle; // 顶部标题："第 X 圈"
     public UnityEngine.UI.Text txtHalftimeReadyCount; // "已准备: 1/6"
@@ -143,10 +147,6 @@ public class PokerUIManager : MonoBehaviour
     [Header("8. 资源与特效设定 (Prefabs & FX)")]
     public GameObject cardPrefab;
     public Texture2D botDefaultAvatar;
-    public Sprite iconPeek;
-    public Sprite iconSwap;
-    public Sprite iconBlur;
-    public Sprite iconSensing;
     public Sprite iconResist;
     public Sprite iconDefault;
     public Transform deckOriginPos;       // 发牌机位置
@@ -432,6 +432,10 @@ public class PokerUIManager : MonoBehaviour
     {
         Application.Quit(); // 退出游戏
     }
+    public void OnBtnLobbyReadyClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdToggleReady();
+    }
 
     // 切换 UI 显示状态
     private void SetupLobbyUI(bool isHost)
@@ -439,10 +443,9 @@ public class PokerUIManager : MonoBehaviour
         if (btnCreateRoom != null) btnCreateRoom.gameObject.SetActive(false);
         if (btnJoinRoom != null) btnJoinRoom.gameObject.SetActive(false);
         if (btnExitGame != null) btnExitGame.gameObject.SetActive(false);
-
         if (txtPlayerCount != null) txtPlayerCount.gameObject.SetActive(true);
-
-        // 只有房主能看到“开始游戏”和“机器人补位”
+        if (btnLobbyReady != null) btnLobbyReady.gameObject.SetActive(true);
+        if (lobbyUIGroup != null) lobbyUIGroup.SetActive(true);
         if (btnStartGame != null) btnStartGame.gameObject.SetActive(isHost);
         if (toggleFillBots != null) toggleFillBots.gameObject.SetActive(isHost);
         if (skillSelectionPanel != null) skillSelectionPanel.SetActive(true);
@@ -495,11 +498,21 @@ public class PokerUIManager : MonoBehaviour
     {
         if (inGameSkillBar != null)
         {
-            foreach (Transform child in inGameSkillBar)
+            // ==========================================
+            // 安全清理，保留并唤醒固有技能！
+            // ==========================================
+            for (int i = inGameSkillBar.childCount - 1; i >= 0; i--)
             {
+                Transform child = inGameSkillBar.GetChild(i);
                 if (child.name.Contains("(Clone)"))
                 {
+                    child.SetParent(null);
                     Destroy(child.gameObject);
+                }
+                else
+                {
+                    // 游戏继续了，把之前被隐藏的原生节点重新点亮！
+                    child.gameObject.SetActive(true);
                 }
             }
         }
@@ -564,13 +577,17 @@ public class PokerUIManager : MonoBehaviour
             GameObject go = Instantiate(inGameTrinketPrefab, inGameTrinketContainer);
 
             // 4. 使用神级工具寻找子节点 (名字必须和预制体里的一致)
-            UnityEngine.UI.Image iconImg = go.GetComponent<UnityEngine.UI.Image>();
+            Transform iconTransform = DeepFind(go.transform, "Image Icon");
             Transform tooltipTransform = DeepFind(go.transform, "Tip");
             Transform nameTransform = DeepFind(go.transform, "Text Name");
             Transform descTransform = DeepFind(go.transform, "Text Des");
 
             // 赋值图标
-            if (iconImg != null) iconImg.sprite = config.icon;
+            if (iconTransform != null)
+            {
+                UnityEngine.UI.Image iconImg = iconTransform.GetComponent<UnityEngine.UI.Image>();
+                if (iconImg != null) iconImg.sprite = config.icon;
+            }
 
             GameObject tooltipObj = null;
             if (tooltipTransform != null)
@@ -680,16 +697,41 @@ public class PokerUIManager : MonoBehaviour
         string currentActingPlayerName = "";
 
         // 刷新大厅人数和开始按钮状态
+        // 刷新大厅人数和开始按钮状态
         if (mainMenuPanel != null && mainMenuPanel.activeSelf)
         {
-            int pCount = allPlayers.Length;
-            if (txtPlayerCount != null) txtPlayerCount.text = $"当前人数：{pCount}/6";
+            // 获取全场活着的真人玩家
+            PokerPlayer[] allPlayersInRoom = FindObjectsOfType<PokerPlayer>();
+            int pCount = allPlayersInRoom.Length;
+            int readyCount = 0;
 
-            // 房主的开始按钮控制：人数 >= 2 或者 勾选了补齐机器人，才能按！
-            if (btnStartGame != null)
+            // 统计准备人数
+            foreach (var p in allPlayersInRoom)
             {
-                bool canStart = pCount >= 2 || (toggleFillBots != null && toggleFillBots.isOn);
-                btnStartGame.interactable = canStart;
+                if (p.isReady) readyCount++;
+            }
+
+            if (txtPlayerCount != null) txtPlayerCount.text = $"当前人数：{pCount}/6";
+            if (txtLobbyReadyCount != null) txtLobbyReadyCount.text = $"已准备: {readyCount}/{pCount}";
+
+            if (PokerPlayer.LocalPlayer != null)
+            {
+                // 【新增】：刷新我自己大厅准备按钮的文字
+                if (txtLobbyReadyBtnText != null)
+                {
+                    txtLobbyReadyBtnText.text = PokerPlayer.LocalPlayer.isReady ? "取消准备" : "准备OK";
+                }
+
+                // 【核心修改】：房主的开始按钮控制
+                // 条件 1：人数达标或勾选了机器人
+                // 条件 2：所有连接进来的真人都必须已准备！
+                if (btnStartGame != null)
+                {
+                    bool conditionMet = pCount >= 2 || (toggleFillBots != null && toggleFillBots.isOn);
+                    bool allReady = (readyCount == pCount);
+
+                    btnStartGame.interactable = (conditionMet && allReady);
+                }
             }
         }
 
@@ -704,15 +746,18 @@ public class PokerUIManager : MonoBehaviour
             isSeatDisconnected[i] = true;
         }
         // ==========================================
-        // 【新增】：中场休息界面实时刷新
+        // 【核心修复】：中场休息界面实时刷新
         // ==========================================
         if (ServerGameManager.Instance != null && ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.Halftime)
         {
             if (PokerPlayer.LocalPlayer != null)
             {
-                int totalPlayers = ServerGameManager.Instance.activePlayers.Count;
+                // 【修改】：因为客户端的 activePlayers 是空的！必须用 FindObjectsOfType 拿到的本地实体来统计
+                PokerPlayer[] allPlayersInRoom = FindObjectsOfType<PokerPlayer>();
+                int totalPlayers = allPlayersInRoom.Length;
                 int readyCount = 0;
-                foreach (var p in ServerGameManager.Instance.activePlayers)
+
+                foreach (var p in allPlayersInRoom)
                 {
                     if (p.isReady) readyCount++;
                 }
@@ -726,7 +771,7 @@ public class PokerUIManager : MonoBehaviour
                     txtHalftimeReadyBtnText.text = PokerPlayer.LocalPlayer.isReady ? "取消准备" : "准备OK";
                 }
 
-                // 刷新房主的开始按钮
+                // 刷新房主的开始按钮 (强制客户端隐藏该按钮)
                 if (btnHalftimeStartHost != null)
                 {
                     btnHalftimeStartHost.gameObject.SetActive(PokerPlayer.LocalPlayer.isServer);
@@ -1206,19 +1251,28 @@ public class PokerUIManager : MonoBehaviour
     // ==========================================
 
     // 1. 生成普通的文本消息 (感应情报、抵抗成功/失败提示)
-
-    // 智能识别图标的工具方法
+    // 智能识别图标的工具方法 (全自动查表版)
     private Sprite GetIconByID(int skillID)
     {
-        switch (skillID)
+        // 1. 特殊固定图标：99 代表抵抗系统
+        if (skillID == 99) return iconResist;
+
+        // 2. 去技能配置表里找，找到了直接返回它的图标！
+        SkillConfig sConfig = allSkillConfigs.Find(c => c.skillID == skillID);
+        if (sConfig != null && sConfig.icon != null)
         {
-            case 1: return iconSensing;   // 1 是感知
-            case 2: return iconPeek;      // 2 是透视
-            case 3: return iconSwap;      // 3 是换牌
-            case 4: return iconBlur;      // 4 是模糊
-            case 99: return iconResist;
-            default: return iconDefault;
+            return sConfig.icon;
         }
+
+        // 3. (扩展) 如果技能表没找到，去饰品表里找找看 (防备以后有饰品触发消息)
+        TrinketConfig tConfig = allTrinketConfigs.Find(c => c.trinketID == skillID);
+        if (tConfig != null && tConfig.icon != null)
+        {
+            return tConfig.icon;
+        }
+
+        // 4. 全都没找到，返回兜底的默认图标
+        return iconDefault;
     }
 
     public void SpawnTextMessage(string message, int skillID = 0, float duration = 3f)
@@ -1240,7 +1294,7 @@ public class PokerUIManager : MonoBehaviour
 
     public void ShowSensingLog(string message)
     {
-        SpawnTextMessage($"[感应] {message}", 5, 4f);
+        SpawnTextMessage($"[感应] {message}", 1, 4f);
     }
 
     // ==========================================
@@ -1948,14 +2002,32 @@ public class PokerUIManager : MonoBehaviour
     {
         // 1. 强制清空桌面，关闭局内技能栏
         ClearAllTable();
-        if (inGameSkillBar != null) ClearArea(inGameSkillBar);
+        if (inGameSkillBar != null)
+        {
+            for (int i = inGameSkillBar.childCount - 1; i >= 0; i--)
+            {
+                Transform child = inGameSkillBar.GetChild(i);
+                // 认准克隆体，只杀克隆体
+                if (child.name.Contains("(Clone)"))
+                {
+                    child.SetParent(null);
+                    Destroy(child.gameObject);
+                }
+                else
+                {
+                    // 对待原生节点（抵抗/感应），只是暂时把它们隐藏起来
+                    child.gameObject.SetActive(false);
+                }
+            }
+        }
         if (inGameTrinketContainer != null) ClearArea(inGameTrinketContainer);
 
         // 2. 调出总配置面板，但隐藏大厅特有的按钮
         if (skillSelectionPanel != null) skillSelectionPanel.SetActive(true);
         if (btnStartGame != null) btnStartGame.gameObject.SetActive(false);
         if (halftimeUIGroup != null) halftimeUIGroup.SetActive(true);
-
+        if (lobbyUIGroup != null) lobbyUIGroup.SetActive(false);
+        if (btnHalftimeStartHost != null) btnHalftimeStartHost.gameObject.SetActive(false);
         if (txtHalftimeRoundTitle != null) txtHalftimeRoundTitle.text = $"第 {roundCount} 圈结束 - 中场休息";
 
         // 3. 核心：强制把本地的选择，覆盖为服务器里你当前真正的装备！

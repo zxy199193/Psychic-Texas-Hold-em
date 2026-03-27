@@ -11,7 +11,7 @@ public class ServerGameManager : NetworkBehaviour
     public enum GamePhase { Idle, PreFlop, Flop, Turn, River, Showdown, Halftime }
 
     [Header("服务器运行状态 (仅方便在面板查看)")]
-    public GamePhase currentPhase = GamePhase.Idle;
+    [SyncVar] public GamePhase currentPhase = GamePhase.Idle;
     [Header("下注与回合管理 (同步变量)")]
     public readonly SyncList<int> syncPotAmounts = new SyncList<int>(); // 全网同步的各池金额（[0]是主池，[1]是边池1...）
     
@@ -93,6 +93,10 @@ public class ServerGameManager : NetworkBehaviour
 
         activePlayers.Clear();
         activePlayers.AddRange(FindObjectsOfType<PokerPlayer>());
+        foreach (var p in activePlayers)
+        {
+            if (p != null) p.isReady = false;
+        }
 
         // 2. 智能补位逻辑：生成机器人并分配随机技能
         if (fillBots)
