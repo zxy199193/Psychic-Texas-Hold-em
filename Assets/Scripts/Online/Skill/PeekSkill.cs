@@ -68,7 +68,7 @@ public class PeekSkill : BaseSkill
 
                     // 顺着网线悄悄发给施法者！
                     caster.TargetPeekSingleCard(caster.connectionToClient, luckyCard.type, luckyCard.index, luckyCard.netId, luckyCard.card);
-                    caster.TargetReceiveSkillMessage(caster.connectionToClient, "【眼镜】触发：意外瞥见了另一张牌！", 2);
+                    caster.TargetReceiveSkillMessage(caster.connectionToClient, "触发[眼镜]效果：额外显示了一张牌！", this.skillID);
                 }
             }
         }

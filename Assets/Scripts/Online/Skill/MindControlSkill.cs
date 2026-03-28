@@ -19,7 +19,7 @@ public class MindControlSkill : BaseSkill
 
         if (caster.connectionToClient != null)
         {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！{target.playerName} 无法弃牌了！", this.skillID);
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！{target.playerName}无法弃牌了！", this.skillID);
         }
     }
 }

@@ -177,7 +177,7 @@ public class PokerPlayer : NetworkBehaviour
     public override void OnStartServer()
     {
         base.OnStartServer();
-        skillDatabase.Add(1, new SensingSkill());
+        skillDatabase.Add(98, new SensingSkill());
         skillDatabase.Add(2, new PeekSkill());
         skillDatabase.Add(3, new SwapSkill());
         skillDatabase.Add(4, new BlurSkill());
@@ -217,7 +217,7 @@ public class PokerPlayer : NetworkBehaviour
     {
         if (!skillDatabase.ContainsKey(skillID)) return;
 
-        if (!equippedSkills.Contains(skillID) && skillID != 1)
+        if (!equippedSkills.Contains(skillID) && skillID != 98)
         {
             if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "非法操作：你并未装备该技能！", 0);
             return;
@@ -228,7 +228,7 @@ public class PokerPlayer : NetworkBehaviour
 
         if (this.energy < actualEnergyCost)
         {
-            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！需要 {actualEnergyCost} 点能量。", 0);
+            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"能量不足！需要{actualEnergyCost}点能量。", 0);
             return;
         }
         if (isCasting)
@@ -247,7 +247,7 @@ public class PokerPlayer : NetworkBehaviour
         {
             if (targetPlayer.incomingAttacker != null)
             {
-                if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"[{targetPlayer.playerName}] 正在遭受其他玩家的技能，暂时无法使用！", 0);
+                if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"[{targetPlayer.playerName}]正在遭受其他玩家的技能，暂时无法发动！", 0);
                 return;
             }
         }
@@ -333,10 +333,10 @@ public class PokerPlayer : NetworkBehaviour
                 int roll = Random.Range(0, 100);
                 if (roll < interferenceRate)
                 {
-                    if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"技能【{skill.skillName}】释放失败了！", 99);
+                    if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"技能[{skill.skillName}]发动失败了！", 99);
                     foreach (var p in ServerGameManager.Instance.activePlayers)
                     {
-                        if (p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName} 的技能释放失败了！");
+                        if (p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}的技能发动失败了！");
                     }
                     yield break;
                 }
@@ -360,11 +360,11 @@ public class PokerPlayer : NetworkBehaviour
                 string extraMsg = "";
 
                 if (unshieldedTargets.Count > 0) newTarget = unshieldedTargets[Random.Range(0, unshieldedTargets.Count)];
-                else { newTarget = this; extraMsg = "（全场反射壁共振，引发终极反噬！）"; }
+                else { newTarget = this; extraMsg = "成功发动反射壁，技能将被反弹！"; }
 
-                if (target.connectionToClient != null) target.TargetReceiveSkillMessage(target.connectionToClient, $"成功反弹了 {this.playerName} 的【{skill.skillName}】！", 8);
-                if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"遭到反射壁反弹！技能误伤了 {newTarget.playerName}！{extraMsg}", 99);
-                if (newTarget != this && newTarget.connectionToClient != null) newTarget.TargetReceiveSkillMessage(newTarget.connectionToClient, $"注意！{this.playerName} 对 {target.playerName} 释放的【{skill.skillName}】被反弹给了你！", 99);
+                if (target.connectionToClient != null) target.TargetReceiveSkillMessage(target.connectionToClient, $"成功反弹了{this.playerName}的[{skill.skillName}]！", 8);
+                if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"技能反弹向了{newTarget.playerName}！{extraMsg}", 99);
+                if (newTarget != this && newTarget.connectionToClient != null) newTarget.TargetReceiveSkillMessage(newTarget.connectionToClient, $"{this.playerName}对{target.playerName}发动的[{skill.skillName}]被反弹给了你！", 99);
 
                 target = newTarget;
             }
@@ -398,7 +398,7 @@ public class PokerPlayer : NetworkBehaviour
             else
             {
                 if (this.connectionToClient != null)
-                    TargetReceiveSkillMessage(this.connectionToClient, "能量不足，抵抗失败！", 99);
+                    TargetReceiveSkillMessage(this.connectionToClient, "能量不足，无法抵抗！", 99);
             }
         }
     }
@@ -414,13 +414,13 @@ public class PokerPlayer : NetworkBehaviour
             if (this.connectionToClient != null)
             {
                 TargetStopCastingUI(this.connectionToClient);
-                TargetReceiveSkillMessage(this.connectionToClient, $"你的技能被 {resister.playerName} 抵挡住了！", 99);
+                TargetReceiveSkillMessage(this.connectionToClient, $"你的技能被{resister.playerName}抵挡住了！", 99);
             }
 
             if (resister.connectionToClient != null)
             {
                 TargetStopCastingUI(resister.connectionToClient);
-                resister.TargetReceiveSkillMessage(resister.connectionToClient, $"你成功抵挡住了 {this.playerName} 的技能！", 99);
+                resister.TargetReceiveSkillMessage(resister.connectionToClient, $"你成功抵挡住了{this.playerName}的技能！", 99);
             }
 
             foreach (var p in ServerGameManager.Instance.activePlayers)
@@ -509,7 +509,7 @@ public class PokerPlayer : NetworkBehaviour
         if (this.connectionToClient != null)
         {
             TargetSetMindControlState(this.connectionToClient, true);
-            TargetReceiveSkillMessage(this.connectionToClient, "警告！你的大脑被黑入，本局无法执行【弃牌】指令！", 9);
+            TargetReceiveSkillMessage(this.connectionToClient, "你的精神遭到了控制，本局无法【弃牌】！", 9);
         }
     }
 

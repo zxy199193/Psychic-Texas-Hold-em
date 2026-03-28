@@ -28,7 +28,7 @@ public class SwapSkill : BaseSkill
                 target.TargetUpdateSingleHandCard(target.connectionToClient, targetIndex, newCard);
 
                 if (target != caster)
-                    target.TargetReceiveSkillMessage(target.connectionToClient, $"你的第 {targetIndex + 1} 张手牌被改变了！", this.skillID);
+                    target.TargetReceiveSkillMessage(target.connectionToClient, $"你的第{targetIndex + 1}张手牌被改变了！", this.skillID);
             }
         }
         else if (targetType == 1)
@@ -40,7 +40,7 @@ public class SwapSkill : BaseSkill
         if (caster.connectionToClient != null)
         {
             string targetName = (target != null) ? target.playerName : "公共牌";
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功，{targetName} 的手牌被改变了！", this.skillID);
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功，{targetName}的手牌被改变了！", this.skillID);
         }
     }
 }

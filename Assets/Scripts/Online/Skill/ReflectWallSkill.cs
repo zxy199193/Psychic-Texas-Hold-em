@@ -17,7 +17,7 @@ public class ReflectWallSkill : BaseSkill
 
         if (caster.connectionToClient != null)
         {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动成功！你的周围升起了无法逾越的反射壁！", 7);
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动成功！这局对你发动的技能将被反弹给其他玩家！", this.skillID);
         }
     }
 }

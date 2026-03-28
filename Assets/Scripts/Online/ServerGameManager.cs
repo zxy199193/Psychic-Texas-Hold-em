@@ -192,7 +192,7 @@ public class ServerGameManager : NetworkBehaviour
                 // 悄悄告诉破产的玩家
                 if (p.connectionToClient != null)
                 {
-                    p.TargetReceiveSkillMessage(p.connectionToClient, "筹码耗尽，已自动为您重新买入 1000 筹码！", 0);
+                    p.TargetReceiveSkillMessage(p.connectionToClient, "筹码耗尽，已自动为您重新买入1000筹码！", 0);
                 }
             }
         }
@@ -406,7 +406,7 @@ public class ServerGameManager : NetworkBehaviour
             int actualBonus = winner.GetWinEnergyBonus(winnerBonus);
             winner.energy = Mathf.Clamp(winner.energy + actualBonus, 0, playerMaxE);
 
-            RpcShowResult($"{winner.playerName} 赢得 {totalWin} 筹码！(对手弃牌)", 3);
+            RpcShowResult($"{winner.playerName}赢得{totalWin}筹码！(对手弃牌)", 3);
             StartCoroutine(HandleRoundEnd(3f));
             return;
         }
@@ -449,7 +449,7 @@ public class ServerGameManager : NetworkBehaviour
             {
                 w.chips += splitAmount;
                 w.energy = Mathf.Clamp(w.energy + winnerBonus, 0, maxEnergy);
-                resultMsg += $"[{w.playerName}] 赢得池内 {splitAmount} 筹码！";
+                resultMsg += $"[{w.playerName}]赢得池内{splitAmount}筹码！";
                 ultimateWinners.Add(w);
             }
         }
@@ -613,7 +613,7 @@ public class ServerGameManager : NetworkBehaviour
         if (player.serverIsMindControlled)
         {
             if (player.connectionToClient != null)
-                player.TargetReceiveSkillMessage(player.connectionToClient, "你处于被脑控状态，无法弃牌！", 9);
+                player.TargetReceiveSkillMessage(player.connectionToClient, "无法弃牌！", 9);
             return;
         }
         player.isFolded = true;
@@ -634,14 +634,14 @@ public class ServerGameManager : NetworkBehaviour
         {
             callAmount = player.chips;
             player.isAllIn = true;
-            player.TargetReceiveSkillMessage(player.connectionToClient, "All-in！！", 0);
+            player.TargetReceiveSkillMessage(player.connectionToClient, "All-in!!", 0);
         }
 
         player.chips -= callAmount;
         player.currentBet += callAmount;
 
         player.hasActed = true;
-        Debug.Log($"{player.playerName} 跟注 {callAmount}");
+        Debug.Log($"{player.playerName}跟注{callAmount}");
         CheckAndMove();
     }
 
@@ -681,7 +681,7 @@ public class ServerGameManager : NetworkBehaviour
         }
 
         player.hasActed = true;
-        Debug.Log($"{player.playerName} 加注到 {highestBet}");
+        Debug.Log($"{player.playerName}加注到{highestBet}");
         CheckAndMove();
     }
 
@@ -703,7 +703,7 @@ public class ServerGameManager : NetworkBehaviour
             {
                 GiveTurnTo(nextIndex);
                 // 这里原本的打印也需要改，否则也会空引用报错
-                Debug.Log($"轮到 {nextP.playerName} 说话了！");
+                Debug.Log($"轮到{nextP.playerName}说话了！");
                 return;
             }
             currentPlayerIndex = nextIndex;
@@ -737,7 +737,7 @@ public class ServerGameManager : NetworkBehaviour
             PokerBot bot = activePlayers[index].GetComponent<PokerBot>();
             if (bot != null)
             {
-                Debug.Log($"荷官：轮到机器人 {activePlayers[index].playerName} 说话了！");
+                Debug.Log($"荷官：轮到机器人{activePlayers[index].playerName}说话了！");
                 bot.TriggerBotTurn();
             }
         }

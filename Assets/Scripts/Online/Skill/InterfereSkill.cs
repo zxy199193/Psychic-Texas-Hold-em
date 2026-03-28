@@ -19,6 +19,6 @@ public class InterfereSkill : BaseSkill
         target1.interferenceRate += rateToAdd;
 
         if (caster.connectionToClient != null)
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"干扰成功！[{target1.playerName}] 的下一次施法有 {target1.interferenceRate}% 的概率直接哑火！", 5);
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功，[{target1.playerName}]本局发动技能有{target1.interferenceRate}%的概率发动失败！", this.skillID);
     }
 }

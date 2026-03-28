@@ -23,7 +23,7 @@ public class BlurSkill : BaseSkill
         // 悄悄话通知施法者：施法成功
         if (caster.connectionToClient != null)
         {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！ {target.playerName} 无法看清手牌！", 4);
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！{target.playerName}无法看清牌面！", this.skillID);
         }
     }
 }

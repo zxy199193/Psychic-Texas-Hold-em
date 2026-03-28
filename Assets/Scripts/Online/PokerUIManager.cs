@@ -147,6 +147,7 @@ public class PokerUIManager : MonoBehaviour
     public GameObject cardPrefab;
     public Texture2D botDefaultAvatar;
     public Sprite iconResist;
+    public Sprite iconSensing;
     public Sprite iconDefault;
     public Transform deckOriginPos;       // 发牌机位置
     public float cardFlySpeed = 0.3f;     // 飞牌速度
@@ -766,7 +767,7 @@ public class PokerUIManager : MonoBehaviour
                 // 【新增】：刷新我自己大厅准备按钮的文字
                 if (txtLobbyReadyBtnText != null)
                 {
-                    txtLobbyReadyBtnText.text = PokerPlayer.LocalPlayer.isReady ? "取消准备" : "准备OK";
+                    txtLobbyReadyBtnText.text = PokerPlayer.LocalPlayer.isReady ? "取消" : "准备";
                 }
 
                 // 【核心修改】：房主的开始按钮控制
@@ -815,7 +816,7 @@ public class PokerUIManager : MonoBehaviour
                 // 刷新我自己的按钮文字
                 if (txtHalftimeReadyBtnText != null)
                 {
-                    txtHalftimeReadyBtnText.text = PokerPlayer.LocalPlayer.isReady ? "取消准备" : "准备OK";
+                    txtHalftimeReadyBtnText.text = PokerPlayer.LocalPlayer.isReady ? "取消" : "准备";
                 }
 
                 // 刷新房主的开始按钮 (强制客户端隐藏该按钮)
@@ -1095,7 +1096,7 @@ public class PokerUIManager : MonoBehaviour
     }
     public void OnBtnSensingClicked()
     {
-        if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdCastSkill(1, PokerPlayer.LocalPlayer.netId, 0, -1);
+        if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdCastSkill(98, PokerPlayer.LocalPlayer.netId, 0, -1);
     }
     public void OnBtnPeekClicked() { EnterTargetingMode(2); }
     public void OnBtnSwapClicked() { EnterTargetingMode(3); }
@@ -1225,7 +1226,7 @@ public class PokerUIManager : MonoBehaviour
         }
     }
     // ==========================================
-    // UI 性能与布局优化工具
+    // UI 性能与布局优化工具 (多层嵌套穿透版)
     // ==========================================
     private void SetTextAndRebuildLayout(Text textComp, string newText)
     {
@@ -1236,11 +1237,16 @@ public class PokerUIManager : MonoBehaviour
         {
             textComp.text = newText;
 
-            // 强制刷新它所在的父节点 Layout 布局，防止挤在一起
-            RectTransform parentRect = textComp.transform.parent.GetComponent<RectTransform>();
-            if (parentRect != null)
+            // 【终极修复】：针对你的嵌套节点 (Bet HL -> HL -> Text)，自底向上扒到底，逐层刷新！
+            Transform current = textComp.transform.parent;
+            while (current != null)
             {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
+                // 只要父节点身上挂了 LayoutGroup（不管是 Horizontal 还是 Vertical），就立刻刷新它
+                if (current.GetComponent<LayoutGroup>() != null)
+                {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(current.GetComponent<RectTransform>());
+                }
+                current = current.parent; // 继续往上一层父节点找
             }
         }
     }
@@ -1303,6 +1309,7 @@ public class PokerUIManager : MonoBehaviour
     {
         // 1. 特殊固定图标：99 代表抵抗系统
         if (skillID == 99) return iconResist;
+        if (skillID == 98) return iconSensing;
 
         // 2. 去技能配置表里找，找到了直接返回它的图标！
         SkillConfig sConfig = allSkillConfigs.Find(c => c.skillID == skillID);
@@ -1341,7 +1348,7 @@ public class PokerUIManager : MonoBehaviour
 
     public void ShowSensingLog(string message)
     {
-        SpawnTextMessage($"[感应] {message}", 1, 4f);
+        SpawnTextMessage($"[感应] {message}", 98, 4f);
     }
 
     // ==========================================
@@ -1968,7 +1975,7 @@ public class PokerUIManager : MonoBehaviour
         // 【注意：这里绝对不能写 localSelectedTrinkets.Clear() ！】
 
         if (selectedTrinketCountText != null)
-            selectedTrinketCountText.text = $"已选饰品: {localSelectedTrinkets.Count}/{maxTrinketSelection}";
+            selectedTrinketCountText.text = $"选择饰品 [{localSelectedTrinkets.Count}/{maxTrinketSelection}]";
 
         foreach (var config in allTrinketConfigs)
         {
@@ -2019,7 +2026,7 @@ public class PokerUIManager : MonoBehaviour
                 }
 
                 if (selectedTrinketCountText != null)
-                    selectedTrinketCountText.text = $"已选饰品: {localSelectedTrinkets.Count}/{maxTrinketSelection}";
+                    selectedTrinketCountText.text = $"选择饰品 [{localSelectedTrinkets.Count}/{maxTrinketSelection}]";
                 if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdUpdateEquippedTrinkets(localSelectedTrinkets.ToArray());
             });
         }
@@ -2027,7 +2034,7 @@ public class PokerUIManager : MonoBehaviour
     private void UpdateSelectedCountText()
     {
         if (selectedCountText != null)
-            selectedCountText.text = $"已选技能：{localSelectedSkills.Count}/3";
+            selectedCountText.text = $"选择技能 [{localSelectedSkills.Count}/3]";
     }
     // ==========================================
     // 中场休息面板控制
