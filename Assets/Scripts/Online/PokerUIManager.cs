@@ -127,7 +127,6 @@ public class PokerUIManager : MonoBehaviour
     public GameObject targetingMask;      // 点选技能时的黑幕
     public Button btnResistSkill;         // 抵抗按钮
     public Text txtResistCost;            // 抵抗耗蓝
-    public GameObject skillInfoPanel;     // 技能说明浮窗的总节点
     private bool isTargeting = false;
     private int targetingSkillID = -1;
     private Coroutine resistButtonCoroutine;
@@ -176,11 +175,62 @@ public class PokerUIManager : MonoBehaviour
     private List<GameObject> dealCommunity = new List<GameObject>();
     private bool isDealScheduled = false;
 
+    // ==========================================
+    // 悬停浮窗全局计时器
+    // ==========================================
+    private Coroutine currentTooltipCoroutine;
+
+    private System.Collections.IEnumerator ShowTooltipDelayed(GameObject tooltipObj, float delay)
+    {
+        yield return new WaitForSeconds(delay); // 默默等待 1 秒
+        if (tooltipObj != null) tooltipObj.SetActive(true); // 时间到了，且鼠标还没移走，显示！
+    }
+
+    // ==========================================
+    // 通用悬停浮窗绑定工具
+    // ==========================================
+    private void BindHoverTooltip(GameObject targetObj, GameObject tooltipObj)
+    {
+        if (targetObj == null || tooltipObj == null) return;
+
+        tooltipObj.SetActive(false); // 初始隐藏
+        UnityEngine.EventSystems.EventTrigger trigger = targetObj.GetComponent<UnityEngine.EventSystems.EventTrigger>();
+        if (trigger == null) trigger = targetObj.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+
+        // 绑定鼠标移入
+        UnityEngine.EventSystems.EventTrigger.Entry enterEntry = new UnityEngine.EventSystems.EventTrigger.Entry();
+        enterEntry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerEnter;
+        enterEntry.callback.AddListener((data) => {
+            if (currentTooltipCoroutine != null) StopCoroutine(currentTooltipCoroutine);
+            currentTooltipCoroutine = StartCoroutine(ShowTooltipDelayed(tooltipObj, 1.0f));
+        });
+        trigger.triggers.Add(enterEntry);
+
+        // 绑定鼠标移出
+        UnityEngine.EventSystems.EventTrigger.Entry exitEntry = new UnityEngine.EventSystems.EventTrigger.Entry();
+        exitEntry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerExit;
+        exitEntry.callback.AddListener((data) => {
+            if (currentTooltipCoroutine != null) StopCoroutine(currentTooltipCoroutine);
+            tooltipObj.SetActive(false);
+        });
+        trigger.triggers.Add(exitEntry);
+    }
     private void Awake()
     {
         Instance = this;
         InitLobbySkillSelection();
         InitLobbyTrinketSelection();
+        if (btnResistSkill != null)
+        {
+            Transform tip = DeepFind(btnResistSkill.transform, "SkillTooltipPanel");
+            if (tip != null) BindHoverTooltip(btnResistSkill.gameObject, tip.gameObject);
+        }
+
+        if (btnSensingSkill != null)
+        {
+            Transform tip = DeepFind(btnSensingSkill.transform, "SkillTooltipPanel");
+            if (tip != null) BindHoverTooltip(btnSensingSkill.gameObject, tip.gameObject);
+        }
     }
 
     public void ShowMyHoleCards(Card c1, Card c2)
@@ -528,35 +578,32 @@ public class PokerUIManager : MonoBehaviour
             GameObject btnGo = Instantiate(inGameSkillBtnPrefab, inGameSkillBar);
 
             Transform iconTransform = DeepFind(btnGo.transform, "Image Icon");
+            Transform nameBtnTransform = DeepFind(btnGo.transform, "Text Name Btn");
+            Transform nameTipTransform = DeepFind(btnGo.transform, "Text Name Tip");
+            Transform descTransform = DeepFind(btnGo.transform, "Text Des");
             Transform costTransform = DeepFind(btnGo.transform, "Text Cost");
-            Transform nameTransform = DeepFind(btnGo.transform, "Text Name"); // 查找名字节点
+            Transform timeTransform = DeepFind(btnGo.transform, "Text Time");
+            Transform tooltipTransform = DeepFind(btnGo.transform, "SkillTooltipPanel"); // 【新增】：寻找浮窗节点
 
-            // 安全赋值图标
             if (iconTransform != null)
             {
                 UnityEngine.UI.Image iconImg = iconTransform.GetComponent<UnityEngine.UI.Image>();
                 if (iconImg != null) iconImg.sprite = config.icon;
-                else Debug.LogWarning($"【局内UI警告】'Image Icon' 节点上没有 Image 组件！");
-            }
-            else
-            {
-                Debug.LogWarning($"【局内UI警告】找不到 'Image Icon' 节点！");
             }
 
-            // 安全赋值耗蓝与名字
+            // 赋值所有文本信息
+            SafeSetText(nameBtnTransform, config.skillName); // 给按钮表面赋值
+            SafeSetText(nameTipTransform, config.skillName); // 给浮窗里面赋值
+            SafeSetText(descTransform, config.description);
             SafeSetText(costTransform, config.energyCost.ToString());
-            SafeSetText(nameTransform, config.skillName); // 赋值技能名字
+            SafeSetText(timeTransform, config.castTime > 0 ? $"{config.castTime}" : "0");
 
-            // 安全获取按钮并绑定事件
+
+            GameObject tooltipObj = tooltipTransform != null ? tooltipTransform.gameObject : null;
+            BindHoverTooltip(btnGo, tooltipObj); 
+
             UnityEngine.UI.Button btn = btnGo.GetComponent<UnityEngine.UI.Button>();
-            if (btn != null)
-            {
-                btn.onClick.AddListener(() => OnDynamicSkillClicked(config));
-            }
-            else
-            {
-                Debug.LogError($"【局内UI错误】技能按钮预制体最外层没有挂载 Button 组件！");
-            }
+            if (btn != null) btn.onClick.AddListener(() => OnDynamicSkillClicked(config));
         }
     }
     // 动态生成局内饰品 UI (支持多饰品 & 自动悬停绑定)
@@ -1295,19 +1342,6 @@ public class PokerUIManager : MonoBehaviour
     public void ShowSensingLog(string message)
     {
         SpawnTextMessage($"[感应] {message}", 1, 4f);
-    }
-
-    // ==========================================
-    // 技能说明浮窗控制
-    // ==========================================
-    public void OpenSkillInfoPanel()
-    {
-        if (skillInfoPanel != null) skillInfoPanel.SetActive(true);
-    }
-
-    public void CloseSkillInfoPanel()
-    {
-        if (skillInfoPanel != null) skillInfoPanel.SetActive(false);
     }
 
     // ==========================================
