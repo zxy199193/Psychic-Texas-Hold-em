@@ -186,8 +186,15 @@ public class PokerUIManager : MonoBehaviour
 
     private System.Collections.IEnumerator ShowTooltipDelayed(GameObject tooltipObj, float delay)
     {
-        yield return new WaitForSeconds(delay); // 默默等待 1 秒
-        if (tooltipObj != null) tooltipObj.SetActive(true); // 时间到了，且鼠标还没移走，显示！
+        yield return new WaitForSeconds(delay);
+        if (tooltipObj != null)
+        {
+            tooltipObj.SetActive(true);
+
+            // 一并解决技能浮窗第一次拉伸错误的问题
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(tooltipObj.GetComponent<RectTransform>());
+        }
     }
 
     // ==========================================
@@ -669,7 +676,14 @@ public class PokerUIManager : MonoBehaviour
                 // 注册“鼠标移入”事件：显示它自己的浮窗
                 UnityEngine.EventSystems.EventTrigger.Entry enterEntry = new UnityEngine.EventSystems.EventTrigger.Entry();
                 enterEntry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerEnter;
-                enterEntry.callback.AddListener((data) => { tooltipObj.SetActive(true); });
+                enterEntry.callback.AddListener((data) =>
+                {
+                    tooltipObj.SetActive(true);
+
+                    //强迫 Unity 立刻计算文本尺寸，并立即重构排版！
+                    Canvas.ForceUpdateCanvases();
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(tooltipObj.GetComponent<RectTransform>());
+                });
                 trigger.triggers.Add(enterEntry);
 
                 // 注册“鼠标移出”事件：隐藏浮窗
@@ -710,14 +724,17 @@ public class PokerUIManager : MonoBehaviour
         // 2. 处理固定技能：感应 (Sensing)
         if (btnSensingSkill != null)
         {
-            // 获取当前是否已经有 Buff 在运行 (根据 UI 节点是否显示来判断)
-            bool alreadyHasBuff = (sensingBuffNode != null && sensingBuffNode.activeSelf);
+            // 【核心修复】：不再看 UI 脸色，直接读取玩家肉身上的真实状态！
+            bool isAlreadySensing = false;
+            if (PokerPlayer.LocalPlayer != null)
+            {
+                isAlreadySensing = PokerPlayer.LocalPlayer.localIsSensing;
+            }
 
-            // 只有【没有Buff】且【能量够】且【轮到我】时，按钮才亮
-            // 假设感应技能在你的 SkillConfigs 里的消耗是 1
-            int sensingCost = 1;
+            int sensingCost = 1; // 耗蓝 1 点
 
-            btnSensingSkill.interactable = !alreadyHasBuff && (currentEnergy >= sensingCost);
+            // 只要你身上有这个状态，不管能量多满，彻底焊死！
+            btnSensingSkill.interactable = !isAlreadySensing && (currentEnergy >= sensingCost);
         }
 
         // 3. 处理固定技能：抵抗 (Resist)
@@ -795,7 +812,7 @@ public class PokerUIManager : MonoBehaviour
                 if (p.isReady) readyCount++;
             }
 
-            if (txtPlayerCount != null) txtPlayerCount.text = $"当前人数：{pCount}/6";
+            if (txtPlayerCount != null) txtPlayerCount.text = $"【 当前人数：{pCount}/6 】";
             if (txtLobbyReadyCount != null) txtLobbyReadyCount.text = $"准备完成: {readyCount}/{pCount}";
 
             if (PokerPlayer.LocalPlayer != null)
@@ -1145,6 +1162,7 @@ public class PokerUIManager : MonoBehaviour
     public void OnBtnSensingClicked()
     {
         if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdCastSkill(98, PokerPlayer.LocalPlayer.netId, 0, -1);
+        if (btnSensingSkill != null) btnSensingSkill.interactable = false;
     }
     public void OnBtnPeekClicked() { EnterTargetingMode(2); }
     public void OnBtnSwapClicked() { EnterTargetingMode(3); }
@@ -1416,7 +1434,7 @@ public class PokerUIManager : MonoBehaviour
 
     public void ShowSensingLog(string message)
     {
-        SpawnTextMessage($"[感应] {message}", 98, 4f);
+        SpawnTextMessage($"{message}", 98, 4f);
     }
 
     // ==========================================
@@ -2145,7 +2163,7 @@ public class PokerUIManager : MonoBehaviour
         if (halftimeUIGroup != null) halftimeUIGroup.SetActive(true);
         if (lobbyUIGroup != null) lobbyUIGroup.SetActive(false);
         if (btnHalftimeStartHost != null) btnHalftimeStartHost.gameObject.SetActive(false);
-        if (txtHalftimeRoundTitle != null) txtHalftimeRoundTitle.text = $"第 {roundCount} 圈结束 - 中场休息";
+        if (txtHalftimeRoundTitle != null) txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}圈 】";
 
         // 3. 核心：强制把本地的选择，覆盖为服务器里你当前真正的装备！
         if (PokerPlayer.LocalPlayer != null)

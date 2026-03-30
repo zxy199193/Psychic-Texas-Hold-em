@@ -7,6 +7,10 @@ public class AudioManager : MonoBehaviour
     [Header("音轨组件")]
     public AudioSource sfxSource;       // 用于单次播放的音效 (发牌、翻牌、筹码)
     public AudioSource loopingSource;   // 专用于循环播放的音效 (施法发功)
+    public AudioSource bgmSource;       // 【新增】专用于播放背景音乐的音轨
+
+    [Header("背景音乐")]
+    public AudioClip bgmClip;           // 【新增】背景音乐文件
 
     [Header("卡牌音效")]
     public AudioClip dealCardClip;      // 发底牌/发公牌的“唰”声
@@ -37,6 +41,36 @@ public class AudioManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        // 【新增】：游戏一启动，立刻自动播放背景音乐！
+        PlayBGM();
+    }
+
+    // ==========================================
+    // 背景音乐控制 (BGM)
+    // ==========================================
+    public void PlayBGM()
+    {
+        if (bgmSource != null && bgmClip != null)
+        {
+            bgmSource.clip = bgmClip;
+            bgmSource.loop = true; // 强制开启循环播放
+            if (!bgmSource.isPlaying)
+            {
+                bgmSource.Play();
+            }
+        }
+    }
+
+    public void StopBGM()
+    {
+        if (bgmSource != null && bgmSource.isPlaying)
+        {
+            bgmSource.Stop();
+        }
+    }
+
     // ==========================================
     // 供外部随意调用的公共方法
     // ==========================================
@@ -47,6 +81,7 @@ public class AudioManager : MonoBehaviour
     public void PlayWinChips() { PlaySFX(winChipsClip); }
     public void PlaySkillSuccess() { PlaySFX(skillSuccessClip); }
     public void PlaySkillFail() { PlaySFX(skillFailClip); }
+    public void PlayYourTurn() { PlaySFX(yourTurnClip); }
 
     // 内部播放单次音效的核心方法
     private void PlaySFX(AudioClip clip)
@@ -82,5 +117,4 @@ public class AudioManager : MonoBehaviour
             loopingSource.Stop();
         }
     }
-    public void PlayYourTurn() { PlaySFX(yourTurnClip); }
 }

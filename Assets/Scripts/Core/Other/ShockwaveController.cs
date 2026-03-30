@@ -87,6 +87,7 @@ public class ShockwaveController : MonoBehaviour
         // 3. 挂上 Image，设为全透明
         Image img = waveObj.AddComponent<Image>();
         img.color = Color.white;
+        img.raycastTarget = false;
 
         // 4. 【灵魂操作】克隆一个新的材质球！这样它就不会干扰其他波纹！
         Material instanceMat = new Material(shockwaveMaterialTemplate);
