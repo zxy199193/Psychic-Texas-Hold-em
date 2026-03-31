@@ -5,7 +5,7 @@ public class MindControlSkill : BaseSkill
     public MindControlSkill()
     {
         skillID = 9;             // 注册为 9 号技能
-        skillName = "脑控";
+        skillName = "精神控制";
         energyCost = 10;         // 满管蓝！耗能 10
         castTime = 8.0f;         // 漫长的 8 秒读条
     }

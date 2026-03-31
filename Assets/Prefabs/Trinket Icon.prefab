@@ -149,11 +149,11 @@ RectTransform:
   - {fileID: 8521732324981353964}
   m_Father: {fileID: 7531277327785458501}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: -50, y: 35}
-  m_SizeDelta: {x: 156, y: 25}
-  m_Pivot: {x: 0, y: 1}
+  m_AnchorMin: {x: 0.5, y: 0}
+  m_AnchorMax: {x: 0.5, y: 0}
+  m_AnchoredPosition: {x: 0, y: 60}
+  m_SizeDelta: {x: 135, y: 43}
+  m_Pivot: {x: 0.5, y: 0}
 --- !u!222 &3743115131351269080
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -207,8 +207,8 @@ MonoBehaviour:
   m_Padding:
     m_Left: 10
     m_Right: 10
-    m_Top: 0
-    m_Bottom: 0
+    m_Top: 3
+    m_Bottom: 3
   m_ChildAlignment: 4
   m_Spacing: 0
   m_ChildForceExpandWidth: 0
@@ -230,8 +230,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_HorizontalFit: 2
-  m_VerticalFit: 0
+  m_HorizontalFit: 0
+  m_VerticalFit: 2
 --- !u!1 &6566150836604204846
 GameObject:
   m_ObjectHideFlags: 0
@@ -265,10 +265,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 2743782678937554151}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.5}
-  m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 10, y: 15}
-  m_SizeDelta: {x: 78, y: 20}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 10, y: -12.5}
+  m_SizeDelta: {x: 83, y: 24}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!222 &7883630725323982564
 CanvasRenderer:
@@ -361,8 +361,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 78, y: -12.5}
-  m_SizeDelta: {x: 136, y: 19}
+  m_AnchoredPosition: {x: 65, y: -21.5}
+  m_SizeDelta: {x: 120, y: 37}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8351692649076567936
 CanvasRenderer:
@@ -399,7 +399,7 @@ MonoBehaviour:
     m_BestFit: 0
     m_MinSize: 10
     m_MaxSize: 40
-    m_Alignment: 0
+    m_Alignment: 1
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 0
@@ -418,7 +418,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_HorizontalFit: 2
+  m_HorizontalFit: 0
   m_VerticalFit: 2
 --- !u!1 &8849738696745032376
 GameObject:

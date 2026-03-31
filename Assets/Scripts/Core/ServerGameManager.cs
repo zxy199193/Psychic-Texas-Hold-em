@@ -619,6 +619,7 @@ public class ServerGameManager : NetworkBehaviour
         player.isFolded = true;
         player.hasActed = true; // 【新增】
         Debug.Log($"{player.playerName} 弃牌");
+        RpcPlayActionSound("Fold");
         CheckAndMove(); // 【修改】不再直接调用 MoveToNextPlayer
     }
 
@@ -639,9 +640,18 @@ public class ServerGameManager : NetworkBehaviour
 
         player.chips -= callAmount;
         player.currentBet += callAmount;
-
         player.hasActed = true;
-        Debug.Log($"{player.playerName}跟注{callAmount}");
+
+        if (callAmount == 0)
+        {
+            Debug.Log($"{player.playerName} 过牌 (Check)");
+            RpcPlayActionSound("Check"); // 通知全网播放敲桌子音效！
+        }
+        else
+        {
+            Debug.Log($"{player.playerName}跟注{callAmount}");
+            // 下注音效不需要在这里写，因为你的 PokerUIManager 已经在监听 currentBet 的增加了！
+        }
         CheckAndMove();
     }
 
@@ -985,6 +995,18 @@ public class ServerGameManager : NetworkBehaviour
         {
             // 强制刷新桌面上对应位置的那张公共牌的 UI
             PokerUIManager.Instance.UpdateCommunityCardUI(cardIndex, newSuit, newRank);
+        }
+    }
+    // ==========================================
+    // 全网音效广播系统
+    // ==========================================
+    [ClientRpc]
+    private void RpcPlayActionSound(string actionType)
+    {
+        if (AudioManager.Instance != null)
+        {
+            if (actionType == "Check") AudioManager.Instance.PlayCheck();
+            else if (actionType == "Fold") AudioManager.Instance.PlayFold();
         }
     }
 }

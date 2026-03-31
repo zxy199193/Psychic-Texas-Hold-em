@@ -1198,11 +1198,39 @@ public class PokerUIManager : MonoBehaviour
             $"注意！有人正在对你发动技能[{skillName}]！";
 
         // ==========================================
-        // 只有当施法者是“你”的时候，才启动心跳脉冲！
+        // 【增强】：全场动态定位冲击波发射源！
         // ==========================================
-        if (casterName == "你" && shockwave != null)
+        if (shockwave != null)
         {
-            shockwave.StartLoopingShockwave();
+            // 兜底坐标：如果找不到人，就在屏幕正中心爆开
+            Vector3 originPos = new Vector3(Screen.width / 2f, Screen.height / 2f, 0);
+
+            if (casterName == "你")
+            {
+                // 如果是我自己放的，定位到我的头像！
+                if (myAvatarImage != null) originPos = myAvatarImage.transform.position;
+            }
+            else
+            {
+                // 如果是别人放的，去场上把这个罪魁祸首找出来！
+                PokerPlayer[] allPlayers = FindObjectsOfType<PokerPlayer>();
+                foreach (var p in allPlayers)
+                {
+                    if (p.playerName == casterName) // 名字对上了！
+                    {
+                        int eIdx = GetEnemyIndex(p);
+                        // 拿到他对应的那个 UI 头像框的坐标
+                        if (eIdx >= 0 && eIdx < enemyAvatarImages.Length && enemyAvatarImages[eIdx] != null)
+                        {
+                            originPos = enemyAvatarImages[eIdx].transform.position;
+                        }
+                        break;
+                    }
+                }
+            }
+            bool isMyCast = (casterName == "你");
+            // 万事俱备，在这个精准坐标上引爆冲击波！
+            shockwave.StartLoopingShockwave(isMyCast);
         }
 
         if (currentCastItem != null)
@@ -1224,6 +1252,7 @@ public class PokerUIManager : MonoBehaviour
                 resistButtonCoroutine = StartCoroutine(DisableResistButtonAfter(duration));
             }
         }
+        ForceRebuildLayout(go);
     }
 
     // 读条结束自动锁死抵抗按钮
@@ -1430,6 +1459,7 @@ public class PokerUIManager : MonoBehaviour
             if (message.Contains("成功")) AudioManager.Instance.PlaySkillSuccess();
             else if (message.Contains("失败") || message.Contains("抵抗")) AudioManager.Instance.PlaySkillFail();
         }
+        ForceRebuildLayout(go);
     }
 
     public void ShowSensingLog(string message)
@@ -2196,5 +2226,24 @@ public class PokerUIManager : MonoBehaviour
     public void OnBtnHalftimeStartClicked()
     {
         if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdStartNextRoundFromHalftime();
+    }
+
+    private void ForceRebuildLayout(GameObject target)
+    {
+        if (target == null) return;
+
+        // 1. 先让 Canvas 立即计算所有基本的 UI 数据
+        Canvas.ForceUpdateCanvases();
+
+        // 2. 获取该物体下所有的 LayoutGroup (包括父物体本身)
+        // 从子级到父级逆序刷新，这是解决嵌套布局错位的秘诀
+        LayoutGroup[] layouts = target.GetComponentsInChildren<LayoutGroup>();
+        for (int i = layouts.Length - 1; i >= 0; i--)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(layouts[i].GetComponent<RectTransform>());
+        }
+
+        // 3. 最后再刷一遍容器本身，确保万无一失
+        LayoutRebuilder.ForceRebuildLayoutImmediate(target.GetComponent<RectTransform>());
     }
 }

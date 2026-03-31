@@ -5,25 +5,17 @@ using System.Collections;
 
 public class ShockwaveController : MonoBehaviour
 {
-    [Header("冲击波核心参数 (支持无限叠加)")]
-    [Tooltip("波纹存活时间 (秒)")]
-    [Range(0.1f, 3.0f)] public float duration = 0.8f;
+    [Header("冲击波核心参数")]
+    public float duration = 0.8f;
+    public float interval = 0.2f;
+    public float maxRadius = 1.5f;
+    public float maxForce = 0.15f;
 
-    [Tooltip("【核心】发射间隔！现在可以比存活时间更短了！")]
-    [Range(0.05f, 2.0f)] public float interval = 0.2f;
+    [Header("位置节点槽位 (在Inspector里拖入UI节点)")]
+    public Transform playerNode; // 拖入玩家头像
+    public Transform enemyNode;  // 拖入敌方头像区域
 
-    [Tooltip("最大扩散半径")]
-    [Range(0.5f, 3.0f)] public float maxRadius = 1.5f;
-
-    [Tooltip("初始扭曲力度")]
-    [Range(0.01f, 0.5f)] public float maxForce = 0.15f;
-
-    [Header("爆炸中心点")]
-    [Range(0f, 1f)] public float centerX = 0.5f;
-    [Range(0f, 1f)] public float centerY = 0.5f;
-
-    [Header("系统引用 (必填)")]
-    [Tooltip("把你的 ShockwaveMat 材质球拖到这里！")]
+    [Header("系统引用")]
     public Material shockwaveMaterialTemplate;
 
     private Coroutine loopCoroutine;
@@ -31,10 +23,10 @@ public class ShockwaveController : MonoBehaviour
     // ==========================================
     // 控制接口
     // ==========================================
-    public void StartLoopingShockwave()
+    public void StartLoopingShockwave(bool isPlayer)
     {
         StopLoopingShockwave();
-        loopCoroutine = StartCoroutine(ShockwaveLoopRoutine());
+        loopCoroutine = StartCoroutine(ShockwaveLoopRoutine(isPlayer));
     }
 
     public void StopLoopingShockwave()
@@ -46,81 +38,59 @@ public class ShockwaveController : MonoBehaviour
         }
     }
 
-    public void PlaySingleShockwave()
-    {
-        SpawnWaveInstance();
-    }
-
-    // ==========================================
-    // 核心逻辑：多重影分身之术
-    // ==========================================
-    private IEnumerator ShockwaveLoopRoutine()
+    private IEnumerator ShockwaveLoopRoutine(bool isPlayer)
     {
         while (true)
         {
-            SpawnWaveInstance();
-            // 等待一小会儿，立刻发射下一个！（即使上一个还没播完）
+            SpawnWaveInstance(isPlayer);
             yield return new WaitForSeconds(interval);
         }
     }
 
-    private void SpawnWaveInstance()
+    private void SpawnWaveInstance(bool isPlayer)
     {
-        if (shockwaveMaterialTemplate == null)
+        if (shockwaveMaterialTemplate == null) return;
+
+        // 1. 根据布尔值自动选择位置
+        Vector2 screenPos = new Vector2(0.5f, 0.5f); // 默认屏幕中心
+        Transform targetNode = isPlayer ? playerNode : enemyNode;
+
+        if (targetNode != null)
         {
-            Debug.LogError("老哥！你忘了把材质球拖给 ShockwaveController 啦！");
-            return;
+            // 将世界坐标转为 0-1 的屏幕比例坐标给 Shader 使用
+            screenPos = new Vector2(targetNode.position.x / Screen.width, targetNode.position.y / Screen.height);
         }
 
-        // 1. 凭空捏造一个 UI 节点
+        // 2. 生成特效物体
         GameObject waveObj = new GameObject("Shockwave_Instance");
-        waveObj.transform.SetParent(this.transform, false); // 作为当前节点的子物体
-        waveObj.transform.SetAsLastSibling(); // 保证它显示在最前面
+        waveObj.transform.SetParent(this.transform, false);
+        waveObj.transform.SetAsLastSibling();
 
-        // 2. 让它铺满全屏
         RectTransform rect = waveObj.AddComponent<RectTransform>();
         rect.anchorMin = Vector2.zero;
         rect.anchorMax = Vector2.one;
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
 
-        // 3. 挂上 Image，设为全透明
         Image img = waveObj.AddComponent<Image>();
         img.color = Color.white;
         img.raycastTarget = false;
 
-        // 4. 【灵魂操作】克隆一个新的材质球！这样它就不会干扰其他波纹！
         Material instanceMat = new Material(shockwaveMaterialTemplate);
         img.material = instanceMat;
 
-        // 5. 初始化这个分身的参数
-        instanceMat.SetVector("_Center", new Vector4(centerX, centerY, 0, 0));
+        // 3. 设置 Shader 参数
+        instanceMat.SetVector("_Center", new Vector4(screenPos.x, screenPos.y, 0, 0));
         instanceMat.SetFloat("_Radius", 0f);
         instanceMat.SetFloat("_Force", maxForce);
 
-        // 6. 给这个分身打入 DOTween 魔法
-        DOTween.To(() => instanceMat.GetFloat("_Radius"),
-                   x => instanceMat.SetFloat("_Radius", x),
-                   maxRadius, duration).SetEase(Ease.OutQuad);
-
-        DOTween.To(() => instanceMat.GetFloat("_Force"),
-                   x => instanceMat.SetFloat("_Force", x),
-                   0f, duration).SetEase(Ease.OutQuad)
+        // 4. 动画
+        DOTween.To(() => instanceMat.GetFloat("_Radius"), x => instanceMat.SetFloat("_Radius", x), maxRadius, duration).SetEase(Ease.OutQuad);
+        DOTween.To(() => instanceMat.GetFloat("_Force"), x => instanceMat.SetFloat("_Force", x), 0f, duration).SetEase(Ease.OutQuad)
                .OnComplete(() =>
                {
-                   // 7. 【极其重要】放完特效后，连人带材质球一起销毁，绝不占用内存！
                    Destroy(instanceMat);
                    Destroy(waveObj);
                });
     }
-
-    // 开发者快捷键
-#if UNITY_EDITOR
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Space)) StartLoopingShockwave();
-        if (Input.GetKeyDown(KeyCode.S)) StopLoopingShockwave();
-        if (Input.GetKeyDown(KeyCode.A)) PlaySingleShockwave();
-    }
-#endif
 }

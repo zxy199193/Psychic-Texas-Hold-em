@@ -19,6 +19,8 @@ public class AudioManager : MonoBehaviour
     [Header("筹码音效")]
     public AudioClip betClip;           // 加注/跟注时筹码丢入池子的声音
     public AudioClip winChipsClip;      // 胜利时揽收大堆筹码的哗啦啦声
+    public AudioClip checkClip;         // 过牌的声音
+    public AudioClip foldClip;          // 弃牌的声音
 
     [Header("技能音效")]
     public AudioClip castingLoopClip;   // 发功时的持续嗡嗡声/电流声 (需循环)
@@ -82,7 +84,8 @@ public class AudioManager : MonoBehaviour
     public void PlaySkillSuccess() { PlaySFX(skillSuccessClip); }
     public void PlaySkillFail() { PlaySFX(skillFailClip); }
     public void PlayYourTurn() { PlaySFX(yourTurnClip); }
-
+    public void PlayCheck() { PlaySFX(checkClip); }
+    public void PlayFold() { PlaySFX(foldClip); }
     // 内部播放单次音效的核心方法
     private void PlaySFX(AudioClip clip)
     {

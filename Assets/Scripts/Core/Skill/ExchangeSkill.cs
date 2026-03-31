@@ -5,7 +5,7 @@ public class ExchangeSkill : BaseSkill
     public ExchangeSkill()
     {
         skillID = 7;            // 注册为 7 号技能
-        skillName = "数据交换";
+        skillName = "交换";
         energyCost = 7;          // 耗能 7
         castTime = 5.0f;         // 读条 5 秒
     }
