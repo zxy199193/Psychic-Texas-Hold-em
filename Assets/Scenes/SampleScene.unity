@@ -512,7 +512,7 @@ MonoBehaviour:
   textMessagePrefab: {fileID: 2010747171920155422, guid: 1f2fe1892594827479468f2aa1facf50, type: 3}
   castMessagePrefab: {fileID: 2010747171920155422, guid: ca33c49a5e1f82d4480644e5bac5c648, type: 3}
   cardPrefab: {fileID: 4964214538806288788, guid: f4aa1fa6a683e9c4a8f7a1c75e5737a8, type: 3}
-  botDefaultAvatar: {fileID: 2800000, guid: 3c32de42acaf9b74d8c37ec40260a077, type: 3}
+  botDefaultAvatar: {fileID: 2800000, guid: 52d9cdd692595ac41aecfc27bccfba73, type: 3}
   iconResist: {fileID: 21300000, guid: 9ed7386210a91884d970cc0b2206a3f0, type: 3}
   iconSensing: {fileID: 21300000, guid: 48df668f865766a48b680ce621263971, type: 3}
   iconDefault: {fileID: 21300000, guid: 291ea881fe662b442a83210ecc87dd67, type: 3}
@@ -13455,7 +13455,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 0.15
+  m_Volume: 0.25
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -15323,7 +15323,7 @@ MonoBehaviour:
   highestBet: 0
   currentMinRaise: 10
   currentPlayerIndex: 0
-  initialEnergy: 3
+  initialEnergy: 10
   maxEnergy: 10
   roundEnergyRegen: 3
   winnerBonus: 2

@@ -640,4 +640,10 @@ public class PokerPlayer : NetworkBehaviour
             ServerGameManager.Instance.StartNextRoundFromHalftime();
         }
     }
+
+    [TargetRpc]
+    public void TargetSetMindControlState(NetworkConnection target, bool isControlled)
+    {
+        localIsMindControlled = isControlled; // 同步给本地 UI 用
+    }
 }

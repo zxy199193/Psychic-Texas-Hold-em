@@ -219,8 +219,11 @@ public class ServerGameManager : NetworkBehaviour
             p.interferenceRate = 0;
             p.serverHasReflectWall = false;
             p.serverIsMindControlled = false;
-            if (p.connectionToClient != null) p.TargetSetSensingState(p.connectionToClient, false);
-
+            if (p.connectionToClient != null)
+            {
+                p.TargetSetSensingState(p.connectionToClient, false);
+                p.TargetSetMindControlState(p.connectionToClient, false);
+            }
             p.serverHand.Clear();
             Card c1, c2;
 
