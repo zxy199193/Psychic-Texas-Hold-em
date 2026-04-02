@@ -78,7 +78,7 @@ public static class HandEvaluator
     }
 
     // 核心：动态获取权重 (让同花反杀葫芦)
-    private static int GetRankWeight(HandRank rank, bool isShortDeck)
+    public static int GetRankWeight(HandRank rank, bool isShortDeck)
     {
         if (!isShortDeck) return (int)rank;
 
@@ -136,5 +136,20 @@ public static class HandEvaluator
             }
         }
         return result;
+    }
+    public static int CompareHands((HandRank rank, int score) hand1, (HandRank rank, int score) hand2, bool isShortDeck)
+    {
+        // 获取经过短牌规则修正后的真实权重
+        int weight1 = GetRankWeight(hand1.rank, isShortDeck);
+        int weight2 = GetRankWeight(hand2.rank, isShortDeck);
+
+        if (weight1 > weight2) return 1;  // hand1 赢
+        if (weight1 < weight2) return -1; // hand2 赢
+
+        // 如果牌型权重一样（比如都是同花），则比较具体的牌面分数
+        if (hand1.score > hand2.score) return 1;
+        if (hand1.score < hand2.score) return -1;
+
+        return 0; // 完全平局
     }
 }

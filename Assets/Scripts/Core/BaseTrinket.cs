@@ -61,7 +61,7 @@ public class CrownTrinket : BaseTrinket
 public class WatchTrinket : BaseTrinket
 {
     public WatchTrinket() { trinketID = 4; trinketName = "ª≥±Ì"; }
-    public override float ModifyCastTime(float currentCastTime, PokerPlayer player) { return currentCastTime * 0.5f; }
+    public override float ModifyCastTime(float currentCastTime, PokerPlayer player) { return currentCastTime * 0.1f; }
 }
 
 // 5.  ÷ÔÌ

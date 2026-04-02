@@ -15,9 +15,18 @@ public class CardView : MonoBehaviour
     // 记录正在播放的透视动画，方便随时打断
     private Coroutine peekCoroutine;
 
+    // 供外部判断是否正在透视的护盾属性
+    public bool IsPeeking => peekCoroutine != null;
+
     // 新增参数 isPeeking：防止透视动画在换底牌时把自己打断
     public void SetCard(Card card, bool faceUp = true, bool isPeeking = false)
     {
+        // 【防闪退护盾】：如果正在透视，且这是普通后台试图盖牌的指令，直接拦截！
+        if (this.IsPeeking && !isPeeking && !faceUp)
+        {
+            return;
+        }
+
         // 核心保护：如果是荷官正常的发牌或翻牌，必须瞬间打断正在播放的透视动画！
         if (!isPeeking)
         {
@@ -36,6 +45,7 @@ public class CardView : MonoBehaviour
             return;
         }
 
+        // 恢复你原本的图片读取逻辑
         string suitLetter = "";
         switch (card.suit)
         {
@@ -77,7 +87,7 @@ public class CardView : MonoBehaviour
     }
 
     // ==========================================
-    // 终极 X 光扫描透视动画
+    // 终极 X 光扫描透视动画 (融合了弃牌提亮修复)
     // ==========================================
     public void ShowPeekState(Card card, float holdDuration)
     {
@@ -87,6 +97,10 @@ public class CardView : MonoBehaviour
 
     private IEnumerator PeekAnimationRoutine(Card card, float holdDuration)
     {
+        // 【新增 1】：记住被透视前的颜色（如果是弃牌，此时是深灰色），然后强行提亮变白！
+        Color originalColor = cardImage.color;
+        cardImage.color = Color.white;
+
         // 1. 底层换成真实牌面（传入 isPeeking = true，这样就不会触发上面的打断保护）
         SetCard(card, true, true);
 
@@ -99,7 +113,7 @@ public class CardView : MonoBehaviour
         }
 
         float fadeTime = 0.8f; // 渐变耗时 0.8 秒
-        float targetAlpha = 0.15f; 
+        float targetAlpha = 0.15f;
 
         // 3. 【扫描显影】：1秒内从完全不透明(1.0) 降到 半透明(0.2)
         float elapsed = 0f;
@@ -126,8 +140,11 @@ public class CardView : MonoBehaviour
         }
         SetOverlayAlpha(1f);
 
-        // 6. 动画彻底结束，调用基础方法恢复成纯净的盖牌状态
-        ShowBack();
+        // 6. 【新增 2】：动画彻底结束，调用安全盖牌，并恢复原本的暗度
+        SetCard(card, false, true); // 传 true 保持护盾，防止自己打断自己
+        cardImage.color = originalColor; // 如果原本是弃牌，完美变回深灰色
+
+        peekCoroutine = null; // 彻底解除状态
     }
 
     // 工具方法：快捷设置遮罩透明度
@@ -140,6 +157,7 @@ public class CardView : MonoBehaviour
             cardBackOverlay.color = c;
         }
     }
+
     // ==========================================
     // 赛博换牌：白光遮罩平滑过渡特效
     // ==========================================
@@ -195,6 +213,10 @@ public class CardView : MonoBehaviour
         // 7. 特效结束，销毁遮罩，不留痕迹
         Destroy(maskObj);
     }
+
+    // ==========================================
+    // DOTween 翻牌特效
+    // ==========================================
     public void FlipToFace(Card targetCard, float duration = 0.4f)
     {
         // 1. 安全第一：杀掉该物体身上所有正在运行的动画，防止疯狂连点导致鬼畜

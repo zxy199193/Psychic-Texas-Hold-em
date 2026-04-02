@@ -433,16 +433,19 @@ public class ServerGameManager : NetworkBehaviour
             for (int i = 1; i < eligible.Count; i++)
             {
                 var currentResult = HandEvaluator.GetBestHand(eligible[i].serverHand, serverCommunityCards, isShortDeckMode);
-                if (currentResult.rank > bestHandResult.rank ||
-                   (currentResult.rank == bestHandResult.rank && currentResult.score > bestHandResult.score))
+
+                // 直接调用我们写好的终极比较器！
+                int compareResult = HandEvaluator.CompareHands(currentResult, bestHandResult, isShortDeckMode);
+
+                if (compareResult > 0) // current 赢了 best
                 {
                     bestHandResult = currentResult;
                     winners.Clear();
                     winners.Add(eligible[i]);
                 }
-                else if (currentResult.rank == bestHandResult.rank && currentResult.score == bestHandResult.score)
+                else if (compareResult == 0) // 完全平局
                 {
-                    winners.Add(eligible[i]); // 出现平局！
+                    winners.Add(eligible[i]);
                 }
             }
 
@@ -1010,6 +1013,13 @@ public class ServerGameManager : NetworkBehaviour
         {
             if (actionType == "Check") AudioManager.Instance.PlayCheck();
             else if (actionType == "Fold") AudioManager.Instance.PlayFold();
+        }
+    }
+    public void ReturnCardToDeck(Card card)
+    {
+        if (deck != null)
+        {
+            deck.ReturnCardAndShuffle(card);
         }
     }
 }

@@ -61,7 +61,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Aspect: 8.648648
+    - _Aspect: 3.368421
     - _BumpScale: 1
     - _CornerRadius: 0.2
     - _Cutoff: 0.5

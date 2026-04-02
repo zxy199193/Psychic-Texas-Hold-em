@@ -47,6 +47,9 @@ public class PeekSkill : BaseSkill
                 {
                     if (i >= serverContext.serverCommunityCards.Count) // 还没翻开的
                     {
+                        // 【核心修复 1】：排除当前已经被主动指定透视的公牌！
+                        if (type1 == 1 && index1 == i) continue;
+
                         pool.Add(new RandomCardPoolInfo { type = 1, index = i, netId = 0, card = serverContext.futureCommunityCards[i] });
                     }
                 }
@@ -56,8 +59,16 @@ public class PeekSkill : BaseSkill
                 {
                     if (p != caster && p.serverHand.Count >= 2)
                     {
-                        pool.Add(new RandomCardPoolInfo { type = 0, index = 0, netId = p.netId, card = p.serverHand[0] });
-                        pool.Add(new RandomCardPoolInfo { type = 0, index = 1, netId = p.netId, card = p.serverHand[1] });
+                        // 【核心修复 2】：排除当前已经被主动指定透视的那个敌人的那张底牌！
+                        if (!(type1 == 0 && tNetId == p.netId && index1 == 0))
+                        {
+                            pool.Add(new RandomCardPoolInfo { type = 0, index = 0, netId = p.netId, card = p.serverHand[0] });
+                        }
+
+                        if (!(type1 == 0 && tNetId == p.netId && index1 == 1))
+                        {
+                            pool.Add(new RandomCardPoolInfo { type = 0, index = 1, netId = p.netId, card = p.serverHand[1] });
+                        }
                     }
                 }
 

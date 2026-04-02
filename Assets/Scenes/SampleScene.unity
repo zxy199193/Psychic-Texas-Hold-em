@@ -15671,7 +15671,7 @@ MonoBehaviour:
   highestBet: 0
   currentMinRaise: 10
   currentPlayerIndex: 0
-  initialEnergy: 10
+  initialEnergy: 999
   maxEnergy: 10
   roundEnergyRegen: 3
   winnerBonus: 2

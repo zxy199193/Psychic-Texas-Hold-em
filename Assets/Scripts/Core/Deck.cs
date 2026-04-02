@@ -99,4 +99,9 @@ public class Deck
         Debug.LogWarning("牌库里的 QKA 被抽光了！神像降级为普通许愿(含J)！");
         return DrawWishCard(); // 兜底：去找 JQKA
     }
+    public void ReturnCardAndShuffle(Card card)
+    {
+        cards.Add(card);
+        Shuffle(); // 洗牌，保证随机性
+    }
 }

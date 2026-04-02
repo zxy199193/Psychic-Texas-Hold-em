@@ -1708,6 +1708,13 @@ public class PokerUIManager : MonoBehaviour
 
         foreach (Transform child in area)
         {
+            // 【核心护盾】：检查这张牌是不是正在被透视！
+            CardView cv = child.GetComponent<CardView>();
+            if (cv != null && cv.IsPeeking)
+            {
+                continue; // 神圣不可侵犯，直接跳过变暗处理！
+            }
+
             Image[] allImages = child.GetComponentsInChildren<Image>();
             foreach (Image img in allImages)
             {
