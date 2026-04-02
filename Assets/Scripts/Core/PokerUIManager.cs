@@ -91,6 +91,7 @@ public class PokerUIManager : MonoBehaviour
     private bool wasMyTurnLastFrame = false; // 记录上一帧是不是我的回合，防止音效每秒响60次
     public Transform inGameTrinketContainer; // 饰品排列的 Layout 容器节点
     public GameObject inGameTrinketPrefab;   // 局内饰品预制体
+    public GameObject myWinnerNode;          // 你的 Winner 节点 (比如一个皇冠图片)
 
     [Header("4. 对手玩家 UI (Enemy Players)")]
     public GameObject[] enemySeats;       // 对手座位总节点
@@ -108,6 +109,7 @@ public class PokerUIManager : MonoBehaviour
     public Text[] enemyHandTypeTexts;
     public GameObject[] enemyDisconnectNodes; //拖入 5 个“掉线”文字的 UI 节点
     public GameObject[] enemyTurnHighlightNodes; // 轮到对手时的高亮边框节点数组
+    public GameObject[] enemyWinnerNodes;    // 对手们的 Winner 节点数组
 
     [Header("5. 基础操作与加注面板 (Actions)")]
     public Button btnFold;
@@ -1132,7 +1134,12 @@ public class PokerUIManager : MonoBehaviour
 
         if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
         if (nextHandCountdownNode != null) nextHandCountdownNode.SetActive(false);
-
+        if (myWinnerNode != null) myWinnerNode.SetActive(false);
+        if (enemyWinnerNodes != null)
+        {
+            foreach (var node in enemyWinnerNodes)
+                if (node != null) node.SetActive(false);
+        }
         ClearArea(myHandArea);
         SetMyCardsBlurred(false);
         if (enemyHandAreas != null)
@@ -1919,6 +1926,7 @@ public class PokerUIManager : MonoBehaviour
                 myHandTypeText.text = handTypeStr;
                 myHandTypeText.color = targetColor; // 赋色！
             }
+            if (myWinnerNode != null) myWinnerNode.SetActive(isWinner);
         }
         else
         {
@@ -1930,6 +1938,10 @@ public class PokerUIManager : MonoBehaviour
                 {
                     enemyHandTypeTexts[idx].text = handTypeStr;
                     enemyHandTypeTexts[idx].color = targetColor; // 赋色！
+                }
+                if (enemyWinnerNodes != null && idx >= 0 && idx < enemyWinnerNodes.Length && enemyWinnerNodes[idx] != null)
+                {
+                    enemyWinnerNodes[idx].SetActive(isWinner);
                 }
             }
         }
