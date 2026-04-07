@@ -55,6 +55,16 @@ public class PokerPlayer : NetworkBehaviour
     [HideInInspector] public int dualTargetIndex;
 
     // ==========================================
+    // 【性能优化】：缓存 AI 大脑，拒绝每帧 GetComponent
+    // ==========================================
+    [HideInInspector] public PokerBot myBotBrain;
+
+    private void Awake()
+    {
+        // 玩家生成时自动获取一次，终身受用！(如果是真人玩家，这里就是 null)
+        myBotBrain = GetComponent<PokerBot>();
+    }
+    // ==========================================
     // 【核心修复】：注册表字典声明
     // ==========================================
     private Dictionary<int, BaseSkill> skillDatabase = new Dictionary<int, BaseSkill>();
@@ -296,8 +306,7 @@ public class PokerPlayer : NetworkBehaviour
 
             target.incomingAttacker = this;
             target.incomingResistCost = resistCost;
-
-            PokerBot botBrain = target.GetComponent<PokerBot>();
+            PokerBot botBrain = target.myBotBrain;
             if (botBrain != null && canResist)
             {
                 botBrain.OnTargetedBySkill(skillID, resistCost);
@@ -315,7 +324,7 @@ public class PokerPlayer : NetworkBehaviour
             target2.incomingAttacker = this;
             target2.incomingResistCost = resistCost2;
 
-            PokerBot botBrain2 = target2.GetComponent<PokerBot>();
+            PokerBot botBrain2 = target2.myBotBrain;
             if (botBrain2 != null && canResist2)
             {
                 botBrain2.OnTargetedBySkill(skillID, resistCost2);
@@ -652,11 +661,5 @@ public class PokerPlayer : NetworkBehaviour
         {
             ServerGameManager.Instance.StartNextRoundFromHalftime();
         }
-    }
-
-    [TargetRpc]
-    public void TargetSetMindControlState(NetworkConnection target, bool isControlled)
-    {
-        localIsMindControlled = isControlled; // 同步给本地 UI 用
     }
 }

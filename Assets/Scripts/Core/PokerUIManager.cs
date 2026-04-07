@@ -182,10 +182,31 @@ public class PokerUIManager : MonoBehaviour
     private List<GameObject> dealCommunity = new List<GameObject>();
     private bool isDealScheduled = false;
 
+    private PokerPlayer[] cachedAllPlayers = new PokerPlayer[0];
+    private float playerSearchTimer = 0f;
+
     // ==========================================
     // 悬停浮窗全局计时器
     // ==========================================
     private Coroutine currentTooltipCoroutine;
+
+    // ==========================================
+    // 【性能优化】：防 GC 字符串无端分配拦截器
+    // ==========================================
+    private Dictionary<Text, int> textIntCache = new Dictionary<Text, int>();
+
+    // 专属的数字更新器：只有当数字真的变了，才去生成字符串！
+    private void UpdateTextIfIntChanged(Text textComp, int newValue, string prefix = "")
+    {
+        if (textComp == null) return;
+
+        // 如果从来没记录过，或者数字发生了变化
+        if (!textIntCache.ContainsKey(textComp) || textIntCache[textComp] != newValue)
+        {
+            textIntCache[textComp] = newValue;
+            SetTextAndRebuildLayout(textComp, $"{prefix}{newValue}");
+        }
+    }
 
     private System.Collections.IEnumerator ShowTooltipDelayed(GameObject tooltipObj, float delay)
     {
@@ -757,6 +778,15 @@ public class PokerUIManager : MonoBehaviour
         {
             hasSyncedSkillsThisSession = false;
         }
+        // 0.5秒执行一次全局搜索，并自动排序
+        playerSearchTimer -= Time.deltaTime;
+        if (playerSearchTimer <= 0f)
+        {
+            cachedAllPlayers = FindObjectsOfType<PokerPlayer>();
+            System.Array.Sort(cachedAllPlayers, (a, b) => a.netId.CompareTo(b.netId));
+            playerSearchTimer = 0.5f; // 重置冷却时间
+        }
+
         // 1. 刷新全局的奖池和最高下注额
         if (ServerGameManager.Instance != null)
         {
@@ -779,13 +809,11 @@ public class PokerUIManager : MonoBehaviour
             {
                 Text txt = activePotUIItems[i].GetComponentInChildren<Text>();
                 string label = (i == 0) ? "" : $"边池 {i}: ";
-                SetTextAndRebuildLayout(txt, $"{label}{potList[i]}");
-
+                UpdateTextIfIntChanged(txt, potList[i], label);
                 //如果边池是 0 块钱，直接隐藏整个节点（主池 0 块也保留）
                 activePotUIItems[i].SetActive(i == 0 || potList[i] > 0);
             }
-
-            SetTextAndRebuildLayout(highestBetText, $"{ServerGameManager.Instance.highestBet}");
+            UpdateTextIfIntChanged(highestBetText, ServerGameManager.Instance.highestBet);
         }
 
         int currentMaxEnergy = 10;
@@ -805,7 +833,7 @@ public class PokerUIManager : MonoBehaviour
         if (mainMenuPanel != null && mainMenuPanel.activeSelf)
         {
             // 获取全场活着的真人玩家
-            PokerPlayer[] allPlayersInRoom = FindObjectsOfType<PokerPlayer>();
+            PokerPlayer[] allPlayersInRoom = cachedAllPlayers;
             int pCount = allPlayersInRoom.Length;
             int readyCount = 0;
 
@@ -857,7 +885,7 @@ public class PokerUIManager : MonoBehaviour
             if (PokerPlayer.LocalPlayer != null)
             {
                 // 【修改】：因为客户端的 activePlayers 是空的！必须用 FindObjectsOfType 拿到的本地实体来统计
-                PokerPlayer[] allPlayersInRoom = FindObjectsOfType<PokerPlayer>();
+                PokerPlayer[] allPlayersInRoom = cachedAllPlayers;
                 int totalPlayers = allPlayersInRoom.Length;
                 int readyCount = 0;
 
@@ -913,9 +941,9 @@ public class PokerUIManager : MonoBehaviour
             if (p.isLocalPlayer)
             {
                 SetTextAndRebuildLayout(myNameText, p.playerName);
-                SetTextAndRebuildLayout(myChipsText, $"{p.chips}");
-                SetTextAndRebuildLayout(myCurrentBetText, $"{p.currentBet}");
-                SetTextAndRebuildLayout(myEnergyText, $"{p.energy}");
+                UpdateTextIfIntChanged(myChipsText, p.chips);
+                UpdateTextIfIntChanged(myCurrentBetText, p.currentBet);
+                UpdateTextIfIntChanged(myEnergyText, p.energy);
                 RefreshSkillButtonsState(p.energy);
                 if (myRebuyNode != null) myRebuyNode.SetActive(p.rebuyCount > 0);
                 if (myRebuyText != null && p.rebuyCount > 0) myRebuyText.text = $"{p.rebuyCount}";
@@ -957,8 +985,8 @@ public class PokerUIManager : MonoBehaviour
                     // 使用智能刷新方法更新对手 UI
                     isSeatDisconnected[enemyIndex] = false;
                     SetTextAndRebuildLayout(enemyNameTexts[enemyIndex], p.playerName);
-                    SetTextAndRebuildLayout(enemyChipsTexts[enemyIndex], $"{p.chips}");
-                    SetTextAndRebuildLayout(enemyCurrentBetTexts[enemyIndex], $"{p.currentBet}");
+                    UpdateTextIfIntChanged(enemyChipsTexts[enemyIndex], p.chips);
+                    UpdateTextIfIntChanged(enemyCurrentBetTexts[enemyIndex], p.currentBet);
                     bool iAmSensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
                     string energyDisplay = iAmSensing ? $"{p.energy}" : "?";
                     SetTextAndRebuildLayout(enemyEnergyTexts[enemyIndex], energyDisplay);
@@ -1783,6 +1811,8 @@ public class PokerUIManager : MonoBehaviour
 
                 //极其重要的细节：Steam 的像素是从上到下的，Unity 是从下到上的
                 // 所以拿到的头像默认是【上下颠倒】的！我们需要翻转它：
+                Texture2D finalFlippedTex = FlipTexture(texture);
+                Destroy(texture);
                 return FlipTexture(texture);
             }
         }

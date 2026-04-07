@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8d8f8b5b1457a1046871ba3ff65372ff, type: 3}
   m_Name: AI04
   m_EditorClassIdentifier: 
-  botName: AI-04
-  avatarID: 0
-  personality: 2
+  botName: Bot-04
+  avatarID: 3
+  personality: 1
   targetingPreference: 0
-  equippedSkills: 04000000
-  equippedTrinkets: 02000000
+  equippedSkills: 06000000
+  equippedTrinkets: 03000000

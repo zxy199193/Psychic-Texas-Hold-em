@@ -61,7 +61,14 @@ public class ServerGameManager : NetworkBehaviour
     public List<Card> serverCommunityCards = new List<Card>();
     // 【新增】：开局就决定好的 5 张命运公牌！
     public Card[] futureCommunityCards = new Card[5];
-
+    // ==========================================
+    // 【性能优化】：全局复用缓存池，彻底消灭 GC 内存垃圾
+    // ==========================================
+    private List<PokerPlayer> tempSurvivors = new List<PokerPlayer>();
+    private HashSet<PokerPlayer> tempUltimateWinners = new HashSet<PokerPlayer>();
+    private List<PokerPlayer> tempEligible = new List<PokerPlayer>();
+    private List<PokerPlayer> tempWinners = new List<PokerPlayer>();
+    private List<PokerPlayer> tempBettors = new List<PokerPlayer>();
     private void Awake()
     {
         Instance = this;
@@ -403,20 +410,20 @@ public class ServerGameManager : NetworkBehaviour
 
         if (activePlayers.Count > 0) dealerIndex = (dealerIndex + 1) % activePlayers.Count;
 
-        List<PokerPlayer> survivors = new List<PokerPlayer>();
+        tempSurvivors.Clear();
         foreach (var p in activePlayers)
         {
             if (p == null) continue;
-            if (!p.isFolded) survivors.Add(p);
+            if (!p.isFolded) tempSurvivors.Add(p);
         }
 
         //用来记录谁在这局里赢到了钱（哪怕只是边池）
-        HashSet<PokerPlayer> ultimateWinners = new HashSet<PokerPlayer>();
+        tempUltimateWinners.Clear();
 
         // 1. 情况 A：提前获胜 (其他人全 Fold 了)
-        if (survivors.Count == 1)
+        if (tempSurvivors.Count == 1)
         {
-            PokerPlayer winner = survivors[0];
+            PokerPlayer winner = tempSurvivors[0];
             int totalWin = 0;
             foreach (var pot in serverPots) totalWin += pot.amount;
 
@@ -438,18 +445,18 @@ public class ServerGameManager : NetworkBehaviour
             if (pot.amount == 0) continue;
 
             // 筛出有资格分这个池子，且活到最后的人
-            List<PokerPlayer> eligible = new List<PokerPlayer>();
-            foreach (var ep in pot.eligiblePlayers) { if (!ep.isFolded) eligible.Add(ep); }
-            if (eligible.Count == 0) continue;
+            tempEligible.Clear();
+            foreach (var ep in pot.eligiblePlayers) { if (!ep.isFolded) tempEligible.Add(ep); }
+            if (tempEligible.Count == 0) continue;
 
             // 寻找最大牌型（支持平局并列）
-            List<PokerPlayer> winners = new List<PokerPlayer>();
-            var bestHandResult = HandEvaluator.GetBestHand(eligible[0].serverHand, serverCommunityCards, isShortDeckMode);
-            winners.Add(eligible[0]);
+            tempWinners.Clear();
+            var bestHandResult = HandEvaluator.GetBestHand(tempEligible[0].serverHand, serverCommunityCards, isShortDeckMode);
+            tempWinners.Add(tempEligible[0]);
 
-            for (int i = 1; i < eligible.Count; i++)
+            for (int i = 1; i < tempEligible.Count; i++)
             {
-                var currentResult = HandEvaluator.GetBestHand(eligible[i].serverHand, serverCommunityCards, isShortDeckMode);
+                var currentResult = HandEvaluator.GetBestHand(tempEligible[i].serverHand, serverCommunityCards, isShortDeckMode);
 
                 // 直接调用我们写好的终极比较器！
                 int compareResult = HandEvaluator.CompareHands(currentResult, bestHandResult, isShortDeckMode);
@@ -457,33 +464,33 @@ public class ServerGameManager : NetworkBehaviour
                 if (compareResult > 0) // current 赢了 best
                 {
                     bestHandResult = currentResult;
-                    winners.Clear();
-                    winners.Add(eligible[i]);
+                    tempWinners.Clear();
+                    tempWinners.Add(tempEligible[i]);
                 }
                 else if (compareResult == 0) // 完全平局
                 {
-                    winners.Add(eligible[i]);
+                    tempWinners.Add(tempEligible[i]);
                 }
             }
 
             // 发钱！
-            int splitAmount = pot.amount / winners.Count;
-            foreach (var w in winners)
+            int splitAmount = pot.amount / tempWinners.Count;
+            foreach (var w in tempWinners)
             {
                 w.chips += splitAmount;
                 w.energy = Mathf.Clamp(w.energy + winnerBonus, 0, maxEnergy);
                 resultMsg += $"[{w.playerName}]赢得池内{splitAmount}筹码！";
-                ultimateWinners.Add(w);
+                tempUltimateWinners.Add(w);
             }
         }
 
         // ============================
         // 最后的亮牌与播报环节
         // ============================
-        foreach (var p in survivors)
+        foreach (var p in tempSurvivors)
         {
             // 判断他是不是赢家
-            bool isWinner = ultimateWinners.Contains(p) || survivors.Count == 1;
+            bool isWinner = tempUltimateWinners.Contains(p) || tempSurvivors.Count == 1;
 
             var finalHand = HandEvaluator.GetBestHand(p.serverHand, serverCommunityCards, isShortDeckMode);
 
@@ -724,12 +731,10 @@ public class ServerGameManager : NetworkBehaviour
     private void MoveToNextPlayer()
     {
         int startIndex = currentPlayerIndex;
-        int attempts = 0; // 防死循环保护
 
         do
         {
             int nextIndex = (currentPlayerIndex + 1) % activePlayers.Count;
-            attempts++;
             PokerPlayer nextP = activePlayers[nextIndex];
             // 核心跳过条件：没弃牌、没All-in，且手里还有钱的人，才有资格拿到话筒
             if (nextP != null && !nextP.isFolded && !nextP.isAllIn && nextP.chips > 0)
@@ -741,7 +746,7 @@ public class ServerGameManager : NetworkBehaviour
             }
             currentPlayerIndex = nextIndex;
         }
-        while (currentPlayerIndex != startIndex && attempts <= activePlayers.Count);
+        while (currentPlayerIndex != startIndex);
 
         Debug.Log("一圈结束了！或者所有人都处于 All-in/弃牌 状态。");
         GiveTurnTo(-1); // 暂时没收所有人话筒
@@ -767,7 +772,7 @@ public class ServerGameManager : NetworkBehaviour
         //【终极驱动】：荷官亲自把话筒塞给该玩家，如果他是机器人，直接踢他一脚强制思考！
         if (activePlayers[index] != null)
         {
-            PokerBot bot = activePlayers[index].GetComponent<PokerBot>();
+            PokerBot bot = activePlayers[index].myBotBrain;
             if (bot != null)
             {
                 Debug.Log($"荷官：轮到机器人{activePlayers[index].playerName}说话了！");
@@ -880,18 +885,18 @@ public class ServerGameManager : NetworkBehaviour
     private void SweepBetsIntoPots()
     {
         // 1. 获取面前还有筹码没被收走的玩家
-        List<PokerPlayer> bettors = new List<PokerPlayer>();
+        tempBettors.Clear();
         foreach (var p in activePlayers)
         {
             if (p == null) continue;
-            if (p.currentBet > 0) bettors.Add(p);
+            if (p.currentBet > 0) tempBettors.Add(p);
         }
 
-        while (bettors.Count > 0)
+        while (tempBettors.Count > 0)
         {
             // 2. 找出这一波的最小下注额 (短板效应)
             int minBet = int.MaxValue;
-            foreach (var p in bettors)
+            foreach (var p in tempBettors)
             {
                 if (p.currentBet < minBet) minBet = p.currentBet;
             }
@@ -901,9 +906,9 @@ public class ServerGameManager : NetworkBehaviour
             bool someoneAllInMatched = false;
 
             // 3. 从所有人面前拿走这部分钱
-            for (int i = bettors.Count - 1; i >= 0; i--)
+            for (int i = tempBettors.Count - 1; i >= 0; i--)
             {
-                PokerPlayer p = bettors[i];
+                PokerPlayer p = tempBettors[i];
                 contribution += minBet;
                 p.currentBet -= minBet;
 
@@ -917,7 +922,7 @@ public class ServerGameManager : NetworkBehaviour
                 if (p.currentBet == 0)
                 {
                     if (p.isAllIn) someoneAllInMatched = true; // 发现 All-in 玩家的断层！
-                    bettors.RemoveAt(i);
+                    tempBettors.RemoveAt(i);
                 }
             }
 
