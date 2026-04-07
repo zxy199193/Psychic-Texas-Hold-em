@@ -1,324 +1,337 @@
-using UnityEngine;
-using Mirror;
 using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 
 [RequireComponent(typeof(PokerPlayer))]
-public class PokerBot : NetworkBehaviour
+public class PokerBot : MonoBehaviour
 {
-    private PokerPlayer myPlayer;
+    // ==========================================
+    // 1. AI 灵魂定义 (与档案库中的枚举一致)
+    // ==========================================
+    public enum BotPersonality { Rock, Maniac, Trickster, Standard }
+    public enum TargetingPreference { Random, Richest, Poorest, LastWinner }
+
+    [Header("当前 AI 灵魂")]
+    public BotPersonality personality = BotPersonality.Standard;
+    public TargetingPreference targetingPreference = TargetingPreference.Random;
+
+    [Header("思考时间模拟")]
+    public float minThinkTime = 1.0f;
+    public float maxThinkTime = 2.5f;
+
+    private PokerPlayer selfPlayer;
     private bool isThinking = false;
 
-    public override void OnStartServer()
+    private void Awake()
     {
-        base.OnStartServer();
-        myPlayer = GetComponent<PokerPlayer>();
-        myPlayer.playerName = "Bot-" + Random.Range(10, 99);
-        Debug.Log($"[AI 系统] 智能机器人 {myPlayer.playerName} 连线成功！");
+        selfPlayer = GetComponent<PokerPlayer>();
     }
 
-    [ServerCallback]
+    // ==========================================
+    // 2. 核心大脑循环 (只在服务器端且轮到自己时运行)
+    // ==========================================
     public void TriggerBotTurn()
     {
-        if (!myPlayer.isFolded && !myPlayer.isAllIn && !isThinking)
+        if (selfPlayer == null || ServerGameManager.Instance == null) return;
+
+        // 确保只有在服务器端，且没有在思考时才启动大脑
+        if (selfPlayer.isServer && !isThinking)
         {
-            StartCoroutine(ThinkAndAct());
+            StartCoroutine(ThinkAndActRoutine());
         }
     }
 
-    private IEnumerator ThinkAndAct()
+    private IEnumerator ThinkAndActRoutine()
     {
         isThinking = true;
 
-        // 拟人化思考延迟：越到后期想得越久
-        float thinkTime = Random.Range(0.5f, 1.2f);
-        if (ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.River) thinkTime += 0.3f;
-        yield return new WaitForSeconds(thinkTime);
+        // 1. 假装在思考 (模拟人类延迟)
+        yield return new WaitForSeconds(Random.Range(minThinkTime, maxThinkTime));
 
-        // --------------------------------------------------------
-        // 第一阶段：收集桌面情报 (The Matrix)
-        // --------------------------------------------------------
-        int currentBet = ServerGameManager.Instance.highestBet;
-        int callAmount = Mathf.Max(0, currentBet - myPlayer.currentBet);
-        int bigBlind = ServerGameManager.Instance.bigBlind;
-
-        // 粗略估算当前可见总奖池 (主池 + 所有人的当前下注)
-        int currentPot = ServerGameManager.Instance.syncPotAmounts.Count > 0 ? ServerGameManager.Instance.syncPotAmounts[0] : 0;
-        foreach (var p in ServerGameManager.Instance.activePlayers) currentPot += p.currentBet;
-
-        // 底池赔率计算 (Pot Odds) - 比如需要花 10 块去赢 100 块，赔率是 10%
-        float potOdds = (currentPot + callAmount > 0) ? (float)callAmount / (currentPot + callAmount) : 0f;
-
-        // --------------------------------------------------------
-        // 第二阶段：评估自身战力 (Hand Strength: 0 ~ 100)
-        // --------------------------------------------------------
-        var bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards, ServerGameManager.Instance.isShortDeckMode);
-        float handStrength = CalculateHandStrengthScore(bestHand.rank, bestHand.score);
-        
-        // ==========================================
-        // 新增：超能力判定！在做决定前，先看看要不要放技能
-        // ==========================================
-        bool hasCasted = TryCastSuperpowers(handStrength, callAmount, currentPot);
-        if (hasCasted)
+        // 防御性检查：思考期间可能发生意外(比如被人脑控了强行结束回合)
+        if (!selfPlayer.isMyTurn)
         {
-            // 如果放了技能，必须挂起大脑，等待施法读条结束！
-            yield return new WaitUntil(() => !myPlayer.isCasting);
-            yield return new WaitForSeconds(0.5f); // 稍微缓冲一下
-
-            // 重新评估战力！(万一刚才换到了一张 A 呢！)
-            bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards, ServerGameManager.Instance.isShortDeckMode);
-            handStrength = CalculateHandStrengthScore(bestHand.rank, bestHand.score);
-        }
-        // ==========================================
-
-        // --------------------------------------------------------
-        // 第三阶段：核心决策树 (The Decision Engine)
-        // --------------------------------------------------------
-        float roll = Random.Range(0f, 100f);
-        bool canRaise = myPlayer.chips > callAmount + bigBlind;
-
-        myPlayer.RpcBroadcastSkillState($"[{myPlayer.playerName}] 战力:{handStrength:F1}, 需跟注:{callAmount}, 赔率:{potOdds * 100:F0}%");
-
-        // 战术 1：极限诈唬 (Bluffing)
-        // 手牌极烂(<30)，但底池不大，且随机数命中(15%概率)
-        if (callAmount <= bigBlind * 3 && handStrength < 30f && roll < 15f && canRaise)
-        {
-            int bluffAmount = CalculateRaiseSizing(currentPot, "Bluff");
-            ExecuteRaise(bluffAmount, "极限诈唬");
+            isThinking = false;
             yield break;
         }
 
-        // 战术 2：好牌榨取价值 (Value Betting)
-        if (handStrength >= 75f) // 三条以上的绝世好牌，或者超强的一对A
+        // 2. 第一阶段：决定是否使用超能力！
+        TryCastSkill();
+
+        // 如果放了技能，稍微停顿一下再下注，更有节奏感
+        yield return new WaitForSeconds(0.5f);
+
+        if (!selfPlayer.isMyTurn)
         {
-            if (roll < 20f && callAmount == 0) // 20% 概率慢打(Slowplay)设陷阱
-            {
-                ExecuteCall("慢打设陷阱");
-            }
-            else if (canRaise)
-            {
-                int valueAmount = CalculateRaiseSizing(currentPot, "Value");
-                ExecuteRaise(valueAmount, "价值重注");
-            }
-            else
-            {
-                ExecuteCall("强牌跟注/全押");
-            }
+            isThinking = false;
             yield break;
         }
 
-        // 战术 3：中等牌看赔率办事 (Marginal Hands)
-        if (handStrength >= 40f && handStrength < 75f)
+        // 3. 第二阶段：评估手牌战力 (0.0极差 ~ 1.0极好)
+        float handStrength = EvaluateHandStrength();
+
+        // 4. 第三阶段：根据性格，做出最终的下注/弃牌决策！
+        MakeBettingDecision(handStrength);
+
+        isThinking = false;
+    }
+
+    // ==========================================
+    // 3. 技能释放与仇恨系统
+    // ==========================================
+    private void TryCastSkill()
+    {
+        if (selfPlayer.equippedSkills.Count == 0 || selfPlayer.energy <= 0) return;
+
+        // 根据性格决定放技能的概率
+        float castChance = 0f;
+        switch (personality)
         {
-            if (callAmount == 0)
-            {
-                if (roll < 40f && canRaise) ExecuteRaise(CalculateRaiseSizing(currentPot, "Probe"), "试探加注");
-                else ExecuteCall("中等牌过牌");
-            }
-            else
-            {
-                // 如果赔率很合适（比如别人下注很小），或者自己牌力够硬，就跟注
-                if (potOdds <= 0.3f || handStrength > 60f) ExecuteCall("赔率合适/跟注");
-                else ExecuteFold("中等牌面临重压，怂了");
-            }
-            yield break;
+            case BotPersonality.Trickster: castChance = 0.8f; break; // 老千：极度渴望变戏法 (80%)
+            case BotPersonality.Maniac: castChance = 0.5f; break; // 疯狗：看心情咬人 (50%)
+            case BotPersonality.Standard: castChance = 0.3f; break; // 标准：偶尔用一下 (30%)
+            case BotPersonality.Rock: castChance = 0.1f; break; // 铁公鸡：不逼到绝境不用 (10%)
         }
 
-        // 战术 4：烂牌处理 (Trash Hands)
-        if (callAmount == 0)
+        if (Random.value > castChance) return; // 没触发，直接放弃施法
+
+        // 挑选一个能放得起的技能 (这里简化处理，直接选第一个够蓝的)
+        int skillToCast = -1;
+        foreach (int skillID in selfPlayer.equippedSkills)
         {
-            ExecuteCall("烂牌免费过牌"); // 白嫖看牌
+            // 假设你有一个方法能查到技能耗蓝，如果没有，你可以根据配置表查，这里假设能量 > 0 就能放
+            skillToCast = skillID;
+            break;
+        }
+
+        if (skillToCast == -1) return;
+
+        // 【仇恨雷达启动】：寻找目标！
+        PokerPlayer targetEnemy = FindTargetEnemy();
+        uint targetNetId = (targetEnemy != null) ? targetEnemy.netId : 0;
+
+        selfPlayer.ServerCastSkill(skillToCast, targetNetId, 0, 0);
+    }
+
+    private PokerPlayer FindTargetEnemy()
+    {
+        List<PokerPlayer> enemies = new List<PokerPlayer>();
+        foreach (var p in ServerGameManager.Instance.activePlayers)
+        {
+            if (p != selfPlayer && !p.isFolded) enemies.Add(p);
+        }
+
+        if (enemies.Count == 0) return null;
+
+        switch (targetingPreference)
+        {
+            case TargetingPreference.Richest:
+                enemies.Sort((a, b) => b.chips.CompareTo(a.chips)); // 降序，有钱的在前面
+                return enemies[0];
+
+            case TargetingPreference.Poorest:
+                enemies.Sort((a, b) => a.chips.CompareTo(b.chips)); // 升序，穷的在前面
+                return enemies[0];
+
+            case TargetingPreference.Random:
+            default:
+                return enemies[Random.Range(0, enemies.Count)];
+        }
+    }
+
+    // ==========================================
+    // 4. 数学大脑：牌力估算 (0.0 ~ 1.0)
+    // ==========================================
+    private float EvaluateHandStrength()
+    {
+        if (selfPlayer.serverHand.Count < 2) return 0f;
+
+        var communityCards = ServerGameManager.Instance.serverCommunityCards;
+        bool isShort = ServerGameManager.Instance.isShortDeckMode;
+
+        // 【核心修复 1】：极其严谨的翻牌前打分器
+        if (communityCards.Count < 3)
+        {
+            Card c1 = selfPlayer.serverHand[0];
+            Card c2 = selfPlayer.serverHand[1];
+
+            // 把 A 视为 14 点
+            float v1 = (c1.rank == Rank.Ace) ? 14 : (int)c1.rank;
+            float v2 = (c2.rank == Rank.Ace) ? 14 : (int)c2.rank;
+            float high = Mathf.Max(v1, v2);
+            float low = Mathf.Min(v1, v2);
+
+            // 算法：高牌占大头权重，低牌占小头权重
+            // AA = 0.84分，22 = 0.12分，AK = 0.82分，JTs = 0.73分
+            float score = (high / 25f) + (low / 50f);
+
+            if (c1.rank == c2.rank) score += 0.2f; // 口袋对子加分
+            if (c1.suit == c2.suit) score += 0.05f; // 同花起手加分
+            if (high - low == 1) score += 0.05f; // 连牌起手加分
+
+            return Mathf.Clamp01(score);
         }
         else
         {
-            // 如果只需要补极少的钱（比如大盲注被加了一点点，赔率 < 10%），偶尔跟一下
-            if (potOdds < 0.1f && roll < 50f) ExecuteCall("烂牌贪婪跟注");
-            else ExecuteFold("毫无底气弃牌");
+            // 翻牌后，调用你强大的 HandEvaluator 精确算命！
+            var bestHand = HandEvaluator.GetBestHand(selfPlayer.serverHand, communityCards, isShort);
+            int weight = HandEvaluator.GetRankWeight(bestHand.rank, isShort);
+            float baseScore = weight / 8f;
+            return Mathf.Clamp01(baseScore);
         }
     }
 
     // ==========================================
-    // 动作执行封装模块
+    // 5. 灵魂决策器：下注、跟注、弃牌
     // ==========================================
-    private void ExecuteFold(string reason)
+    private void MakeBettingDecision(float handStrength)
     {
-        Debug.Log($"[{myPlayer.playerName}] 弃牌 (理由: {reason})");
-        ServerGameManager.Instance.HandlePlayerFold(myPlayer);
-        isThinking = false;
-    }
-
-    private void ExecuteCall(string reason)
-    {
-        Debug.Log($"[{myPlayer.playerName}] 跟注/过牌 (理由: {reason})");
-        ServerGameManager.Instance.HandlePlayerCall(myPlayer);
-        isThinking = false;
-    }
-
-    private void ExecuteRaise(int raiseDelta, string reason)
-    {
-        // 限制加注金额，不能超过自己手里的总筹码
-        int actualRaise = Mathf.Min(raiseDelta, myPlayer.chips - (ServerGameManager.Instance.highestBet - myPlayer.currentBet));
-        actualRaise = Mathf.Max(actualRaise, ServerGameManager.Instance.bigBlind); // 至少加注一个大盲
-
-        Debug.Log($"[{myPlayer.playerName}] 加注 {actualRaise} (理由: {reason})");
-        ServerGameManager.Instance.HandlePlayerRaise(myPlayer, actualRaise);
-        isThinking = false;
-    }
-
-    // ==========================================
-    // 动态加注尺度计算 (Bet Sizing)
-    // ==========================================
-    private int CalculateRaiseSizing(int currentPot, string strategy)
-    {
+        int highestBet = ServerGameManager.Instance.highestBet;
+        int callAmount = highestBet - selfPlayer.currentBet;
         int bb = ServerGameManager.Instance.bigBlind;
-        int potSize = Mathf.Max(currentPot, bb * 2);
 
-        switch (strategy)
+        int totalPot = 0;
+        foreach (int pot in ServerGameManager.Instance.syncPotAmounts) totalPot += pot;
+        float potOdds = (totalPot == 0) ? 0 : (float)callAmount / (totalPot + callAmount);
+
+        // ==========================================
+        // 【新增核心】：计算符合真实德扑逻辑的加注幅度 (Raise Sizing)
+        // ==========================================
+        int minR = ServerGameManager.Instance.currentMinRaise;
+        int potAfterCall = totalPot + callAmount; // 假想先跟注进去后的底池大小
+
+        // 半池加注（Mathf.Max 保证哪怕半池很少，也绝对不会低于规则允许的最小加注额）
+        int halfPotRaise = Mathf.Max(minR, potAfterCall / 2);
+        // 满池加注
+        int fullPotRaise = Mathf.Max(minR, potAfterCall);
+
+        // 【原有的疲劳机制与查钱包机制】
+        bool isHugeBet = highestBet > bb * 10;
+        bool isNuclearBet = highestBet > bb * 25;
+
+        int myTotalNetWorth = selfPlayer.chips + callAmount;
+        float costRatio = (myTotalNetWorth == 0) ? 0 : (float)callAmount / myTotalNetWorth;
+        bool isLifeAndDeath = costRatio > 0.3f;
+        bool isPotCommitted = costRatio > 0.6f;
+
+        // --- 核心：诈唬系统 (Bluff) ---
+        bool isBluffing = false;
+        if (!isHugeBet && !isLifeAndDeath)
         {
-            case "Probe": // 试探性加注：1/3 到 1/2 底池
-                return Mathf.RoundToInt(potSize * Random.Range(0.3f, 0.5f));
-            case "Value": // 价值加注：2/3到底池大小 (好牌想多赢钱)
-                return Mathf.RoundToInt(potSize * Random.Range(0.6f, 1.0f));
-            case "Bluff": // 诈唬：下重注吓人，通常是满底池或者 1.5倍底池
-                return Mathf.RoundToInt(potSize * Random.Range(0.8f, 1.5f));
-            default:
-                return bb * 2;
+            if (personality == BotPersonality.Maniac && Random.value < 0.35f) isBluffing = true;
+            if (personality == BotPersonality.Trickster && Random.value < 0.15f) isBluffing = true;
         }
-    }
 
-    // ==========================================
-    // 精准战力换算工具 (0~100 分)
-    // ==========================================
-    private float CalculateHandStrengthScore(HandEvaluator.HandRank rank, int absoluteScore)
-    {
-        // 提取最高位的那张关键牌 (2~14)
-        int topCard = (absoluteScore >> 16) & 15;
-        float strength = 0f;
+        if (isBluffing) handStrength = Random.Range(0.6f, 0.85f);
 
-        switch (rank)
+        // --- 恐惧降智打击 ---
+        if (isHugeBet) handStrength -= 0.15f;
+        if (isNuclearBet) handStrength -= 0.15f;
+        if (isLifeAndDeath) handStrength -= 0.15f;
+        if (isPotCommitted && personality != BotPersonality.Maniac) handStrength -= 0.1f;
+
+        // --- 开始决策 ---
+        if (callAmount == 0) // 没人加注，我可以免费看牌 (Check)
         {
-            case HandEvaluator.HandRank.HighCard:
-                // 高牌：只有拿到 A 高或 K 高才稍微有点用 (0 ~ 20分)
-                strength = Mathf.Lerp(0f, 20f, (topCard - 2f) / 12f);
-                break;
-            case HandEvaluator.HandRank.OnePair:
-                // 一对：一对2是烂牌，一对A是强牌 (20 ~ 50分)
-                strength = Mathf.Lerp(20f, 50f, (topCard - 2f) / 12f);
-                break;
-            case HandEvaluator.HandRank.TwoPair:
-                // 两对 (50 ~ 70分)
-                strength = Mathf.Lerp(50f, 70f, (topCard - 2f) / 12f);
-                break;
-            case HandEvaluator.HandRank.ThreeOfAKind:
-                // 三条 (70 ~ 85分)
-                strength = Mathf.Lerp(70f, 85f, (topCard - 2f) / 12f);
-                break;
-            case HandEvaluator.HandRank.Straight:
-            case HandEvaluator.HandRank.Flush:
-            case HandEvaluator.HandRank.FullHouse:
-                // 顺子/同花/葫芦：绝对的杀器 (85 ~ 95分)
-                strength = Mathf.Lerp(85f, 95f, (topCard - 2f) / 12f);
-                break;
-            case HandEvaluator.HandRank.FourOfAKind:
-            case HandEvaluator.HandRank.StraightFlush:
-            case HandEvaluator.HandRank.RoyalFlush:
-                // 四条及以上：无敌状态 (100分)
-                strength = 100f;
-                break;
-        }
-        return strength;
-    }
-    [ServerCallback]
-    private void Update()
-    {
-        // 自动抵抗反射神经：一旦发现有人读条搞我！
-        if (myPlayer.incomingAttacker != null && myPlayer.incomingAttacker.isCasting)
-        {
-            // 赶紧看一眼自己的牌有多大
-            var bestHand = HandEvaluator.GetBestHand(myPlayer.serverHand, ServerGameManager.Instance.serverCommunityCards, ServerGameManager.Instance.isShortDeckMode);
-            float handStrength = CalculateHandStrengthScore(bestHand.rank, bestHand.score);
-
-            // 逻辑：如果我的牌还不错（> 50分，至少是一对A或以上），并且蓝够！
-            if (handStrength >= 50f && myPlayer.energy >= myPlayer.incomingResistCost)
+            if (handStrength > 0.65f && personality != BotPersonality.Rock)
             {
-                Debug.Log($"机器人 [{myPlayer.playerName}] 牌不错({handStrength:F1}分)，察觉到 [{myPlayer.incomingAttacker.playerName}] 的袭击，果断反制！");
-                myPlayer.ServerResist(); // 瞬间打断！
+                // 没人加注时，主动领打半个池子
+                ServerGameManager.Instance.HandlePlayerRaise(selfPlayer, halfPotRaise);
+            }
+            else
+            {
+                ServerGameManager.Instance.HandlePlayerCall(selfPlayer);
+            }
+        }
+        else // 有人加注了，我需要掏钱
+        {
+            if (personality == BotPersonality.Rock)
+            {
+                // 【修改】：铁公鸡不鸣则已，一鸣惊人！直接砸满池！
+                if (handStrength >= 0.8f) ServerGameManager.Instance.HandlePlayerRaise(selfPlayer, fullPotRaise);
+                else if (handStrength >= 0.5f) ServerGameManager.Instance.HandlePlayerCall(selfPlayer);
+                else ExecuteFold();
+            }
+            else if (personality == BotPersonality.Maniac)
+            {
+                // 【修改】：疯狗极其暴躁！直接用满池的两倍砸死你！
+                if (handStrength >= 0.75f) ServerGameManager.Instance.HandlePlayerRaise(selfPlayer, fullPotRaise * 2);
+                else if (handStrength >= 0.35f) ServerGameManager.Instance.HandlePlayerCall(selfPlayer);
+                else ExecuteFold();
+            }
+            else
+            {
+                // 【修改】：老千与标准，理智地进行半池加注
+                if (handStrength > potOdds + 0.5f) ServerGameManager.Instance.HandlePlayerRaise(selfPlayer, halfPotRaise);
+                else if (handStrength > potOdds) ServerGameManager.Instance.HandlePlayerCall(selfPlayer);
+                else ExecuteFold();
             }
         }
     }
     // ==========================================
-    // 超能力判定引擎 (赛博捣乱升级版)
+    // 6. 遇袭反射弧 (当被别人的技能选为目标时触发)
     // ==========================================
-    private bool TryCastSuperpowers(float handStrength, int callAmount, int currentPot)
+    public void OnTargetedBySkill(int incomingSkillID, int resistCost)
     {
-        if (myPlayer.energy <= 0) return false;
+        if (selfPlayer == null) return;
 
-        PokerPlayer targetEnemy = GetHighestAggroEnemy();
-        int bb = ServerGameManager.Instance.bigBlind;
+        // 1. 如果没蓝了，只能等死，不用思考了
+        if (selfPlayer.energy < resistCost) return;
 
-        // 1. 攻击型换牌 (ID:3)：赛博捣乱！
-        // 逻辑：如果土豪下了重注(>2倍大盲)，且我蓝够(>=3)，40%概率强行废掉他的一张底牌！
-        if (callAmount > bb * 2 && myPlayer.energy >= 3 && targetEnemy != null && Random.Range(0, 100) < 40)
+        // 2. 根据性格，决定是否反抗！
+        bool willResist = false;
+        switch (personality)
         {
-            int targetCardIndex = Random.Range(0, 2); // 随机换掉他的第0张或第1张
-            Debug.Log($"机器人 [{myPlayer.playerName}] 觉得 [{targetEnemy.playerName}] 太嚣张了，发动换牌搞破坏！");
-            myPlayer.ServerCastSkill(3, targetEnemy.netId, 0, targetCardIndex);
-            return true;
+            case BotPersonality.Rock:
+                // 铁公鸡：极度惜命，只要有蓝，100% 绝对抵抗！
+                willResist = true;
+                break;
+            case BotPersonality.Trickster:
+                // 老千：精于算计，50% 概率抵抗
+                willResist = (Random.value < 0.5f);
+                break;
+            case BotPersonality.Maniac:
+                // 疯狗：头铁，觉得蓝量留着打人更香，只有 10% 概率抵抗
+                willResist = (Random.value < 0.1f);
+                break;
+            case BotPersonality.Standard:
+                willResist = (Random.value < 0.3f);
+                break;
         }
 
-        // 2. 防守型换牌 (ID:3)：自力更生
-        // 逻辑：自己牌实在太烂(<40分)，且蓝够(>=3)，50%概率换掉自己的底牌博个梦
-        if (handStrength < 40f && myPlayer.energy >= 3 && Random.Range(0, 100) < 50)
+        // 3. 决定抵抗后，模拟人类的反应延迟 (0.5秒 ~ 1.5秒之间按出抵抗键)
+        if (willResist)
         {
-            int targetCardIndex = Random.Range(0, 2);
-            myPlayer.ServerCastSkill(3, myPlayer.netId, 0, targetCardIndex);
-            return true;
+            StartCoroutine(DelayedResistRoutine(Random.Range(0.5f, 1.5f)));
         }
+    }
 
-        // 3. 透视 (ID:1)：耗蓝2，知己知彼
-        // 逻辑：牌不好不坏很纠结，且面临大注，透视土豪的第0张底牌看看虚实
-        if (callAmount > bb * 2 && handStrength >= 40f && handStrength < 80f && myPlayer.energy >= 2 && targetEnemy != null && Random.Range(0, 100) < 60)
+    private IEnumerator DelayedResistRoutine(float delayTime)
+    {
+        yield return new WaitForSeconds(delayTime);
+
+        // 如果在反应期间内被中断了（比如施法者掉线），或者游戏已经结束，就不按了
+        if (selfPlayer != null && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle)
         {
-            myPlayer.ServerCastSkill(1, targetEnemy.netId, 0, 0);
-            return true;
+            Debug.Log($"机器人 {selfPlayer.playerName} 成功按下了抵抗！");
+            selfPlayer.ServerResist();
         }
-
-        // 4. 模糊 (ID:4)：耗蓝1，扔烟雾弹
-        // 逻辑：拿到绝世好牌(>80分)，防一手真人玩家的透视，先糊住土豪的眼睛
-        if (handStrength >= 80f && myPlayer.energy >= 1 && targetEnemy != null && Random.Range(0, 100) < 40)
-        {
-            myPlayer.ServerCastSkill(4, targetEnemy.netId, 0, 0);
-            return true;
-        }
-
-        // 5. 感应 (ID:5)：耗蓝1，开启雷达
-        // 逻辑：蓝比较多(>=4)没地方用，且当前没在感应状态，30%概率开个感应听听响
-        if (myPlayer.energy >= 4 && !myPlayer.serverIsSensing && Random.Range(0, 100) < 30)
-        {
-            myPlayer.ServerCastSkill(5, myPlayer.netId, 0, 0);
-            return true;
-        }
-
-        return false; // 啥都没放
     }
     // ==========================================
-    // 仇恨雷达：寻找领先者 (筹码最多的人)
+    // 弃牌执行器：处理被脑控时的绝望情况
     // ==========================================
-    private PokerPlayer GetHighestAggroEnemy()
+    private void ExecuteFold()
     {
-        PokerPlayer biggestThreat = null;
-        int maxChips = -1;
-        foreach (var p in ServerGameManager.Instance.activePlayers)
+        if (selfPlayer.serverIsMindControlled)
         {
-            if (!p.isFolded && p.netId != myPlayer.netId)
-            {
-                // 谁的钱最多，谁的仇恨就最大！
-                if (p.chips > maxChips)
-                {
-                    maxChips = p.chips;
-                    biggestThreat = p;
-                }
-            }
+            // 想跑但跑不掉，只能咬牙掏钱跟注！
+            Debug.Log($"{selfPlayer.playerName} 想弃牌，但受到【精神控制】，被迫跟注！");
+            ServerGameManager.Instance.HandlePlayerCall(selfPlayer);
         }
-        return biggestThreat;
+        else
+        {
+            // 正常弃牌
+            ServerGameManager.Instance.HandlePlayerFold(selfPlayer);
+        }
     }
 }

@@ -46,6 +46,9 @@ public class ServerGameManager : NetworkBehaviour
     [Header("机器人配置")]
     public GameObject botPrefab; // 用来存放你的 BotPlayerPrefab
 
+    [Header("AI 档案库")]
+    public List<AIBotProfile> availableBotProfiles;
+
     //全局模式标记
     [SyncVar] public bool isShortDeckMode = false;
 
@@ -98,31 +101,45 @@ public class ServerGameManager : NetworkBehaviour
             if (p != null) p.isReady = false;
         }
 
-        // 2. 智能补位逻辑：生成机器人并分配随机技能
-        if (fillBots)
+        // 2. 智能补位逻辑：从 AI 档案库中随机抽取并生成机器人
+        if (fillBots && availableBotProfiles != null && availableBotProfiles.Count > 0)
         {
             int botsNeeded = 6 - activePlayers.Count;
+
+            // 复制一份名单，防止抽到重复的 AI (保证这局每个 AI 都长得不一样)
+            List<AIBotProfile> pool = new List<AIBotProfile>(availableBotProfiles);
+
             for (int i = 0; i < botsNeeded; i++)
             {
-                if (botPrefab != null)
+                if (botPrefab != null && pool.Count > 0)
                 {
+                    // 随机抽一张 AI 档案
+                    int randIdx = Random.Range(0, pool.Count);
+                    AIBotProfile profile = pool[randIdx];
+                    pool.RemoveAt(randIdx); // 抽走不放回
+
                     GameObject botGo = Instantiate(botPrefab);
                     PokerPlayer botPlayer = botGo.GetComponent<PokerPlayer>();
-                    NetworkServer.Spawn(botGo); // 瞬间生成并同步给全网
+                    PokerBot botLogic = botGo.GetComponent<PokerBot>();
 
-                    // 给机器人随机抽取最多 5 个技能
-                    List<int> allSkillPool = new List<int> { 2, 3, 4, 5, 6, 7, 8, 9 };
+                    // ==========================================
+                    // 核心：把档案里的数据，注入给刚生成的机器人肉体！
+                    // ==========================================
+                    botPlayer.playerName = profile.botName;
+                    // （注：头像 ID 传给 botPlayer，稍后让 UI 根据 ID 去读取对应的头像）
+                    botPlayer.botAvatarID = profile.avatarID;
+
+                    botLogic.personality = profile.personality;
+                    botLogic.targetingPreference = profile.targetingPreference;
+
                     botPlayer.equippedSkills.Clear();
-                    for (int s = 0; s < 3; s++) // 抽3个
-                    {
-                        if (allSkillPool.Count == 0) break;
-                        int randIdx = Random.Range(0, allSkillPool.Count);
-                        botPlayer.equippedSkills.Add(allSkillPool[randIdx]);
-                        allSkillPool.RemoveAt(randIdx); // 抽走不放回
-                    }
-                    // 给机器人随机发 1 个饰品 (ID 1~8)
+                    botPlayer.equippedSkills.AddRange(profile.equippedSkills);
+
                     botPlayer.equippedTrinkets.Clear();
-                    botPlayer.equippedTrinkets.Add(Random.Range(1, 9));
+                    botPlayer.equippedTrinkets.AddRange(profile.equippedTrinkets);
+
+                    NetworkServer.Spawn(botGo); // 带着全新的名字和技能，同步给全网！
+                    activePlayers.Add(botPlayer);
                 }
             }
         }

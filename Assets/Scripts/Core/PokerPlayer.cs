@@ -22,6 +22,7 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar] public bool isDealer = false;
     [SyncVar] public int seatIndex = -1;
     [SyncVar] public bool isReady = false;
+    [SyncVar] public int botAvatarID = 0;
 
     // ==========================================
     // 玩家当前装备的技能库与饰品库
@@ -295,6 +296,12 @@ public class PokerPlayer : NetworkBehaviour
 
             target.incomingAttacker = this;
             target.incomingResistCost = resistCost;
+
+            PokerBot botBrain = target.GetComponent<PokerBot>();
+            if (botBrain != null && canResist)
+            {
+                botBrain.OnTargetedBySkill(skillID, resistCost);
+            }
         }
 
         if (target2 != this && target2 != null && target2 != target)
@@ -307,6 +314,12 @@ public class PokerPlayer : NetworkBehaviour
 
             target2.incomingAttacker = this;
             target2.incomingResistCost = resistCost2;
+
+            PokerBot botBrain2 = target2.GetComponent<PokerBot>();
+            if (botBrain2 != null && canResist2)
+            {
+                botBrain2.OnTargetedBySkill(skillID, resistCost2);
+            }
         }
 
         yield return new WaitForSeconds(actualCastTime);

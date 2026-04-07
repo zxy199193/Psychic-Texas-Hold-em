@@ -149,6 +149,7 @@ public class PokerUIManager : MonoBehaviour
     [Header("8. 资源与特效设定 (Prefabs & FX)")]
     public GameObject cardPrefab;
     public Texture2D botDefaultAvatar;
+    public Texture2D[] allBotAvatars;
     public Sprite iconResist;
     public Sprite iconSensing;
     public Sprite iconDefault;
@@ -984,7 +985,17 @@ public class PokerUIManager : MonoBehaviour
                         {
                             if (p.steamId == 0) // 是机器人！
                             {
-                                enemyAvatarImages[enemyIndex].texture = botDefaultAvatar;
+                                // 根据机器人的 ID 去数组里拿专属头像
+                                if (allBotAvatars != null && p.botAvatarID >= 0 && p.botAvatarID < allBotAvatars.Length && allBotAvatars[p.botAvatarID] != null)
+                                {
+                                    enemyAvatarImages[enemyIndex].texture = allBotAvatars[p.botAvatarID];
+                                }
+                                else
+                                {
+                                    // 如果越界了或者没配图，用默认头像兜底防报错！
+                                    enemyAvatarImages[enemyIndex].texture = botDefaultAvatar;
+                                }
+                                //  ==========================================
                             }
                             else // 是真人！去拿 Steam 头像
                             {
