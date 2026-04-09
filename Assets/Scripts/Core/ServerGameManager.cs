@@ -479,7 +479,7 @@ public class ServerGameManager : NetworkBehaviour
             {
                 w.chips += splitAmount;
                 w.energy = Mathf.Clamp(w.energy + winnerBonus, 0, maxEnergy);
-                resultMsg += $"[{w.playerName}]Ó®µÃ³ØÄÚ{splitAmount}³ïÂë£¡";
+                resultMsg += $"[{w.playerName}]Ó®µÃ{splitAmount}³ïÂë£¡";
                 tempUltimateWinners.Add(w);
             }
         }

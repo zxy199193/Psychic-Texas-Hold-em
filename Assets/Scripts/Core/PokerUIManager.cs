@@ -808,7 +808,7 @@ public class PokerUIManager : MonoBehaviour
             for (int i = 0; i < potList.Count; i++)
             {
                 Text txt = activePotUIItems[i].GetComponentInChildren<Text>();
-                string label = (i == 0) ? "" : $"边池 {i}: ";
+                string label = (i == 0) ? "" : $"边池[{i}]: ";
                 UpdateTextIfIntChanged(txt, potList[i], label);
                 //如果边池是 0 块钱，直接隐藏整个节点（主池 0 块也保留）
                 activePotUIItems[i].SetActive(i == 0 || potList[i] > 0);
