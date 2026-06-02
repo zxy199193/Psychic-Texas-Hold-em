@@ -523,7 +523,7 @@ public class PokerUIManager : MonoBehaviour
     }
 
     // ÇÐ»» UI ÏÔÊ¾×´Ì¬
-    private void SetupLobbyUI(bool isHost)
+    public void SetupLobbyUI(bool isHost)
     {
         if (btnCreateRoom != null) btnCreateRoom.gameObject.SetActive(false);
         if (btnJoinRoom != null) btnJoinRoom.gameObject.SetActive(false);

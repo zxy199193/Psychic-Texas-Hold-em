@@ -102,9 +102,8 @@ public class SteamLobby : MonoBehaviour
         // 通知咱们的 UI 大管家，把主菜单切到“房间内”的状态
         if (PokerUIManager.Instance != null)
         {
-            PokerUIManager.Instance.btnCreateRoom.gameObject.SetActive(false);
-            PokerUIManager.Instance.btnJoinRoom.gameObject.SetActive(false);
-            PokerUIManager.Instance.txtPlayerCount.gameObject.SetActive(true);
+            // 传入 false，代表我是以“客机(Client)”身份加入的
+            PokerUIManager.Instance.SetupLobbyUI(false);
         }
     }
 }
