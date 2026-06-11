@@ -60,6 +60,22 @@ public class PokerPlayer : NetworkBehaviour
     [HideInInspector] public int dualTargetType;
     [HideInInspector] public int dualTargetIndex;
 
+    [SyncVar] public bool isRoomHost = false;
+    [SyncVar] public bool syncFillBots = false;
+    [SyncVar] public bool syncShortDeck = false;
+
+    [Command]
+    public void CmdSetFillBots(bool value)
+    {
+        syncFillBots = value;
+    }
+
+    [Command]
+    public void CmdSetShortDeck(bool value)
+    {
+        syncShortDeck = value;
+    }
+
     // ==========================================
     // 【性能优化】：缓存 AI 大脑，拒绝每帧 GetComponent
     // ==========================================
@@ -194,6 +210,10 @@ public class PokerPlayer : NetworkBehaviour
     public override void OnStartServer()
     {
         base.OnStartServer();
+        if (connectionToClient == null || connectionToClient.connectionId == 0)
+        {
+            isRoomHost = true;
+        }
         skillDatabase.Add(98, new SensingSkill());
         skillDatabase.Add(2, new PeekSkill());
         skillDatabase.Add(3, new SwapSkill());

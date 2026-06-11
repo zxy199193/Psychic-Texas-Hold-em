@@ -33,23 +33,26 @@ public class LobbyUIManager : MonoBehaviour
 
     public void OnBtnJoinRoomClicked()
     {
-        bool isOffline = (UIMgr.toggleOfflineMode != null && UIMgr.toggleOfflineMode.isOn);
-
-        if (isOffline)
+        // 1. 打开房间列表面板
+        if (UIMgr.roomListPanel != null)
         {
-            Debug.Log("【局域网模式】连接到本机 (localhost)...");
-            Mirror.NetworkManager.singleton.networkAddress = "localhost";
-            Mirror.NetworkManager.singleton.StartClient();
-            SetupLobbyUI(false);
+            UIMgr.roomListPanel.SetActive(true);
+            if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(false);
         }
-        else
+
+        // 2. 刷新房间列表 (通过 Steam 请求，或者在离线测试时显示 Fake 列表)
+        if (SteamLobby.Instance != null)
         {
-            if (UIMgr.turnStatusText != null)
-            {
-                UIMgr.turnStatusText.text = "请按 Shift+Tab 在好友列表中右键加入游戏！";
-                UIMgr.turnStatusText.color = Color.yellow;
-                UIMgr.turnStatusText.gameObject.SetActive(true);
-            }
+            SteamLobby.Instance.RequestLobbyList();
+        }
+    }
+
+    public void OnBtnCloseRoomListClicked()
+    {
+        if (UIMgr.roomListPanel != null)
+        {
+            UIMgr.roomListPanel.SetActive(false);
+            if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(true);
         }
     }
 
@@ -63,6 +66,42 @@ public class LobbyUIManager : MonoBehaviour
         if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdToggleReady();
     }
 
+    public void OnBtnLobbyBackClicked()
+    {
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            if (PokerPlayer.LocalPlayer.isReady)
+            {
+                PokerPlayer.LocalPlayer.CmdToggleReady(); // 取消准备
+            }
+        }
+
+        // 退出房间 (Mirror 网络链接断开)
+        if (Mirror.NetworkServer.active && Mirror.NetworkClient.isConnected)
+        {
+            Mirror.NetworkManager.singleton.StopHost();
+        }
+        else if (Mirror.NetworkClient.isConnected)
+        {
+            Mirror.NetworkManager.singleton.StopClient();
+        }
+
+        // 返回主界面 UI
+        if (UIMgr.lobbyUIGroup != null) UIMgr.lobbyUIGroup.SetActive(false);
+        if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(true);
+        if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(false);
+        
+        // 重置大厅 UI 状态
+        if (UIMgr.btnCreateRoom != null) UIMgr.btnCreateRoom.gameObject.SetActive(true);
+        if (UIMgr.btnJoinRoom != null) UIMgr.btnJoinRoom.gameObject.SetActive(true);
+        if (UIMgr.btnExitGame != null) UIMgr.btnExitGame.gameObject.SetActive(true);
+        if (UIMgr.txtPlayerCount != null) UIMgr.txtPlayerCount.gameObject.SetActive(false);
+        if (UIMgr.btnLobbyReady != null) UIMgr.btnLobbyReady.gameObject.SetActive(false);
+        if (UIMgr.btnStartGame != null) UIMgr.btnStartGame.gameObject.SetActive(false);
+        if (UIMgr.toggleFillBots != null) UIMgr.toggleFillBots.gameObject.SetActive(false);
+        if (UIMgr.toggleShortDeck != null) UIMgr.toggleShortDeck.gameObject.SetActive(false);
+    }
+
     public void SetupLobbyUI(bool isHost)
     {
         if (UIMgr.btnCreateRoom != null) UIMgr.btnCreateRoom.gameObject.SetActive(false);
@@ -72,7 +111,16 @@ public class LobbyUIManager : MonoBehaviour
         if (UIMgr.btnLobbyReady != null) UIMgr.btnLobbyReady.gameObject.SetActive(true);
         if (UIMgr.lobbyUIGroup != null) UIMgr.lobbyUIGroup.SetActive(true);
         if (UIMgr.btnStartGame != null) UIMgr.btnStartGame.gameObject.SetActive(isHost);
-        if (UIMgr.toggleFillBots != null) UIMgr.toggleFillBots.gameObject.SetActive(isHost);
+        if (UIMgr.toggleFillBots != null)
+        {
+            UIMgr.toggleFillBots.gameObject.SetActive(true);
+            UIMgr.toggleFillBots.interactable = isHost;
+        }
+        if (UIMgr.toggleShortDeck != null)
+        {
+            UIMgr.toggleShortDeck.gameObject.SetActive(true);
+            UIMgr.toggleShortDeck.interactable = isHost;
+        }
         if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(true);
     }
 

@@ -1019,7 +1019,7 @@ public class ServerGameManager : NetworkBehaviour
     // ==========================================
     // 专业牌型翻译工具 (支持双关键牌)
     // ==========================================
-    private string GetProfessionalHandName(string rankString, int score)
+    public string GetProfessionalHandName(string rankString, int score)
     {
         // 核心解密魔法：按 16 进制位移，依次提取出排好序的 5 张牌大小！
         int card1 = (score >> 16) & 15; // 最大的主牌
@@ -1055,7 +1055,7 @@ public class ServerGameManager : NetworkBehaviour
     // ==========================================
     // 数字转扑克牌面字符工具
     // ==========================================
-    private string GetCardFaceString(int cardValue)
+    public string GetCardFaceString(int cardValue)
     {
         if (cardValue == 14 || cardValue == 1) return "A";
         if (cardValue == 13) return "K";

@@ -1,18 +1,28 @@
 using UnityEngine;
 using Mirror;
 using Steamworks;
-using UnityEngine.UI;
+using System.Collections.Generic;
+
+public struct SteamLobbyData
+{
+    public ulong lobbyId;
+    public string hostName;
+    public ulong hostSteamId;
+    public int playerCount;
+    public int maxPlayers;
+}
 
 public class SteamLobby : MonoBehaviour
 {
     public static SteamLobby Instance;
 
-    // Steam µÄ¸÷ÖÖ»Øµ÷ÊÂ¼ş¼àÌıÆ÷
+    // Steam callbacks
     protected Callback<LobbyCreated_t> lobbyCreated;
     protected Callback<GameLobbyJoinRequested_t> joinRequest;
     protected Callback<LobbyEnter_t> lobbyEntered;
+    protected Callback<LobbyMatchList_t> lobbyMatchList;
 
-    private const string HostAddressKey = "HostAddress"; // ÓÃÀ´ÔÚ Steam ·¿¼äÀï´æÖ÷»ú SteamID µÄ°µºÅ
+    private const string HostAddressKey = "HostAddress";
 
     private void Awake()
     {
@@ -21,88 +31,161 @@ public class SteamLobby : MonoBehaviour
 
     private void Start()
     {
-        // Èç¹û Steam Ã»¿ª£¬¾Í²»Ö´ĞĞºóÃæµÄÁË
         if (!SteamManager.Initialized) return;
 
-        // °ó¶¨ Steam µÄÊÂ¼ş£º½¨·¿³É¹¦¡¢ÊÕµ½ÅóÓÑÑûÇë¡¢³É¹¦½øÈë·¿¼ä
         lobbyCreated = Callback<LobbyCreated_t>.Create(OnLobbyCreated);
         joinRequest = Callback<GameLobbyJoinRequested_t>.Create(OnJoinRequest);
         lobbyEntered = Callback<LobbyEnter_t>.Create(OnLobbyEntered);
+        lobbyMatchList = Callback<LobbyMatchList_t>.Create(OnLobbyMatchList);
     }
 
     // ==========================================
-    // 1. ·¿Ö÷£ºÎÒÒª½¨¸ö Steam ·¿¼ä£¡
+    // 1. Create Steam Lobby
     // ==========================================
     public void HostLobby()
     {
         if (!SteamManager.Initialized)
         {
-            Debug.LogError("Steam Ã»Æô¶¯£¡Ö»ÄÜ×ß¾ÖÓòÍø²âÊÔÁË¡£");
-            NetworkManager.singleton.StartHost(); // ½µ¼¶ÎªÆÕÍ¨Áª»ú
+            Debug.LogError("Steam is not initialized.");
+            NetworkManager.singleton.StartHost();
             return;
         }
 
-        Debug.Log("ÕıÔÚÏò Steam ÉêÇë´´½¨·¿¼ä...");
-        // ´´½¨Ò»¸ö×î¶àÈİÄÉ 6 ÈËµÄºÃÓÑ·¿¼ä (Ö»ÓĞºÃÓÑÄÜ¿´µ½ºÍ¼ÓÈë)
-        SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypeFriendsOnly, 6);
+        Debug.Log("Requesting public Steam lobby...");
+        // Set ELobbyType.k_ELobbyTypePublic so strangers/friends can search for it!
+        SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypePublic, 6);
     }
 
     private void OnLobbyCreated(LobbyCreated_t callback)
     {
         if (callback.m_eResult != EResult.k_EResultOK)
         {
-            Debug.LogError("Steam ½¨·¿Ê§°Ü£¡");
+            Debug.LogError("Steam lobby creation failed.");
             return;
         }
 
-        Debug.Log("Steam ½¨·¿³É¹¦£¡Æô¶¯ Mirror Ö÷»ú...");
-        // ·¿¼ä½¨ºÃÁË£¬ÏÖÔÚÕıÊ½Æô¶¯ Mirror µÄ Host
+        Debug.Log("Steam lobby created successfully.");
         NetworkManager.singleton.StartHost();
 
-        //ºËĞÄÄ§·¨£º°Ñ·¿Ö÷µÄ SteamID Ğ´½ø·¿¼äµÄÊı¾İÀï£¬ÕâÑùÅóÓÑ½øÀ´²ÅÖªµÀ¸ÃÁ¬Ë­µÄµçÄÔ£¡
+        CSteamID lobbyId = new CSteamID(callback.m_ulSteamIDLobby);
+
+        // Set host Address key (SteamID of the host)
         SteamMatchmaking.SetLobbyData(
-            new CSteamID(callback.m_ulSteamIDLobby),
+            lobbyId,
             HostAddressKey,
             SteamUser.GetSteamID().ToString()
         );
 
         SteamMatchmaking.SetLobbyData(
-            new CSteamID(callback.m_ulSteamIDLobby),
+            lobbyId,
             "name",
-            SteamFriends.GetPersonaName() + " µÄÅÆ¾Ö"
+            SteamFriends.GetPersonaName() + " çš„æˆ¿é—´"
+        );
+
+        // æ·»åŠ ç‹¬ç‰¹çš„æ¸¸æˆç‰¹å¾æ ‡è®°ï¼Œè¿‡æ»¤æ‰å…¨çƒå…¶ä»–æµ‹è¯• SpaceWar çš„æˆ¿é—´
+        SteamMatchmaking.SetLobbyData(
+            lobbyId,
+            "game_signature",
+            "PsychicTexasHoldem"
         );
     }
 
     // ==========================================
-    // 2. ÅóÓÑ£ºÎÒÊÕµ½ÁËÄãµÄÑûÇë£¬µã»÷ÁË¼ÓÈë£¡
+    // 2. Query and Join Lobby
     // ==========================================
+    public void RequestLobbyList()
+    {
+        bool isOffline = false;
+        if (PokerUIManager.Instance != null && PokerUIManager.Instance.toggleOfflineMode != null)
+        {
+            isOffline = PokerUIManager.Instance.toggleOfflineMode.isOn;
+        }
+
+        if (!SteamManager.Initialized || isOffline)
+        {
+            if (PokerUIManager.Instance != null)
+            {
+                PokerUIManager.Instance.DisplayMockLobbyList();
+            }
+            return;
+        }
+
+        Debug.Log("Querying public Steam lobbies...");
+        // è¿‡æ»¤ç‰¹å¾ï¼šåªæœç´¢å¸¦æœ‰æˆ‘ä»¬æ¸¸æˆç­¾åçš„æˆ¿é—´
+        SteamMatchmaking.AddRequestLobbyListStringFilter("game_signature", "PsychicTexasHoldem", ELobbyComparison.k_ELobbyComparisonEqual);
+        SteamMatchmaking.AddRequestLobbyListDistanceFilter(ELobbyDistanceFilter.k_ELobbyDistanceFilterWorldwide);
+        SteamMatchmaking.RequestLobbyList();
+    }
+
+    private void OnLobbyMatchList(LobbyMatchList_t callback)
+    {
+        Debug.Log($"Matching Steam lobbies count: {callback.m_nLobbiesMatching}");
+        
+        List<SteamLobbyData> lobbies = new List<SteamLobbyData>();
+        
+        for (int i = 0; i < callback.m_nLobbiesMatching; i++)
+        {
+            CSteamID lobbyId = SteamMatchmaking.GetLobbyByIndex(i);
+            
+            string hostName = SteamMatchmaking.GetLobbyData(lobbyId, "name");
+            if (string.IsNullOrEmpty(hostName)) hostName = "æœªçŸ¥æˆ¿é—´";
+            
+            string hostAddressStr = SteamMatchmaking.GetLobbyData(lobbyId, HostAddressKey);
+            ulong hostSteamId = 0;
+            ulong.TryParse(hostAddressStr, out hostSteamId);
+
+            int memberCount = SteamMatchmaking.GetNumLobbyMembers(lobbyId);
+
+            lobbies.Add(new SteamLobbyData
+            {
+                lobbyId = lobbyId.m_SteamID,
+                hostName = hostName,
+                hostSteamId = hostSteamId,
+                playerCount = memberCount,
+                maxPlayers = 6
+            });
+        }
+
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.UpdateRoomListUI(lobbies);
+        }
+    }
+
     private void OnJoinRequest(GameLobbyJoinRequested_t callback)
     {
-        Debug.Log("ÊÕµ½¼ÓÈëÇëÇó£¬ÕıÔÚ½øÈëÅóÓÑµÄ·¿¼ä...");
+        Debug.Log("Joining lobby requested by invite...");
         SteamMatchmaking.JoinLobby(callback.m_steamIDLobby);
+    }
+
+    public void JoinLobby(ulong lobbyId)
+    {
+        if (!SteamManager.Initialized)
+        {
+            Mirror.NetworkManager.singleton.networkAddress = "localhost";
+            Mirror.NetworkManager.singleton.StartClient();
+            if (PokerUIManager.Instance != null) PokerUIManager.Instance.SetupLobbyUI(false);
+            return;
+        }
+
+        Debug.Log($"Joining Steam lobby: {lobbyId}");
+        SteamMatchmaking.JoinLobby(new CSteamID(lobbyId));
     }
 
     private void OnLobbyEntered(LobbyEnter_t callback)
     {
-        // Èç¹ûÎÒ×Ô¼ºÊÇ·¿Ö÷£¨ËµÃ÷ÊÇÎÒ¸Õ½¨ºÃ·¿¼ä½øÀ´µÄ£©£¬¾Í²»ĞèÒªÔÙÁ¬½Ó×Ô¼ºÁË
         if (NetworkServer.active) return;
 
-        Debug.Log("³É¹¦Ì¤Èë Steam ·¿¼ä£¡ÕıÔÚÑ°ÕÒÖ÷»ú...");
+        Debug.Log("Entered Steam lobby successfully. Connecting Mirror client...");
 
-        // °Ñ·¿¼ä ID ×ª»»³É SteamID ¸ñÊ½
         CSteamID lobbyId = new CSteamID(callback.m_ulSteamIDLobby);
-
-        // »ñÈ¡¸Õ²Å·¿Ö÷Ğ´ÔÚ·¿¼äÀïµÄ¡°°µºÅ¡±£¨·¿Ö÷µÄ SteamID£©
         string hostAddress = SteamMatchmaking.GetLobbyData(lobbyId, HostAddressKey);
 
-        // ¸æËß Mirror£º°ÑÁ¬½ÓÄ¿±êÉèÎª·¿Ö÷µÄ SteamID£¬È»ºóÆô¶¯¿Í»§¶Ë£¡
         NetworkManager.singleton.networkAddress = hostAddress;
         NetworkManager.singleton.StartClient();
 
-        // Í¨ÖªÔÛÃÇµÄ UI ´ó¹Ü¼Ò£¬°ÑÖ÷²Ëµ¥ÇĞµ½¡°·¿¼äÄÚ¡±µÄ×´Ì¬
         if (PokerUIManager.Instance != null)
         {
-            // ´«Èë false£¬´ú±íÎÒÊÇÒÔ¡°¿Í»ú(Client)¡±Éí·İ¼ÓÈëµÄ
             PokerUIManager.Instance.SetupLobbyUI(false);
         }
     }

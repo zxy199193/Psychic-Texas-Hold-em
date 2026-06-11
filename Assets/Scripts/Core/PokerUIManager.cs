@@ -57,12 +57,14 @@ public class PokerUIManager : MonoBehaviour
     public Toggle toggleFillBots;
     public Toggle toggleOfflineMode;
     public Toggle toggleShortDeck;
+    public Toggle toggleFullscreen;
     public GameObject skillSelectionPanel;
     public Transform lobbySkillContainer;
     public GameObject lobbySkillItemPrefab;
     public Text selectedCountText;
     public Button btnLobbyReady;
     public Text txtLobbyReadyBtnText;
+    public Button btnLobbyBack;
     public GameObject halftimeUIGroup;
     public Text txtHalftimeRoundTitle;
     public Text txtHalftimeReadyCount;
@@ -122,6 +124,12 @@ public class PokerUIManager : MonoBehaviour
 
     [Header("4.1 对手饰品槽 UI (Enemy Trinkets Slots)")]
     public List<EnemyTrinketGroup> enemyTrinketGroups = new List<EnemyTrinketGroup>();
+
+    [Header("4.2 房间列表 UI (Room List Panel)")]
+    public GameObject roomListPanel;
+    public Transform roomListContainer;
+    public GameObject roomItemPrefab;
+    public Button btnCloseRoomList;
 
     [Header("5. 基础操作与加注面板 (Actions)")]
     public Button btnFold;
@@ -211,6 +219,16 @@ public class PokerUIManager : MonoBehaviour
     private Dictionary<Text, int> textIntCache = new Dictionary<Text, int>();
     private List<int>[] currentDisplayedEnemyTrinkets;
     private Transform[] cachedEnemyTrinketContainers;
+    private Text txtCallBtnText;
+
+    [Header("8. 玩家最大牌型提示 UI (Max Hand Type Tip Panel)")]
+    public GameObject maxHandTypePanel;
+    public Text maxHandTypeText;
+
+    private List<Card> localHoleCards = new List<Card>();
+    private List<Card> localCommunityCards = new List<Card>();
+    private HandEvaluator.HandRank currentHandRank = HandEvaluator.HandRank.HighCard;
+    private int currentHandScore = -1;
     #endregion
 
     #region 属性委派 (Delegated Properties)
@@ -253,6 +271,38 @@ public class PokerUIManager : MonoBehaviour
             btnToggleLog.onClick.AddListener(OnBtnToggleLogClicked);
         }
 
+        if (btnLobbyBack != null)
+        {
+            btnLobbyBack.onClick.AddListener(OnBtnLobbyBackClicked);
+        }
+
+        if (btnCloseRoomList != null)
+        {
+            btnCloseRoomList.onClick.AddListener(OnBtnCloseRoomListClicked);
+        }
+
+        if (toggleFillBots != null)
+        {
+            toggleFillBots.onValueChanged.AddListener((isOn) =>
+            {
+                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost)
+                {
+                    PokerPlayer.LocalPlayer.CmdSetFillBots(isOn);
+                }
+            });
+        }
+
+        if (toggleShortDeck != null)
+        {
+            toggleShortDeck.onValueChanged.AddListener((isOn) =>
+            {
+                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost)
+                {
+                    PokerPlayer.LocalPlayer.CmdSetShortDeck(isOn);
+                }
+            });
+        }
+
         if (logScrollRect != null)
         {
             logScrollRect.scrollSensitivity = logScrollSensitivity;
@@ -261,6 +311,15 @@ public class PokerUIManager : MonoBehaviour
         for (int i = 0; i < currentDisplayedEnemyTrinkets.Length; i++)
         {
             currentDisplayedEnemyTrinkets[i] = new List<int>();
+        }
+
+        if (toggleFullscreen != null)
+        {
+            toggleFullscreen.isOn = Screen.fullScreen;
+            toggleFullscreen.onValueChanged.AddListener((isOn) =>
+            {
+                Screen.fullScreen = isOn;
+            });
         }
     }
 
@@ -319,9 +378,23 @@ public class PokerUIManager : MonoBehaviour
             int pCount = allPlayersInRoom.Length;
             int readyCount = 0;
 
+            PokerPlayer hostPlayer = null;
             foreach (var p in allPlayersInRoom)
             {
                 if (p.isReady) readyCount++;
+                if (p.isRoomHost) hostPlayer = p;
+            }
+
+            if (hostPlayer != null && PokerPlayer.LocalPlayer != null && !PokerPlayer.LocalPlayer.isRoomHost)
+            {
+                if (toggleFillBots != null && toggleFillBots.isOn != hostPlayer.syncFillBots)
+                {
+                    toggleFillBots.isOn = hostPlayer.syncFillBots;
+                }
+                if (toggleShortDeck != null && toggleShortDeck.isOn != hostPlayer.syncShortDeck)
+                {
+                    toggleShortDeck.isOn = hostPlayer.syncShortDeck;
+                }
             }
 
             if (txtPlayerCount != null) txtPlayerCount.text = $"【 当前人数：{pCount}/6 】";
@@ -610,7 +683,48 @@ public class PokerUIManager : MonoBehaviour
 
             if (btnFold != null)
                 btnFold.interactable = myTurn && !isSpectating && !PokerPlayer.LocalPlayer.localIsMindControlled;
-            if (btnCall != null) btnCall.interactable = myTurn;
+            if (btnCall != null)
+            {
+                btnCall.interactable = myTurn;
+                if (txtCallBtnText == null)
+                {
+                    txtCallBtnText = btnCall.GetComponentInChildren<Text>(true);
+                }
+                if (txtCallBtnText != null)
+                {
+                    if (ServerGameManager.Instance != null && 
+                        ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle &&
+                        PokerPlayer.LocalPlayer != null)
+                    {
+                        int highest = ServerGameManager.Instance.highestBet;
+                        // 额外从所有玩家中扫描最高下注，防止 SyncVar 同步延迟导致的数据不同步
+                        if (cachedAllPlayers != null)
+                        {
+                            foreach (var p in cachedAllPlayers)
+                            {
+                                if (p != null && p.currentBet > highest)
+                                {
+                                    highest = p.currentBet;
+                                }
+                            }
+                        }
+
+                        int callAmount = highest - PokerPlayer.LocalPlayer.currentBet;
+                        if (callAmount <= 0)
+                        {
+                            SetTextAndRebuildLayout(txtCallBtnText, "过牌");
+                        }
+                        else
+                        {
+                            SetTextAndRebuildLayout(txtCallBtnText, $"跟注 {callAmount}");
+                        }
+                    }
+                    else
+                    {
+                        SetTextAndRebuildLayout(txtCallBtnText, "跟注/过牌");
+                    }
+                }
+            }
             if (btnRaise != null) btnRaise.interactable = myTurn;
 
             if (turnStatusText != null && !isShowingResult)
@@ -863,6 +977,13 @@ public class PokerUIManager : MonoBehaviour
 
     public void ShowMyHoleCards(Card c1, Card c2)
     {
+        localHoleCards.Clear();
+        localHoleCards.Add(c1);
+        localHoleCards.Add(c2);
+        localCommunityCards.Clear();
+        currentHandScore = -1;
+        if (maxHandTypePanel != null) maxHandTypePanel.SetActive(false);
+
         ClearArea(myHandArea);
         GameObject go1 = Instantiate(cardPrefab, myHandArea);
         go1.GetComponent<CardView>().SetCard(c1, true);
@@ -930,6 +1051,17 @@ public class PokerUIManager : MonoBehaviour
 
     public void RevealCommunityCards(int startIndex, int count, Card[] cards)
     {
+        // 更新本地保存的公共牌数据
+        while (localCommunityCards.Count < startIndex + count)
+        {
+            localCommunityCards.Add(default);
+        }
+        for (int i = 0; i < count; i++)
+        {
+            localCommunityCards[startIndex + i] = cards[i];
+        }
+        UpdateMaxHandTypeTip(forceUpdate: false);
+
         if (AudioManager.Instance != null) AudioManager.Instance.PlayFlipCard();
         if (communityArea == null) return;
 
@@ -1017,6 +1149,12 @@ public class PokerUIManager : MonoBehaviour
 
     public void UpdateCommunityCardUI(int cardIndex, Suit newSuit, Rank newRank)
     {
+        if (cardIndex >= 0 && cardIndex < localCommunityCards.Count)
+        {
+            localCommunityCards[cardIndex] = new Card { suit = newSuit, rank = newRank };
+        }
+        UpdateMaxHandTypeTip(forceUpdate: true);
+
         if (communityArea != null && cardIndex >= 0 && cardIndex < communityArea.childCount)
         {
             Transform cardObj = communityArea.GetChild(cardIndex);
@@ -1416,6 +1554,7 @@ public class PokerUIManager : MonoBehaviour
         isCurrentlyBlurred = isBlurred;
         ApplyBlurToArea(myHandArea, isBlurred);
         ApplyBlurToArea(communityArea, isBlurred);
+        UpdateMaxHandTypeTip(forceUpdate: true);
     }
 
     private void ApplyBlurToArea(Transform area, bool isBlurred)
@@ -1760,6 +1899,65 @@ public class PokerUIManager : MonoBehaviour
 
     #endregion
 
+    #region 房间列表更新逻辑 (Room List UI Generation)
+
+    public void UpdateRoomListUI(List<SteamLobbyData> lobbies)
+    {
+        ClearArea(roomListContainer);
+        if (roomListContainer == null || roomItemPrefab == null) return;
+
+        foreach (var data in lobbies)
+        {
+            GameObject go = Instantiate(roomItemPrefab, roomListContainer);
+            RoomItemUI item = go.GetComponent<RoomItemUI>();
+            if (item != null)
+            {
+                if (item.txtHostName != null) item.txtHostName.text = data.hostName;
+                if (item.txtPlayerCount != null) item.txtPlayerCount.text = $"{data.playerCount}/{data.maxPlayers}";
+                
+                if (item.imgHostAvatar != null && data.hostSteamId != 0)
+                {
+                    Texture2D avatar = GetSteamAvatar(data.hostSteamId);
+                    if (avatar != null) item.imgHostAvatar.texture = avatar;
+                }
+
+                item.steamLobbyId = data.lobbyId;
+
+                if (item.btnJoin != null)
+                {
+                    item.btnJoin.onClick.RemoveAllListeners();
+                    item.btnJoin.onClick.AddListener(() =>
+                    {
+                        if (SteamLobby.Instance != null)
+                        {
+                            SteamLobby.Instance.JoinLobby(data.lobbyId);
+                        }
+                        
+                        if (roomListPanel != null) roomListPanel.SetActive(false);
+                    });
+                }
+            }
+        }
+    }
+
+    public void DisplayMockLobbyList()
+    {
+        List<SteamLobbyData> mockLobbies = new List<SteamLobbyData>
+        {
+            new SteamLobbyData
+            {
+                lobbyId = 123456789,
+                hostName = "本地测试房间 (Local LAN)",
+                hostSteamId = 0,
+                playerCount = 1,
+                maxPlayers = 6
+            }
+        };
+        UpdateRoomListUI(mockLobbies);
+    }
+
+    #endregion
+
     #region Card Peek & Swap Helpers
 
     private CardTarget FindSpecificCardTarget(int targetType, int targetIndex, uint ownerNetId)
@@ -1787,6 +1985,12 @@ public class PokerUIManager : MonoBehaviour
 
     public void UpdateMySingleCard(int targetIndex, Card newCard)
     {
+        if (targetIndex >= 0 && targetIndex < localHoleCards.Count)
+        {
+            localHoleCards[targetIndex] = newCard;
+        }
+        UpdateMaxHandTypeTip(forceUpdate: true);
+
         CardTarget targetObj = FindSpecificCardTarget(0, targetIndex, PokerPlayer.LocalPlayer.netId);
         if (targetObj != null)
         {
@@ -1852,6 +2056,8 @@ public class PokerUIManager : MonoBehaviour
     public void OnBtnJoinRoomClicked() => lobbyUIManager.OnBtnJoinRoomClicked();
     public void OnBtnExitGameClicked() => lobbyUIManager.OnBtnExitGameClicked();
     public void OnBtnLobbyReadyClicked() => lobbyUIManager.OnBtnLobbyReadyClicked();
+    public void OnBtnLobbyBackClicked() => lobbyUIManager.OnBtnLobbyBackClicked();
+    public void OnBtnCloseRoomListClicked() => lobbyUIManager.OnBtnCloseRoomListClicked();
     public void SetupLobbyUI(bool isHost) => lobbyUIManager.SetupLobbyUI(isHost);
     public void OnBtnStartGameClicked() => lobbyUIManager.OnBtnStartGameClicked();
     public void HideMainMenu() => lobbyUIManager.HideMainMenu();
@@ -1969,6 +2175,76 @@ public class PokerUIManager : MonoBehaviour
             LayoutRebuilder.ForceRebuildLayoutImmediate(layouts[i].GetComponent<RectTransform>());
         }
         LayoutRebuilder.ForceRebuildLayoutImmediate(target.GetComponent<RectTransform>());
+    }
+
+    public void UpdateMaxHandTypeTip(bool forceUpdate = false)
+    {
+        if (maxHandTypePanel == null || maxHandTypeText == null) return;
+
+        if (ServerGameManager.Instance == null || PokerPlayer.LocalPlayer == null || isShowingResult)
+        {
+            if (maxHandTypePanel.activeSelf)
+            {
+                maxHandTypePanel.SetActive(false);
+            }
+            return;
+        }
+
+        // 统计已翻开的有效公共牌数量
+        List<Card> validCommunity = new List<Card>();
+        foreach (var card in localCommunityCards)
+        {
+            if ((int)card.rank >= 2) validCommunity.Add(card);
+        }
+
+        // 只有当翻出的有效公共牌数量 >= 3 且拥有 2 张手牌时才进行计算和显示
+        if (validCommunity.Count >= 3 && localHoleCards.Count == 2)
+        {
+            if (isCurrentlyBlurred)
+            {
+                SetTextAndRebuildLayout(maxHandTypeText, "当前牌型：???");
+                currentHandScore = -1; // 重置以便解除模糊后能重新更新
+                if (!maxHandTypePanel.activeSelf)
+                {
+                    maxHandTypePanel.SetActive(true);
+                }
+                return;
+            }
+
+            bool isShort = ServerGameManager.Instance.isShortDeckMode;
+            var bestHand = HandEvaluator.GetBestHand(localHoleCards, validCommunity, isShort);
+
+            bool shouldUpdate = forceUpdate || currentHandScore == -1;
+            if (!shouldUpdate)
+            {
+                int cmp = HandEvaluator.CompareHands(bestHand, (currentHandRank, currentHandScore), isShort);
+                if (cmp > 0)
+                {
+                    shouldUpdate = true;
+                }
+            }
+
+            if (shouldUpdate)
+            {
+                currentHandRank = bestHand.rank;
+                currentHandScore = bestHand.score;
+
+                string handName = ServerGameManager.Instance.GetProfessionalHandName(bestHand.rank.ToString(), bestHand.score);
+                SetTextAndRebuildLayout(maxHandTypeText, $"当前牌型：{handName}");
+
+                if (!maxHandTypePanel.activeSelf)
+                {
+                    maxHandTypePanel.SetActive(true);
+                }
+            }
+        }
+        else
+        {
+            if (maxHandTypePanel.activeSelf)
+            {
+                maxHandTypePanel.SetActive(false);
+            }
+        }
     }
 
     #endregion
