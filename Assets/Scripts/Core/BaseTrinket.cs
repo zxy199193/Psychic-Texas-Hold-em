@@ -37,23 +37,23 @@ public class CrownTrinket : BaseTrinket
 {
     public CrownTrinket() { trinketID = 3; trinketName = "奖牌"; }
 
-    // 初始能量 -2（默认开局是 3，减 2 后正好等于 1）
+    // 初始能量 -1（默认开局是 3，减 1 后正好等于 2）
     public override int ModifyInitialEnergy(int current, PokerPlayer player) 
     { 
         // 使用 Mathf.Max 防止和其他扣减饰品叠加时出现负数初始蓝量
-        return Mathf.Max(0, current - 2); 
+        return Mathf.Max(0, current - 1); 
     } 
 
-    // 每回合自动回蓝 -2（默认是 1，减 2 后变成 -1，意味着如果没有蓝宝石，每回合还会掉 1 点蓝，非常符合王冠的诅咒感！）
+    // 每回合自动回蓝 -1（默认是 1，减 1 后变成 0）
     public override int ModifyEnergyRegen(int current, PokerPlayer player) 
     { 
-        return current - 2; 
+        return current - 1; 
     }   
 
-    // 获胜能量奖励 +6（默认赢了给 2 点，带上奖牌直接给 8 点！）
+    // 获胜能量奖励 +5（默认赢了给 2 点，带上奖牌直接给 7 点！）
     public override int ModifyWinEnergyBonus(int current, PokerPlayer player) 
     { 
-        return current + 6; 
+        return current + 5; 
     } 
 }
 

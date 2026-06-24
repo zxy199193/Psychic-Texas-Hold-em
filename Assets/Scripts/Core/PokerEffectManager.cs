@@ -85,7 +85,7 @@ public class PokerEffectManager : MonoBehaviour
         if (AudioManager.Instance != null)
         {
             if (message.Contains("成功")) AudioManager.Instance.PlaySkillSuccess();
-            else if (message.Contains("失败") || message.Contains("抵抗") || message.Contains("抵挡")) AudioManager.Instance.PlaySkillFail();
+            else if (message.Contains("失败") || message.Contains("抵抗") || message.Contains("抵挡") || message.Contains("中断")) AudioManager.Instance.PlaySkillFail();
         }
         UIMgr.ForceRebuildLayout(go);
     }
@@ -250,6 +250,26 @@ public class PokerEffectManager : MonoBehaviour
             }
 
             return $"[{newCaster}]的[{skill}]技能失败了";
+        }
+
+        // Match 6: [caster]的[skill]技能中断了(进入亮牌阶段)
+        var match6 = System.Text.RegularExpressions.Regex.Match(originalMsg, @"^\[([^\]]+)\]的\[([^\]]+)\]技能中断了\(进入亮牌阶段\)$");
+        if (match6.Success)
+        {
+            string caster = match6.Groups[1].Value;
+            string skill = match6.Groups[2].Value;
+
+            string newCaster = caster;
+            if (caster == myName)
+            {
+                newCaster = "你";
+            }
+            else if (!localIsSensing)
+            {
+                newCaster = "某玩家";
+            }
+
+            return $"[{newCaster}]的[{skill}]技能中断了(进入亮牌阶段)";
         }
 
         return originalMsg;

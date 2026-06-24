@@ -212,6 +212,9 @@ public class PokerUIManager : MonoBehaviour
     private CardTarget firstSelectedCard = null;
     private SkillMessageItem currentCastItem;
     private Dictionary<uint, int> playerLastBets = new Dictionary<uint, int>();
+    private Sprite chipSprite;
+    private Dictionary<uint, int> visualChipsDict = new Dictionary<uint, int>();
+    private HashSet<uint> activeWinAnimations = new HashSet<uint>();
     private bool hasSyncedSkillsThisSession = false;
     private Dictionary<Button, SkillConfig> activeDynamicSkillButtons = new Dictionary<Button, SkillConfig>();
     private PokerPlayer[] cachedAllPlayers = new PokerPlayer[0];
@@ -241,6 +244,7 @@ public class PokerUIManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        chipSprite = Resources.Load<Sprite>("Icon Common/icon_chips");
 
         lobbyUIManager = GetComponent<LobbyUIManager>();
         if (lobbyUIManager == null) lobbyUIManager = gameObject.AddComponent<LobbyUIManager>();
@@ -427,7 +431,7 @@ public class PokerUIManager : MonoBehaviour
 
                 foreach (var p in allPlayersInRoom)
                 {
-                    if (p.isReady) readyCount++;
+                    if (p != null && p.isReady) readyCount++;
                 }
 
                 if (txtHalftimeReadyCount != null) txtHalftimeReadyCount.text = $"准备完成: {readyCount}/{totalPlayers}";
@@ -462,12 +466,38 @@ public class PokerUIManager : MonoBehaviour
 
         foreach (PokerPlayer p in gamePlayers)
         {
+            if (p == null) continue;
+
+            // 检测下注/跟注/加注音效播放
+            int lastBet = 0;
+            bool hasLastBet = playerLastBets.TryGetValue(p.netId, out lastBet);
+            if (hasLastBet)
+            {
+                if (p.currentBet > lastBet)
+                {
+                    if (AudioManager.Instance != null)
+                    {
+                        AudioManager.Instance.PlayBet();
+                    }
+                }
+            }
+            playerLastBets[p.netId] = p.currentBet;
+
             if (p.isMyTurn) currentActingPlayerName = p.playerName;
 
             if (p.isLocalPlayer)
             {
                 SetTextAndRebuildLayout(myNameText, p.playerName);
-                UpdateTextIfIntChanged(myChipsText, p.chips);
+                int currentDisplayChips = p.chips;
+                if (activeWinAnimations.Contains(p.netId))
+                {
+                    currentDisplayChips = visualChipsDict.ContainsKey(p.netId) ? visualChipsDict[p.netId] : p.chips;
+                }
+                else
+                {
+                    visualChipsDict[p.netId] = p.chips;
+                }
+                UpdateTextIfIntChanged(myChipsText, currentDisplayChips);
                 UpdateTextIfIntChanged(myCurrentBetText, p.currentBet);
                 UpdateTextIfIntChanged(myEnergyText, p.energy);
                 RefreshSkillButtonsState(p.energy);
@@ -508,7 +538,16 @@ public class PokerUIManager : MonoBehaviour
                     isSeatDisconnected[enemyIndex] = false;
 
                     SetTextAndRebuildLayout(enemyNameTexts[enemyIndex], p.playerName);
-                    UpdateTextIfIntChanged(enemyChipsTexts[enemyIndex], p.chips);
+                    int currentDisplayChips = p.chips;
+                    if (activeWinAnimations.Contains(p.netId))
+                    {
+                        currentDisplayChips = visualChipsDict.ContainsKey(p.netId) ? visualChipsDict[p.netId] : p.chips;
+                    }
+                    else
+                    {
+                        visualChipsDict[p.netId] = p.chips;
+                    }
+                    UpdateTextIfIntChanged(enemyChipsTexts[enemyIndex], currentDisplayChips);
                     UpdateTextIfIntChanged(enemyCurrentBetTexts[enemyIndex], p.currentBet);
 
                     bool iAmSensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
@@ -2245,6 +2284,199 @@ public class PokerUIManager : MonoBehaviour
                 maxHandTypePanel.SetActive(false);
             }
         }
+    }
+
+    #endregion
+
+    #region 筹码飞行动画特效 (Win Chips Flying Animation)
+
+    public void PlayWinChipsAnimation(uint playerNetId, int winAmount)
+    {
+        StartCoroutine(WinChipsAnimationRoutine(playerNetId, winAmount));
+    }
+
+    private System.Collections.IEnumerator WinChipsAnimationRoutine(uint playerNetId, int winAmount)
+    {
+        PokerPlayer winner = FindPlayerByNetId(playerNetId);
+        if (winner == null) yield break;
+
+        // 加进正在播放动画的哈希集合
+        activeWinAnimations.Add(playerNetId);
+
+        // 初始化/校准该玩家的视觉显示数值（应从增加前的值开始）
+        visualChipsDict[playerNetId] = winner.chips - winAmount;
+
+        Vector3 startPos = potContainer != null ? potContainer.position : Vector3.zero;
+        Transform targetTextTransform = GetPlayerChipsTextTransform(winner);
+        Vector3 endPos = targetTextTransform != null ? targetTextTransform.position : Vector3.zero;
+
+        int spawnCount = CalculateChipCount(winAmount);
+        if (spawnCount <= 0)
+        {
+            activeWinAnimations.Remove(playerNetId);
+            yield break;
+        }
+
+        // 发送总量越多，发射越快。控制在2.2s以内发完。
+        float totalSpawningTime = 2.2f;
+        float interval = totalSpawningTime / spawnCount;
+
+        for (int i = 0; i < spawnCount; i++)
+        {
+            SpawnSingleFlyingChip(startPos, endPos, winner, i, spawnCount, winAmount);
+            yield return new WaitForSeconds(interval);
+        }
+    }
+
+    private int CalculateChipCount(int winAmount)
+    {
+        if (winAmount <= 0) return 0;
+        if (winAmount < 100) return 6;
+        if (winAmount < 1000) return 12;
+        if (winAmount < 5000) return 18;
+        if (winAmount < 20000) return 24;
+        return 30; // 数量上限
+    }
+
+    private PokerPlayer FindPlayerByNetId(uint netId)
+    {
+        if (cachedAllPlayers != null)
+        {
+            foreach (var p in cachedAllPlayers)
+            {
+                if (p != null && p.netId == netId) return p;
+            }
+        }
+        PokerPlayer[] players = FindObjectsOfType<PokerPlayer>();
+        foreach (var p in players)
+        {
+            if (p != null && p.netId == netId) return p;
+        }
+        return null;
+    }
+
+    private Transform GetPlayerChipsTextTransform(PokerPlayer player)
+    {
+        if (player.isLocalPlayer)
+        {
+            return myChipsText != null ? myChipsText.transform : null;
+        }
+        else
+        {
+            int idx = GetEnemyIndex(player);
+            if (idx >= 0 && idx < enemyChipsTexts.Length)
+            {
+                return enemyChipsTexts[idx] != null ? enemyChipsTexts[idx].transform : null;
+            }
+        }
+        return null;
+    }
+
+    private void UpdateChipsTextDisplay(PokerPlayer player, int amount)
+    {
+        if (player.isLocalPlayer)
+        {
+            UpdateTextIfIntChanged(myChipsText, amount);
+        }
+        else
+        {
+            int idx = GetEnemyIndex(player);
+            if (idx >= 0 && idx < enemyChipsTexts.Length)
+            {
+                UpdateTextIfIntChanged(enemyChipsTexts[idx], amount);
+            }
+        }
+    }
+
+    private void SpawnSingleFlyingChip(Vector3 startPos, Vector3 endPos, PokerPlayer winner, int index, int totalCount, int totalWinAmount)
+    {
+        if (chipSprite == null)
+        {
+            // 尝试在运行时重新加载以确保不为空
+            chipSprite = Resources.Load<Sprite>("Icon Common/icon_chips");
+            if (chipSprite == null) return;
+        }
+
+        GameObject chipGo = new GameObject("FlyingChip");
+        
+        // 寻找最顶层的 Canvas 使得筹码能够渲染在最前端
+        Canvas rootCanvas = GetComponentInParent<Canvas>();
+        if (rootCanvas != null)
+        {
+            while (rootCanvas.transform.parent != null && rootCanvas.transform.parent.GetComponentInParent<Canvas>() != null)
+            {
+                rootCanvas = rootCanvas.transform.parent.GetComponentInParent<Canvas>();
+            }
+            chipGo.transform.SetParent(rootCanvas.transform, false);
+        }
+        else
+        {
+            chipGo.transform.SetParent(this.transform, false);
+        }
+        chipGo.transform.SetAsLastSibling();
+
+        RectTransform rect = chipGo.AddComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(40f, 40f);
+        Image img = chipGo.AddComponent<Image>();
+        img.sprite = chipSprite;
+
+        rect.position = startPos;
+
+        Vector3 start = startPos;
+        Vector3 end = endPos;
+        // 在中间点加入一定的向上和左右弧度，形成美丽的弧线抛物线飞行
+        Vector3 mid = (start + end) / 2f;
+        mid += new Vector3(Random.Range(-150f, 150f), Random.Range(100f, 250f), 0f);
+
+        Vector3[] path = new Vector3[] { start, mid, end };
+
+        // 随机缩放和旋转动画
+        rect.localScale = Vector3.zero;
+        rect.DOScale(Vector3.one * Random.Range(0.8f, 1.2f), 0.2f);
+        rect.DORotate(new Vector3(0, 0, Random.Range(360f, 720f)), 0.8f, RotateMode.FastBeyond360).SetEase(Ease.OutQuad);
+
+        // 沿路径平滑飞行，0.8秒内到达
+        rect.DOPath(path, 0.8f, PathType.CatmullRom)
+            .SetEase(Ease.InQuad)
+            .OnComplete(() => {
+                // 抵达终点，播放筹码碰撞音效
+                if (AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.PlayChipShort();
+                }
+
+                // 赢家筹码文本轻微缩放抖动一下
+                Transform textTrans = GetPlayerChipsTextTransform(winner);
+                if (textTrans != null)
+                {
+                    textTrans.DOKill(); // 杀死任何正在运行的缩放动画，防止高频触发导致尺寸叠加
+                    textTrans.localScale = Vector3.one; // 强制重置为标准大小
+                    textTrans.DOPunchScale(Vector3.one * 0.15f, 0.15f, 5, 0.5f);
+                }
+
+                // 递增算好的这颗筹码数值
+                int delta = totalWinAmount / totalCount;
+                if (index == totalCount - 1)
+                {
+                    delta += totalWinAmount % totalCount; // 最后一颗算上余数
+                }
+
+                if (visualChipsDict.ContainsKey(winner.netId))
+                {
+                    visualChipsDict[winner.netId] += delta;
+                    UpdateChipsTextDisplay(winner, visualChipsDict[winner.netId]);
+                }
+
+                // 最后一颗飞达，结束动画状态
+                if (index == totalCount - 1)
+                {
+                    activeWinAnimations.Remove(winner.netId);
+                    visualChipsDict[winner.netId] = winner.chips;
+                    UpdateChipsTextDisplay(winner, winner.chips);
+                }
+
+                Destroy(chipGo);
+            });
     }
 
     #endregion

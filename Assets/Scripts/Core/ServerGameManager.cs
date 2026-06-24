@@ -418,6 +418,15 @@ public class ServerGameManager : NetworkBehaviour
         currentPhase = GamePhase.Showdown;
         RpcAddGameLog("--- Showdown (摊牌) ---", 1);
 
+        // 中断所有正在施法的玩家技能并返还能量
+        foreach (var p in activePlayers)
+        {
+            if (p != null && p.isCasting)
+            {
+                p.InterruptDueToShowdown();
+            }
+        }
+
         //无论如何，先把最后一轮河牌圈的钱扫拢！
         SweepBetsIntoPots();
 
@@ -441,6 +450,10 @@ public class ServerGameManager : NetworkBehaviour
             foreach (var pot in serverPots) totalWin += pot.amount;
 
             winner.chips += totalWin;
+            if (totalWin > 0)
+            {
+                RpcPlayWinChipsAnimation(winner.netId, totalWin);
+            }
             // 【王冠起效】
             int playerMaxE = winner.GetMaxEnergy(maxEnergy);
             int actualBonus = winner.GetWinEnergyBonus(winnerBonus);
@@ -496,6 +509,11 @@ public class ServerGameManager : NetworkBehaviour
                 w.energy = Mathf.Clamp(w.energy + winnerBonus, 0, maxEnergy);
                 resultMsg += $"[{w.playerName}]赢得{splitAmount}筹码！";
                 tempUltimateWinners.Add(w);
+
+                if (splitAmount > 0)
+                {
+                    RpcPlayWinChipsAnimation(w.netId, splitAmount);
+                }
 
                 if (winAmounts.ContainsKey(w)) winAmounts[w] += splitAmount;
                 else winAmounts[w] = splitAmount;
@@ -578,7 +596,10 @@ public class ServerGameManager : NetworkBehaviour
         handsPlayedThisRound = 0;  // 把数清零
 
         // 强行把所有人的准备状态重置为 false
-        foreach (var p in activePlayers) p.isReady = false;
+        foreach (var p in activePlayers)
+        {
+            if (p != null) p.isReady = false;
+        }
 
         RpcHideHalftimePanel();
         StartNewHand(); // 正式开始新一圈的发牌！
@@ -1083,6 +1104,15 @@ public class ServerGameManager : NetworkBehaviour
         {
             if (actionType == "Check") AudioManager.Instance.PlayCheck();
             else if (actionType == "Fold") AudioManager.Instance.PlayFold();
+        }
+    }
+
+    [ClientRpc]
+    private void RpcPlayWinChipsAnimation(uint playerNetId, int winAmount)
+    {
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.PlayWinChipsAnimation(playerNetId, winAmount);
         }
     }
 

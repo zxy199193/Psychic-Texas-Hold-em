@@ -41,6 +41,7 @@ public class PokerPlayer : NetworkBehaviour
     private string currentCastingSkillName;
     private PokerPlayer currentCastingTarget;
     private int currentCastingTargetType;
+    private int currentCastingEnergyCost;
 
     public bool serverIsSensing = false;
     public bool localIsSensing = false;
@@ -306,6 +307,7 @@ public class PokerPlayer : NetworkBehaviour
         }
 
         this.energy -= actualEnergyCost;
+        currentCastingEnergyCost = actualEnergyCost;
 
         // 【核心修复】：传入真实饰品计算后的读条时间
         float actualCastTime = GetCastTime(skillToCast.castTime);
@@ -329,7 +331,7 @@ public class PokerPlayer : NetworkBehaviour
 
         foreach (var p in ServerGameManager.Instance.activePlayers)
         {
-            if (p.serverIsSensing && p != this)
+            if (p != null && p.serverIsSensing && p != this)
                 p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}正在向{targetName}发动技能[{skill.skillName}]");
         }
 
@@ -343,7 +345,7 @@ public class PokerPlayer : NetworkBehaviour
         {
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
-                if (p.netId == this.dualTargetNetId) { target2 = p; break; }
+                if (p != null && p.netId == this.dualTargetNetId) { target2 = p; break; }
             }
         }
 
@@ -413,7 +415,7 @@ public class PokerPlayer : NetworkBehaviour
                     if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"技能[{skill.skillName}]发动失败了！", 99);
                     foreach (var p in ServerGameManager.Instance.activePlayers)
                     {
-                        if (p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}的技能发动失败了！");
+                        if (p != null && p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}的技能发动失败了！");
                     }
                     yield break;
                 }
@@ -426,7 +428,7 @@ public class PokerPlayer : NetworkBehaviour
 
                 foreach (var p in ServerGameManager.Instance.activePlayers)
                 {
-                    if (p != target && !p.isFolded)
+                    if (p != null && p != target && !p.isFolded)
                     {
                         allOtherTargets.Add(p);
                         if (!p.serverHasReflectWall) unshieldedTargets.Add(p);
@@ -453,7 +455,7 @@ public class PokerPlayer : NetworkBehaviour
 
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
-                if (p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, "使用成功！");
+                if (p != null && p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, "使用成功！");
             }
             skill.Execute(this, target, targetType, targetIndex, ServerGameManager.Instance);
         }
@@ -513,6 +515,7 @@ public class PokerPlayer : NetworkBehaviour
 
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
+                if (p == null) continue;
                 if (p.serverIsSensing && p != this && p != resister)
                     p.TargetReceiveSensingLog(p.connectionToClient, "使用失败！");
 
@@ -522,6 +525,50 @@ public class PokerPlayer : NetworkBehaviour
                     if (p.connectionToClient != null) p.TargetStopCastingUI(p.connectionToClient);
                 }
             }
+        }
+    }
+
+    [Server]
+    public void InterruptDueToShowdown()
+    {
+        if (isCasting)
+        {
+            isCasting = false;
+            if (currentCastCoroutine != null) StopCoroutine(currentCastCoroutine);
+
+            // 返还消耗的能量，且不超过最大能量限制
+            int serverMaxEnergy = ServerGameManager.Instance != null ? ServerGameManager.Instance.maxEnergy : 10;
+            int playerMaxE = GetMaxEnergy(serverMaxEnergy);
+            this.energy = Mathf.Clamp(this.energy + currentCastingEnergyCost, 0, playerMaxE);
+
+            // 清理客户端施法进度条
+            if (this.connectionToClient != null)
+            {
+                TargetStopCastingUI(this.connectionToClient);
+            }
+
+            // 清理相关被施法玩家的施法状态与读条UI
+            if (ServerGameManager.Instance != null)
+            {
+                foreach (var p in ServerGameManager.Instance.activePlayers)
+                {
+                    if (p != null && p.incomingAttacker == this)
+                    {
+                        p.incomingAttacker = null;
+                        if (p.connectionToClient != null) p.TargetStopCastingUI(p.connectionToClient);
+                    }
+                }
+            }
+
+            // 发送系统日志，以“技能中断”代替“施法成功/失败”
+            if (ServerGameManager.Instance != null)
+            {
+                ServerGameManager.Instance.RpcAddGameLog($"[{this.playerName}]的[{currentCastingSkillName}]技能中断了(进入亮牌阶段)", 3);
+            }
+
+            // 重置相关施法变量
+            currentCastingSkillName = "";
+            currentCastingTarget = null;
         }
     }
 
@@ -725,6 +772,7 @@ public class PokerPlayer : NetworkBehaviour
         bool allReady = true;
         foreach (var p in ServerGameManager.Instance.activePlayers)
         {
+            if (p == null) continue;
             if (!p.isReady)
             {
                 allReady = false;
