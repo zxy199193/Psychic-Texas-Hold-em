@@ -88,4 +88,13 @@ public class IdolTrinket : BaseTrinket { public IdolTrinket() { trinketID = 8; t
 public class AntennaTrinket : BaseTrinket { public AntennaTrinket() { trinketID = 9; trinketName = "天线"; } }
 
 // 10. 戒指
-public class RingTrinket : BaseTrinket { public RingTrinket() { trinketID = 10; trinketName = "戒指"; } }
+public class RingTrinket : BaseTrinket { public RingTrinket() { trinketID = 10; trinketName = "戒指"; } }
+
+// 11. 魔像
+public class GolemTrinket : BaseTrinket { public GolemTrinket() { trinketID = 11; trinketName = "魔像"; } }
+
+// 12. 帽子
+public class HatTrinket : BaseTrinket { public HatTrinket() { trinketID = 12; trinketName = "帽子"; } }
+
+// 13. 兽爪
+public class BeastClawTrinket : BaseTrinket { public BeastClawTrinket() { trinketID = 13; trinketName = "兽爪"; } }

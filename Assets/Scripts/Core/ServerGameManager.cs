@@ -255,6 +255,16 @@ public class ServerGameManager : NetworkBehaviour
             p.interferenceRate = 0;
             p.serverHasReflectWall = false;
             p.serverIsMindControlled = false;
+
+            if (p.serverNextHandSealed)
+            {
+                p.serverHoleCardsSealed = true;
+                p.serverNextHandSealed = false;
+            }
+            else
+            {
+                p.serverHoleCardsSealed = false;
+            }
             if (p.connectionToClient != null)
             {
                 p.TargetSetSensingState(p.connectionToClient, false);
@@ -266,10 +276,34 @@ public class ServerGameManager : NetworkBehaviour
             // ==========================================
             // 发牌拦截：检查是否有“许愿” Buff
             // ==========================================
+            p.serverGolemActiveThisHand = false;
             if (p.serverHasWishBuff)
             {
+                // 【魔像起效】：如果有魔像，运行魔像特殊发牌算法
+                if (p.equippedTrinkets.Contains(11))
+                {
+                    if (deck.TryDrawGolemCards(futureCommunityCards, out c1, out c2))
+                    {
+                        p.serverGolemActiveThisHand = true;
+                    }
+                    else
+                    {
+                        // 兜底退款情况：公牌点数全部被抢空，许愿失效，能量退还，提示并以常规规则发牌
+                        int refundAmount = 4; // 默认许愿消耗 4 能量
+                        int maxE = p.GetMaxEnergy(maxEnergy);
+                        p.energy = Mathf.Clamp(p.energy + refundAmount, 0, maxE);
+
+                        if (p.connectionToClient != null)
+                        {
+                            p.TargetReceiveSkillMessage(p.connectionToClient, "已无满足许愿条件的牌，能量返还", 6);
+                        }
+
+                        c1 = deck.Draw();
+                        c2 = deck.Draw();
+                    }
+                }
                 // 【神像起效】：如果有神像，用超级发牌器！
-                if (p.equippedTrinkets.Contains(8))
+                else if (p.equippedTrinkets.Contains(8))
                 {
                     c1 = deck.DrawSuperWishCard();
                     c2 = deck.DrawSuperWishCard();
@@ -533,7 +567,8 @@ public class ServerGameManager : NetworkBehaviour
             // 直接把完整的 score 分数传进去，让翻译官自己去拆解！
             string professionalName = GetProfessionalHandName(finalHand.rank.ToString(), finalHand.score);
 
-            p.RpcRevealHoleCards(p.serverHand[0], p.serverHand[1], professionalName, isWinner);
+            p.RpcRevealHoleCards(p.serverHand[0], p.serverHand[1], professionalName, isWinner, p.serverHoleCardsSealed);
+            p.serverHoleCardsSealed = false;
 
             if (isWinner)
             {
@@ -751,6 +786,7 @@ public class ServerGameManager : NetworkBehaviour
     public void HandlePlayerRaise(PokerPlayer player, int raiseAmount)
     {
         if (activePlayers[currentPlayerIndex] != player) return;
+        if (player.serverGolemActiveThisHand) return;
 
         int totalNeeded = (highestBet - player.currentBet) + raiseAmount;
 

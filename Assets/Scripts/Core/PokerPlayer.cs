@@ -65,6 +65,10 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar] public bool syncFillBots = false;
     [SyncVar] public bool syncShortDeck = false;
 
+    [SyncVar] public bool serverNextHandSealed = false;
+    [SyncVar] public bool serverHoleCardsSealed = false;
+    [SyncVar] public bool serverGolemActiveThisHand = false;
+
     [Command]
     public void CmdSetFillBots(bool value)
     {
@@ -151,13 +155,17 @@ public class PokerPlayer : NetworkBehaviour
     }
 
     [ClientRpc]
-    public void RpcRevealHoleCards(Card c1, Card c2, string handTypeStr, bool isWinner)
+    public void RpcRevealHoleCards(Card c1, Card c2, string handTypeStr, bool isWinner, bool wasSealed)
     {
         if (isLocalPlayer)
         {
             if (PokerUIManager.Instance != null)
             {
                 PokerUIManager.Instance.SetMyCardsBlurred(false);
+                if (wasSealed)
+                {
+                    PokerUIManager.Instance.RevealMySealedHoleCards(c1, c2);
+                }
                 PokerUIManager.Instance.ShowPlayerHandType(this, handTypeStr, isWinner);
             }
             return;
@@ -167,6 +175,15 @@ public class PokerPlayer : NetworkBehaviour
         {
             PokerUIManager.Instance.FlipEnemyCards(this, c1, c2);
             PokerUIManager.Instance.ShowPlayerHandType(this, handTypeStr, isWinner);
+        }
+    }
+
+    [ClientRpc]
+    public void RpcTriggerResonanceBlink(float duration)
+    {
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.BlinkPlayerHoleCards(this, duration);
         }
     }
 
@@ -226,6 +243,8 @@ public class PokerPlayer : NetworkBehaviour
         skillDatabase.Add(9, new MindControlSkill());
         skillDatabase.Add(10, new OverdraftSkill());
         skillDatabase.Add(11, new AssistSkill());
+        skillDatabase.Add(12, new SealSkill());
+        skillDatabase.Add(13, new ResonanceSkill());
 
         trinketDatabase.Add(1, new RedGemTrinket());
         trinketDatabase.Add(2, new BlueGemTrinket());
@@ -237,6 +256,9 @@ public class PokerPlayer : NetworkBehaviour
         trinketDatabase.Add(8, new IdolTrinket());
         trinketDatabase.Add(9, new AntennaTrinket());
         trinketDatabase.Add(10, new RingTrinket());
+        trinketDatabase.Add(11, new GolemTrinket());
+        trinketDatabase.Add(12, new HatTrinket());
+        trinketDatabase.Add(13, new BeastClawTrinket());
     }
 
     public bool CanCastSkill(int skillID)
@@ -297,6 +319,61 @@ public class PokerPlayer : NetworkBehaviour
             targetPlayer = targetIdentity.GetComponent<PokerPlayer>();
         }
 
+        if (skillToCast.IsSelfTargeted)
+        {
+            targetPlayer = this;
+            targetNetId = this.netId;
+            targetType = 0;
+            targetIndex = -1;
+        }
+
+        // ==========================================
+        // 【封印检测拦截】：检测目标底牌是否被封印
+        // ==========================================
+        if ((skillID == 2 || skillID == 3) && targetType == 0 && targetPlayer != null && targetPlayer.serverHoleCardsSealed)
+        {
+            this.energy -= actualEnergyCost;
+            if (this.connectionToClient != null)
+            {
+                TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 99);
+            }
+            this.energy += actualEnergyCost;
+            return;
+        }
+
+        if (skillID == 7) // 交换技能有双目标，需要额外检查目标 1 和目标 2
+        {
+            // 检查目标 1 是否被封印
+            if (targetType == 0 && targetPlayer != null && targetPlayer.serverHoleCardsSealed)
+            {
+                this.energy -= actualEnergyCost;
+                if (this.connectionToClient != null)
+                {
+                    TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 99);
+                }
+                this.energy += actualEnergyCost;
+                return;
+            }
+
+            // 检查目标 2 是否被封印
+            PokerPlayer targetPlayer2 = null;
+            if (this.dualTargetType == 0 && NetworkServer.spawned.TryGetValue(this.dualTargetNetId, out NetworkIdentity targetIdentity2))
+            {
+                targetPlayer2 = targetIdentity2.GetComponent<PokerPlayer>();
+            }
+            if (targetPlayer2 != null && targetPlayer2.serverHoleCardsSealed)
+            {
+                this.energy -= actualEnergyCost;
+                if (this.connectionToClient != null)
+                {
+                    TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 99);
+                }
+                this.energy += actualEnergyCost;
+                return;
+            }
+        }
+        // ==========================================
+
         if (targetPlayer != null && targetPlayer != this)
         {
             if (targetPlayer.incomingAttacker != null)
@@ -314,6 +391,26 @@ public class PokerPlayer : NetworkBehaviour
         currentCastCoroutine = StartCoroutine(CastingRoutine(skillID, skillToCast, targetPlayer, targetType, targetIndex, actualCastTime));
     }
 
+    private bool IsSensingBlocked()
+    {
+        PokerPlayer target1 = currentCastingTarget;
+        PokerPlayer target2 = null;
+        if (currentCastingSkillName == "交换" && this.dualTargetType == 0)
+        {
+            if (ServerGameManager.Instance != null)
+            {
+                foreach (var p in ServerGameManager.Instance.activePlayers)
+                {
+                    if (p != null && p.netId == this.dualTargetNetId) { target2 = p; break; }
+                }
+            }
+        }
+
+        return this.equippedTrinkets.Contains(12) || 
+               (target1 != null && target1.equippedTrinkets.Contains(12)) ||
+               (target2 != null && target2.equippedTrinkets.Contains(12));
+    }
+
     // 【核心修复】：参数补齐了 actualCastTime
     private System.Collections.IEnumerator CastingRoutine(int skillID, BaseSkill skill, PokerPlayer target, int targetType, int targetIndex, float actualCastTime)
     {
@@ -327,18 +424,7 @@ public class PokerPlayer : NetworkBehaviour
             ServerGameManager.Instance.LogSkillEvent(this, target, targetType, skill.skillName, 1);
         }
 
-        string targetName = (target != null) ? target.playerName : "公共牌";
-
-        foreach (var p in ServerGameManager.Instance.activePlayers)
-        {
-            if (p != null && p.serverIsSensing && p != this)
-                p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}正在向{targetName}发动技能[{skill.skillName}]");
-        }
-
-        if (this.connectionToClient != null)
-        {
-            TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skillID, actualCastTime, false, 0);
-        }
+        string targetName = (target != null) ? (target == this ? "自己" : target.playerName) : "公共牌";
 
         PokerPlayer target2 = null;
         if (skillID == 7 && this.dualTargetType == 0)
@@ -349,9 +435,35 @@ public class PokerPlayer : NetworkBehaviour
             }
         }
 
+        bool isSensingBlocked = IsSensingBlocked();
+        if (!isSensingBlocked)
+        {
+            foreach (var p in ServerGameManager.Instance.activePlayers)
+            {
+                if (p != null && p.serverIsSensing && p != this)
+                    p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}正在向{targetName}发动技能[{skill.skillName}]");
+            }
+        }
+
+        if (this.connectionToClient != null)
+        {
+            TargetStartCastingUI(this.connectionToClient, "你", skill.skillName, skillID, actualCastTime, false, 0);
+        }
+
+        int activeSkillCount = 0;
+        foreach (int id in this.equippedSkills)
+        {
+            if (id != 98) activeSkillCount++;
+        }
+        bool isSingleSkillMode = (activeSkillCount == 1);
+
         if (target != this && target != null && skill.CanBeResisted)
         {
             int resistCost = target.GetResistCost(skill.energyCost);
+            if (this.equippedTrinkets.Contains(13) && isSingleSkillMode)
+            {
+                resistCost += 2;
+            }
             bool canResist = !target.serverHasReflectWall;
 
             if (target.connectionToClient != null)
@@ -369,6 +481,10 @@ public class PokerPlayer : NetworkBehaviour
         if (target2 != this && target2 != null && target2 != target && skill.CanBeResisted)
         {
             int resistCost2 = target2.GetResistCost(skill.energyCost);
+            if (this.equippedTrinkets.Contains(13) && isSingleSkillMode)
+            {
+                resistCost2 += 2;
+            }
             bool canResist2 = !target2.serverHasReflectWall;
 
             if (target2.connectionToClient != null)
@@ -413,9 +529,12 @@ public class PokerPlayer : NetworkBehaviour
                         ServerGameManager.Instance.LogSkillEvent(this, target, targetType, skill.skillName, 3);
                     }
                     if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"技能[{skill.skillName}]发动失败了！", 99);
-                    foreach (var p in ServerGameManager.Instance.activePlayers)
+                    if (!isSensingBlocked)
                     {
-                        if (p != null && p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}的技能发动失败了！");
+                        foreach (var p in ServerGameManager.Instance.activePlayers)
+                        {
+                            if (p != null && p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, $"{this.playerName}的技能发动失败了！");
+                        }
                     }
                     yield break;
                 }
@@ -453,9 +572,12 @@ public class PokerPlayer : NetworkBehaviour
                 ServerGameManager.Instance.LogSkillEvent(this, target, targetType, skill.skillName, 2);
             }
 
-            foreach (var p in ServerGameManager.Instance.activePlayers)
+            if (!isSensingBlocked)
             {
-                if (p != null && p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, "使用成功！");
+                foreach (var p in ServerGameManager.Instance.activePlayers)
+                {
+                    if (p != null && p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, "使用成功！");
+                }
             }
             skill.Execute(this, target, targetType, targetIndex, ServerGameManager.Instance);
         }
@@ -513,10 +635,11 @@ public class PokerPlayer : NetworkBehaviour
                 resister.TargetReceiveSkillMessage(resister.connectionToClient, $"你成功抵挡住了{this.playerName}的技能！", 99);
             }
 
+            bool isSensingBlocked = IsSensingBlocked();
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
                 if (p == null) continue;
-                if (p.serverIsSensing && p != this && p != resister)
+                if (!isSensingBlocked && p.serverIsSensing && p != this && p != resister)
                     p.TargetReceiveSensingLog(p.connectionToClient, "使用失败！");
 
                 if (p.incomingAttacker == this)

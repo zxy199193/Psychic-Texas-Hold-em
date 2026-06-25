@@ -15,6 +15,7 @@ public struct SteamLobbyData
 public class SteamLobby : MonoBehaviour
 {
     public static SteamLobby Instance;
+    public CSteamID currentLobbyId = new CSteamID(0);
 
     // Steam callbacks
     protected Callback<LobbyCreated_t> lobbyCreated;
@@ -39,6 +40,26 @@ public class SteamLobby : MonoBehaviour
         lobbyMatchList = Callback<LobbyMatchList_t>.Create(OnLobbyMatchList);
     }
 
+    private void OnDestroy()
+    {
+        LeaveLobby();
+    }
+
+    private void OnApplicationQuit()
+    {
+        LeaveLobby();
+    }
+
+    public void LeaveLobby()
+    {
+        if (currentLobbyId.m_SteamID != 0)
+        {
+            SteamMatchmaking.LeaveLobby(currentLobbyId);
+            Debug.Log($"Leaving Steam lobby: {currentLobbyId.m_SteamID}");
+            currentLobbyId = new CSteamID(0);
+        }
+    }
+
     // ==========================================
     // 1. Create Steam Lobby
     // ==========================================
@@ -50,6 +71,8 @@ public class SteamLobby : MonoBehaviour
             NetworkManager.singleton.StartHost();
             return;
         }
+
+        LeaveLobby();
 
         Debug.Log("Requesting public Steam lobby...");
         // Set ELobbyType.k_ELobbyTypePublic so strangers/friends can search for it!
@@ -68,6 +91,7 @@ public class SteamLobby : MonoBehaviour
         NetworkManager.singleton.StartHost();
 
         CSteamID lobbyId = new CSteamID(callback.m_ulSteamIDLobby);
+        currentLobbyId = lobbyId;
 
         // Set host Address key (SteamID of the host)
         SteamMatchmaking.SetLobbyData(
@@ -168,17 +192,21 @@ public class SteamLobby : MonoBehaviour
             return;
         }
 
+        LeaveLobby();
+
         Debug.Log($"Joining Steam lobby: {lobbyId}");
         SteamMatchmaking.JoinLobby(new CSteamID(lobbyId));
     }
 
     private void OnLobbyEntered(LobbyEnter_t callback)
     {
+        CSteamID lobbyId = new CSteamID(callback.m_ulSteamIDLobby);
+        currentLobbyId = lobbyId;
+
         if (NetworkServer.active) return;
 
         Debug.Log("Entered Steam lobby successfully. Connecting Mirror client...");
 
-        CSteamID lobbyId = new CSteamID(callback.m_ulSteamIDLobby);
         string hostAddress = SteamMatchmaking.GetLobbyData(lobbyId, HostAddressKey);
 
         NetworkManager.singleton.networkAddress = hostAddress;

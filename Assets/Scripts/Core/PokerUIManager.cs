@@ -181,6 +181,10 @@ public class PokerUIManager : MonoBehaviour
     public int maxTrinketSelection = 1;
     public Text selectedTrinketCountText;
 
+    [Header("10.1 准备面板玩家列表 (Lobby Ready Players)")]
+    public Transform lobbyReadyPlayerContainer;
+    public GameObject lobbyReadyPlayerPrefab;
+
     [Header("11. 局内动态技能栏")]
     public Transform inGameSkillBar;
     public GameObject inGameSkillBtnPrefab;
@@ -219,6 +223,7 @@ public class PokerUIManager : MonoBehaviour
     private Dictionary<Button, SkillConfig> activeDynamicSkillButtons = new Dictionary<Button, SkillConfig>();
     private PokerPlayer[] cachedAllPlayers = new PokerPlayer[0];
     private float playerSearchTimer = 0f;
+    private Dictionary<uint, GameObject> activeLobbyPlayersUI = new Dictionary<uint, GameObject>();
     private Dictionary<Text, int> textIntCache = new Dictionary<Text, int>();
     private List<int>[] currentDisplayedEnemyTrinkets;
     private Transform[] cachedEnemyTrinketContainers;
@@ -350,6 +355,16 @@ public class PokerUIManager : MonoBehaviour
             playerSearchTimer = 0.5f;
         }
 
+        // 刷新准备面板中的玩家头像与准备状态
+        if (skillSelectionPanel != null && skillSelectionPanel.activeSelf)
+        {
+            UpdateLobbyReadyPlayers(cachedAllPlayers);
+        }
+        else
+        {
+            ClearLobbyReadyPlayers();
+        }
+
         // 刷新奖池和最高下注
         if (ServerGameManager.Instance != null)
         {
@@ -376,7 +391,7 @@ public class PokerUIManager : MonoBehaviour
         }
 
         // 刷新大厅准备与人数信息
-        if (mainMenuPanel != null && mainMenuPanel.activeSelf)
+        if (lobbyUIGroup != null && lobbyUIGroup.activeSelf)
         {
             PokerPlayer[] allPlayersInRoom = cachedAllPlayers;
             int pCount = allPlayersInRoom.Length;
@@ -764,7 +779,17 @@ public class PokerUIManager : MonoBehaviour
                     }
                 }
             }
-            if (btnRaise != null) btnRaise.interactable = myTurn;
+            if (btnRaise != null)
+            {
+                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.serverGolemActiveThisHand)
+                {
+                    btnRaise.interactable = false;
+                }
+                else
+                {
+                    btnRaise.interactable = myTurn;
+                }
+            }
 
             if (turnStatusText != null && !isShowingResult)
             {
@@ -1023,14 +1048,22 @@ public class PokerUIManager : MonoBehaviour
         currentHandScore = -1;
         if (maxHandTypePanel != null) maxHandTypePanel.SetActive(false);
 
+        bool isSealed = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.serverHoleCardsSealed;
+
         ClearArea(myHandArea);
         GameObject go1 = Instantiate(cardPrefab, myHandArea);
-        go1.GetComponent<CardView>().SetCard(c1, true);
+        if (isSealed)
+            go1.GetComponent<CardView>().ShowBack();
+        else
+            go1.GetComponent<CardView>().SetCard(c1, true);
         go1.AddComponent<CardTarget>().Setup(0, 0, PokerPlayer.LocalPlayer.netId, true);
         PrepareCardForFlight(go1, dealRound1);
 
         GameObject go2 = Instantiate(cardPrefab, myHandArea);
-        go2.GetComponent<CardView>().SetCard(c2, true);
+        if (isSealed)
+            go2.GetComponent<CardView>().ShowBack();
+        else
+            go2.GetComponent<CardView>().SetCard(c2, true);
         go2.AddComponent<CardTarget>().Setup(0, 1, PokerPlayer.LocalPlayer.netId, true);
         PrepareCardForFlight(go2, dealRound2);
 
@@ -1071,6 +1104,40 @@ public class PokerUIManager : MonoBehaviour
                     enemyHandAreas[idx].GetChild(1).GetComponent<CardView>().FlipToFace(c2, 0.4f);
                     enemyHandAreas[idx].GetChild(1).GetComponent<CardTarget>().isRevealed = true;
                 });
+            }
+        }
+    }
+
+    public void BlinkPlayerHoleCards(PokerPlayer player, float duration)
+    {
+        if (player == null) return;
+        if (player.isLocalPlayer)
+        {
+            if (myHandArea != null)
+            {
+                foreach (Transform child in myHandArea)
+                {
+                    CardView cv = child.GetComponent<CardView>();
+                    if (cv != null)
+                    {
+                        cv.StartBlinking(duration);
+                    }
+                }
+            }
+        }
+        else
+        {
+            int idx = GetEnemyIndex(player);
+            if (idx >= 0 && idx < enemyHandAreas.Length && enemyHandAreas[idx] != null)
+            {
+                foreach (Transform child in enemyHandAreas[idx])
+                {
+                    CardView cv = child.GetComponent<CardView>();
+                    if (cv != null)
+                    {
+                        cv.StartBlinking(duration);
+                    }
+                }
             }
         }
     }
@@ -2239,7 +2306,7 @@ public class PokerUIManager : MonoBehaviour
         // 只有当翻出的有效公共牌数量 >= 3 且拥有 2 张手牌时才进行计算和显示
         if (validCommunity.Count >= 3 && localHoleCards.Count == 2)
         {
-            if (isCurrentlyBlurred)
+            if (isCurrentlyBlurred || PokerPlayer.LocalPlayer.serverHoleCardsSealed)
             {
                 SetTextAndRebuildLayout(maxHandTypeText, "当前牌型：???");
                 currentHandScore = -1; // 重置以便解除模糊后能重新更新
@@ -2477,6 +2544,143 @@ public class PokerUIManager : MonoBehaviour
 
                 Destroy(chipGo);
             });
+    }
+
+    #endregion
+
+    #region 准备面板玩家列表更新 (Lobby Ready Players Update)
+
+    private void UpdateLobbyReadyPlayers(PokerPlayer[] players)
+    {
+        if (lobbyReadyPlayerContainer == null || lobbyReadyPlayerPrefab == null) return;
+
+        // 1. 收集当前所有玩家的 netId
+        HashSet<uint> currentNetIds = new HashSet<uint>();
+        if (players != null)
+        {
+            foreach (var p in players)
+            {
+                if (p != null) currentNetIds.Add(p.netId);
+            }
+        }
+
+        // 2. 移除已经离开房间的玩家 UI
+        List<uint> keysToRemove = new List<uint>();
+        foreach (var kvp in activeLobbyPlayersUI)
+        {
+            if (!currentNetIds.Contains(kvp.Key))
+            {
+                if (kvp.Value != null) Destroy(kvp.Value);
+                keysToRemove.Add(kvp.Key);
+            }
+        }
+        foreach (var key in keysToRemove)
+        {
+            activeLobbyPlayersUI.Remove(key);
+        }
+
+        // 3. 增加新进入房间的玩家 UI，并更新所有玩家的 UI 状态
+        if (players != null)
+        {
+            foreach (var p in players)
+            {
+                if (p == null) continue;
+
+                GameObject go;
+                if (!activeLobbyPlayersUI.TryGetValue(p.netId, out go))
+                {
+                    go = Instantiate(lobbyReadyPlayerPrefab, lobbyReadyPlayerContainer);
+                    activeLobbyPlayersUI.Add(p.netId, go);
+                }
+
+                if (go == null) continue;
+
+                // 查找头像
+                Transform avatarTrans = DeepFind(go.transform, "RawImage Steam Avatar") ?? DeepFind(go.transform, "RawImage Avatar") ?? DeepFind(go.transform, "RawImage") ?? go.transform.Find("RawImage");
+                RawImage avatarImg = avatarTrans != null ? avatarTrans.GetComponent<RawImage>() : go.GetComponentInChildren<RawImage>();
+
+                // 查找名字
+                Transform nameTrans = DeepFind(go.transform, "Text Name") ?? DeepFind(go.transform, "Text") ?? go.transform.Find("Text");
+                Text nameText = nameTrans != null ? nameTrans.GetComponent<Text>() : go.GetComponentInChildren<Text>();
+
+                // 查找准备标记
+                Transform readyTrans = DeepFind(go.transform, "Image Ready") ?? DeepFind(go.transform, "Image Ready Mark") ?? DeepFind(go.transform, "Ready Mark") ?? DeepFind(go.transform, "Image Selection Marker");
+                GameObject readyMark = readyTrans != null ? readyTrans.gameObject : null;
+
+                // 更新玩家名称
+                if (nameText != null)
+                {
+                    nameText.text = p.playerName;
+                }
+
+                // 更新头像图片
+                if (avatarImg != null)
+                {
+                    if (p.steamId == 0) // AI / 机器人
+                    {
+                        if (allBotAvatars != null && p.botAvatarID >= 0 && p.botAvatarID < allBotAvatars.Length && allBotAvatars[p.botAvatarID] != null)
+                        {
+                            avatarImg.texture = allBotAvatars[p.botAvatarID];
+                        }
+                        else
+                        {
+                            avatarImg.texture = botDefaultAvatar;
+                        }
+                    }
+                    else // Steam 真人玩家
+                    {
+                        Texture2D tex = GetSteamAvatar(p.steamId);
+                        if (tex != null)
+                        {
+                            avatarImg.texture = tex;
+                        }
+                        else
+                        {
+                            avatarImg.texture = botDefaultAvatar;
+                        }
+                    }
+                }
+
+                // 更新准备状态
+                if (readyMark != null)
+                {
+                    readyMark.SetActive(p.isReady);
+                }
+            }
+        }
+    }
+
+    private void ClearLobbyReadyPlayers()
+    {
+        if (activeLobbyPlayersUI.Count > 0)
+        {
+            foreach (var kvp in activeLobbyPlayersUI)
+            {
+                if (kvp.Value != null) Destroy(kvp.Value);
+            }
+            activeLobbyPlayersUI.Clear();
+        }
+    }
+
+    public void RevealMySealedHoleCards(Card c1, Card c2)
+    {
+        localHoleCards.Clear();
+        localHoleCards.Add(c1);
+        localHoleCards.Add(c2);
+
+        if (myHandArea != null && myHandArea.childCount >= 2)
+        {
+            CardView cv1 = myHandArea.GetChild(0).GetComponent<CardView>();
+            if (cv1 != null) cv1.FlipToFace(c1, 0.4f);
+
+            DOVirtual.DelayedCall(0.1f, () => {
+                if (myHandArea != null && myHandArea.childCount >= 2)
+                {
+                    CardView cv2 = myHandArea.GetChild(1).GetComponent<CardView>();
+                    if (cv2 != null) cv2.FlipToFace(c2, 0.4f);
+                }
+            });
+        }
     }
 
     #endregion

@@ -76,6 +76,11 @@ public class LobbyUIManager : MonoBehaviour
             }
         }
 
+        if (SteamLobby.Instance != null)
+        {
+            SteamLobby.Instance.LeaveLobby();
+        }
+
         // 退出房间 (Mirror 网络链接断开)
         if (Mirror.NetworkServer.active && Mirror.NetworkClient.isConnected)
         {
@@ -104,6 +109,7 @@ public class LobbyUIManager : MonoBehaviour
 
     public void SetupLobbyUI(bool isHost)
     {
+        if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(true);
         if (UIMgr.btnCreateRoom != null) UIMgr.btnCreateRoom.gameObject.SetActive(false);
         if (UIMgr.btnJoinRoom != null) UIMgr.btnJoinRoom.gameObject.SetActive(false);
         if (UIMgr.btnExitGame != null) UIMgr.btnExitGame.gameObject.SetActive(false);
@@ -228,8 +234,25 @@ public class LobbyUIManager : MonoBehaviour
             UIMgr.SafeSetText(nameTransform, config.trinketName);
             UIMgr.SafeSetText(descTransform, config.description);
 
+            // 【魔像与神像互斥】：选择其中一个后，另一个置灰不可点击
+            bool isTrinketInteractable = true;
+            if (config.trinketID == 11 && localSelectedTrinkets.Contains(8))
+            {
+                isTrinketInteractable = false;
+            }
+            else if (config.trinketID == 8 && localSelectedTrinkets.Contains(11))
+            {
+                isTrinketInteractable = false;
+            }
+
+            CanvasGroup cg = go.GetComponent<CanvasGroup>();
+            if (cg == null) cg = go.AddComponent<CanvasGroup>();
+            cg.alpha = isTrinketInteractable ? 1f : 0.5f;
+
             UnityEngine.UI.Button btn = go.GetComponent<UnityEngine.UI.Button>();
             if (btn == null) continue;
+
+            btn.interactable = isTrinketInteractable;
 
             btn.onClick.AddListener(() =>
             {
@@ -242,7 +265,6 @@ public class LobbyUIManager : MonoBehaviour
                 if (localSelectedTrinkets.Contains(config.trinketID))
                 {
                     localSelectedTrinkets.Remove(config.trinketID);
-                    markerTransform.gameObject.SetActive(false);
                 }
                 else
                 {
@@ -252,12 +274,14 @@ public class LobbyUIManager : MonoBehaviour
                         return;
                     }
                     localSelectedTrinkets.Add(config.trinketID);
-                    markerTransform.gameObject.SetActive(true);
                 }
 
                 if (UIMgr.selectedTrinketCountText != null)
                     UIMgr.selectedTrinketCountText.text = $"选择饰品 [{localSelectedTrinkets.Count}/{UIMgr.maxTrinketSelection}]";
                 if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdUpdateEquippedTrinkets(localSelectedTrinkets.ToArray());
+                
+                // 重新刷新整个列表的状态
+                InitLobbyTrinketSelection();
             });
         }
     }

@@ -140,6 +140,26 @@ public class PokerEffectManager : MonoBehaviour
         string myName = PokerPlayer.LocalPlayer.playerName;
         bool localIsSensing = PokerPlayer.LocalPlayer.localIsSensing;
 
+        // Match 2: [caster]对[公牌]使用[skill]
+        var match2 = System.Text.RegularExpressions.Regex.Match(originalMsg, @"^\[([^\]]+)\]对\[公牌\]使用\[([^\]]+)\]$");
+        if (match2.Success)
+        {
+            string caster = match2.Groups[1].Value;
+            string skill = match2.Groups[2].Value;
+
+            string newCaster = caster;
+            if (caster == myName)
+            {
+                newCaster = "你";
+            }
+            else if (!localIsSensing)
+            {
+                newCaster = "某玩家";
+            }
+
+            return $"[{newCaster}]对[公牌]使用[{skill}]";
+        }
+
         // Match 1: [caster]对[target]使用[skill]
         var match1 = System.Text.RegularExpressions.Regex.Match(originalMsg, @"^\[([^\]]+)\]对\[([^\]]+)\]使用\[([^\]]+)\]$");
         if (match1.Success)
@@ -170,26 +190,6 @@ public class PokerEffectManager : MonoBehaviour
             }
 
             return $"[{newCaster}]对[{newTarget}]使用[{skill}]";
-        }
-
-        // Match 2: [caster]对[公牌]使用[skill]
-        var match2 = System.Text.RegularExpressions.Regex.Match(originalMsg, @"^\[([^\]]+)\]对\[公牌\]使用\[([^\]]+)\]$");
-        if (match2.Success)
-        {
-            string caster = match2.Groups[1].Value;
-            string skill = match2.Groups[2].Value;
-
-            string newCaster = caster;
-            if (caster == myName)
-            {
-                newCaster = "你";
-            }
-            else if (!localIsSensing)
-            {
-                newCaster = "某玩家";
-            }
-
-            return $"[{newCaster}]对[公牌]使用[{skill}]";
         }
 
         // Match 3: [caster]使用[skill]

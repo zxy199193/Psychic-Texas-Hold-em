@@ -11,6 +11,7 @@ public abstract class BaseSkill
 
     public virtual bool CanBeResisted => true;
     public virtual bool CanBeReflected => true;
+    public virtual bool IsSelfTargeted => false;
 
     // 检查释放条件
     public virtual bool CanCast(PokerPlayer caster)
@@ -239,6 +240,10 @@ public class WishSkill : BaseSkill
         castTime = 4.0f;
     }
 
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
+
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         caster.serverHasWishBuff = true;
@@ -343,6 +348,10 @@ public class ReflectWallSkill : BaseSkill
         castTime = 5.0f;
     }
 
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
+
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         caster.serverHasReflectWall = true;
@@ -389,6 +398,10 @@ public class SensingSkill : BaseSkill
         castTime = 1f;
     }
 
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
+
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         caster.StartSensingBuff();
@@ -409,6 +422,10 @@ public class OverdraftSkill : BaseSkill
         energyCost = 0;
         castTime = 3f;
     }
+
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
 
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
@@ -451,6 +468,80 @@ public class AssistSkill : BaseSkill
         if (caster.connectionToClient != null && caster != target)
         {
             caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功援助了[{target.playerName}]，使其能量恢复了3点！", this.skillID);
+        }
+    }
+}
+
+public class SealSkill : BaseSkill
+{
+    public SealSkill()
+    {
+        skillID = 12;
+        skillName = "封印";
+        energyCost = 3;
+        castTime = 3f;
+    }
+
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
+
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
+    {
+        caster.serverNextHandSealed = true;
+        serverContext.RpcAddGameLog($"[{caster.playerName}]使用了[封印]技能！下一局生效。", 3);
+        if (caster.connectionToClient != null)
+        {
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, "封印成功！下一局你将无法看到底牌。", this.skillID);
+        }
+    }
+}
+
+public class ResonanceSkill : BaseSkill
+{
+    public ResonanceSkill()
+    {
+        skillID = 13;
+        skillName = "共鸣";
+        energyCost = 3;
+        castTime = 2f;
+    }
+
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
+
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
+    {
+        if (caster == null || serverContext == null) return;
+
+        var casterResult = HandEvaluator.GetBestHand(caster.serverHand, serverContext.serverCommunityCards, serverContext.isShortDeckMode);
+        HandEvaluator.HandRank casterRank = casterResult.rank;
+
+        bool triggeredAny = false;
+        foreach (var p in serverContext.activePlayers)
+        {
+            if (p != null && p != caster && !p.isFolded)
+            {
+                var pResult = HandEvaluator.GetBestHand(p.serverHand, serverContext.serverCommunityCards, serverContext.isShortDeckMode);
+                if (pResult.rank == casterRank)
+                {
+                    p.RpcTriggerResonanceBlink(3.0f);
+                    triggeredAny = true;
+                }
+            }
+        }
+
+        if (caster.connectionToClient != null)
+        {
+            if (triggeredAny)
+            {
+                caster.TargetReceiveSkillMessage(caster.connectionToClient, "共鸣成功！已标记相同牌型的玩家底牌。", this.skillID);
+            }
+            else
+            {
+                caster.TargetReceiveSkillMessage(caster.connectionToClient, "未发现相同牌型的玩家。", this.skillID);
+            }
         }
     }
 }
