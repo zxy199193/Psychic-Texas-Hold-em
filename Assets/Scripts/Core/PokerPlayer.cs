@@ -79,6 +79,10 @@ public class PokerPlayer : NetworkBehaviour
     public void CmdSetShortDeck(bool value)
     {
         syncShortDeck = value;
+        if (SteamLobby.Instance != null && SteamLobby.Instance.currentLobbyId.m_SteamID != 0)
+        {
+            SteamMatchmaking.SetLobbyData(SteamLobby.Instance.currentLobbyId, "mode", value ? "短牌" : "常规");
+        }
     }
 
     // ==========================================
@@ -119,6 +123,10 @@ public class PokerPlayer : NetworkBehaviour
     {
         playerName = newName;
         steamId = sId;
+        if (SteamLobby.Instance != null && SteamLobby.Instance.currentLobbyId.m_SteamID != 0)
+        {
+            SteamLobby.Instance.UpdateLobbyPlayerMetadata();
+        }
     }
 
     [Command]
@@ -259,6 +267,15 @@ public class PokerPlayer : NetworkBehaviour
         trinketDatabase.Add(11, new GolemTrinket());
         trinketDatabase.Add(12, new HatTrinket());
         trinketDatabase.Add(13, new BeastClawTrinket());
+    }
+
+    public override void OnStopServer()
+    {
+        base.OnStopServer();
+        if (SteamLobby.Instance != null && SteamLobby.Instance.currentLobbyId.m_SteamID != 0)
+        {
+            SteamLobby.Instance.UpdateLobbyPlayerMetadata(this);
+        }
     }
 
     public bool CanCastSkill(int skillID)
@@ -462,7 +479,7 @@ public class PokerPlayer : NetworkBehaviour
             int resistCost = target.GetResistCost(skill.energyCost);
             if (this.equippedTrinkets.Contains(13) && isSingleSkillMode)
             {
-                resistCost += 2;
+                resistCost += 1;
             }
             bool canResist = !target.serverHasReflectWall;
 
@@ -483,7 +500,7 @@ public class PokerPlayer : NetworkBehaviour
             int resistCost2 = target2.GetResistCost(skill.energyCost);
             if (this.equippedTrinkets.Contains(13) && isSingleSkillMode)
             {
-                resistCost2 += 2;
+                resistCost2 += 1;
             }
             bool canResist2 = !target2.serverHasReflectWall;
 
@@ -555,14 +572,31 @@ public class PokerPlayer : NetworkBehaviour
                 }
 
                 PokerPlayer newTarget = this;
-                string extraMsg = "";
+                if (unshieldedTargets.Count > 0)
+                {
+                    newTarget = unshieldedTargets[Random.Range(0, unshieldedTargets.Count)];
+                }
 
-                if (unshieldedTargets.Count > 0) newTarget = unshieldedTargets[Random.Range(0, unshieldedTargets.Count)];
-                else { newTarget = this; extraMsg = "成功发动反射壁，技能将被反弹！"; }
+                string reflectMsg = $"[{skill.skillName}]被[反射壁]弹向了[{newTarget.playerName}]";
 
-                if (target.connectionToClient != null) target.TargetReceiveSkillMessage(target.connectionToClient, $"成功反弹了{this.playerName}的[{skill.skillName}]！", 8);
-                if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"技能反弹向了{newTarget.playerName}！{extraMsg}", 99);
-                if (newTarget != this && newTarget.connectionToClient != null) newTarget.TargetReceiveSkillMessage(newTarget.connectionToClient, $"{this.playerName}对{target.playerName}发动的[{skill.skillName}]被反弹给了你！", 99);
+                if (target.connectionToClient != null) target.TargetReceiveSkillMessage(target.connectionToClient, reflectMsg, 8);
+                if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, reflectMsg, 8);
+                if (newTarget != this && newTarget.connectionToClient != null) newTarget.TargetReceiveSkillMessage(newTarget.connectionToClient, reflectMsg, 8);
+
+                if (this.connectionToClient != null) TargetAddSkillLog(this.connectionToClient, reflectMsg);
+                if (target != this && target.connectionToClient != null) target.TargetAddSkillLog(target.connectionToClient, reflectMsg);
+                if (newTarget != this && newTarget != target && newTarget.connectionToClient != null) newTarget.TargetAddSkillLog(newTarget.connectionToClient, reflectMsg);
+
+                if (!isSensingBlocked && ServerGameManager.Instance != null)
+                {
+                    foreach (var p in ServerGameManager.Instance.activePlayers)
+                    {
+                        if (p != null && p.serverIsSensing && p != this && p != target && p != newTarget)
+                        {
+                            if (p.connectionToClient != null) p.TargetAddSkillLog(p.connectionToClient, reflectMsg);
+                        }
+                    }
+                }
 
                 target = newTarget;
             }

@@ -10,6 +10,8 @@ public struct SteamLobbyData
     public ulong hostSteamId;
     public int playerCount;
     public int maxPlayers;
+    public string mode;
+    public string playersInfo;
 }
 
 public class SteamLobby : MonoBehaviour
@@ -112,6 +114,12 @@ public class SteamLobby : MonoBehaviour
             "game_signature",
             "PsychicTexasHoldem"
         );
+
+        SteamMatchmaking.SetLobbyData(
+            lobbyId,
+            "mode",
+            "常规"
+        );
     }
 
     // ==========================================
@@ -160,13 +168,19 @@ public class SteamLobby : MonoBehaviour
 
             int memberCount = SteamMatchmaking.GetNumLobbyMembers(lobbyId);
 
+            string mode = SteamMatchmaking.GetLobbyData(lobbyId, "mode");
+            if (string.IsNullOrEmpty(mode)) mode = "常规";
+            string playersInfo = SteamMatchmaking.GetLobbyData(lobbyId, "players_info");
+
             lobbies.Add(new SteamLobbyData
             {
                 lobbyId = lobbyId.m_SteamID,
                 hostName = hostName,
                 hostSteamId = hostSteamId,
                 playerCount = memberCount,
-                maxPlayers = 6
+                maxPlayers = 6,
+                mode = mode,
+                playersInfo = playersInfo
             });
         }
 
@@ -216,5 +230,23 @@ public class SteamLobby : MonoBehaviour
         {
             PokerUIManager.Instance.SetupLobbyUI(false);
         }
+    }
+
+    public void UpdateLobbyPlayerMetadata(PokerPlayer excludePlayer = null)
+    {
+        if (!SteamManager.Initialized || currentLobbyId.m_SteamID == 0) return;
+
+        PokerPlayer[] players = FindObjectsOfType<PokerPlayer>();
+        List<string> infoList = new List<string>();
+        foreach (var p in players)
+        {
+            if (p != null && p != excludePlayer && p.steamId != 0)
+            {
+                infoList.Add($"{p.steamId}:{p.playerName}");
+            }
+        }
+
+        string joinedInfo = string.Join(",", infoList);
+        SteamMatchmaking.SetLobbyData(currentLobbyId, "players_info", joinedInfo);
     }
 }

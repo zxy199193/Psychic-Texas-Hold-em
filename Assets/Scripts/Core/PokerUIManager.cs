@@ -129,6 +129,7 @@ public class PokerUIManager : MonoBehaviour
     public GameObject roomListPanel;
     public Transform roomListContainer;
     public GameObject roomItemPrefab;
+    public GameObject lobbyPlayerIconPrefab;
     public Button btnCloseRoomList;
 
     [Header("5. 基础操作与加注面板 (Actions)")]
@@ -2018,13 +2019,99 @@ public class PokerUIManager : MonoBehaviour
             RoomItemUI item = go.GetComponent<RoomItemUI>();
             if (item != null)
             {
+                if (item.playerIconPrefab == null)
+                {
+                    item.playerIconPrefab = lobbyPlayerIconPrefab;
+                }
+
                 if (item.txtHostName != null) item.txtHostName.text = data.hostName;
                 if (item.txtPlayerCount != null) item.txtPlayerCount.text = $"{data.playerCount}/{data.maxPlayers}";
+                if (item.txtMode != null) item.txtMode.text = data.mode;
                 
                 if (item.imgHostAvatar != null && data.hostSteamId != 0)
                 {
                     Texture2D avatar = GetSteamAvatar(data.hostSteamId);
                     if (avatar != null) item.imgHostAvatar.texture = avatar;
+                }
+
+                // 刷新当前房间内的玩家头像列表
+                if (item.playerListContainer != null)
+                {
+                    // 1. 清空旧节点
+                    foreach (Transform child in item.playerListContainer)
+                    {
+                        Destroy(child.gameObject);
+                    }
+
+                    // 2. 解析并实例化头像
+                    if (!string.IsNullOrEmpty(data.playersInfo) && item.playerIconPrefab != null)
+                    {
+                        string[] players = data.playersInfo.Split(',');
+                        foreach (var playerStr in players)
+                        {
+                            if (string.IsNullOrEmpty(playerStr)) continue;
+                            string[] parts = playerStr.Split(':');
+                            if (parts.Length >= 2)
+                            {
+                                ulong pSteamId = 0;
+                                ulong.TryParse(parts[0], out pSteamId);
+                                string pName = parts[1];
+
+                                GameObject iconGo = Instantiate(item.playerIconPrefab, item.playerListContainer);
+
+                                RawImage avatarImg = iconGo.transform.Find("RawImage Steam Avatar")?.GetComponent<RawImage>();
+                                Transform imageNameTrans = avatarImg != null ? avatarImg.transform.Find("Image Name") : null;
+
+                                if (imageNameTrans != null)
+                                {
+                                    imageNameTrans.gameObject.SetActive(false);
+                                }
+
+                                if (avatarImg != null)
+                                {
+                                    if (pSteamId != 0)
+                                    {
+                                        Texture2D avatarTex = GetSteamAvatar(pSteamId);
+                                        if (avatarTex != null) avatarImg.texture = avatarTex;
+                                    }
+
+                                    if (imageNameTrans != null)
+                                    {
+                                        EventTrigger trigger = avatarImg.gameObject.GetComponent<EventTrigger>();
+                                        if (trigger == null) trigger = avatarImg.gameObject.AddComponent<EventTrigger>();
+                                        else trigger.triggers.Clear();
+
+                                        EventTrigger.Entry enterEntry = new EventTrigger.Entry();
+                                        enterEntry.eventID = EventTriggerType.PointerEnter;
+                                        enterEntry.callback.AddListener((data) =>
+                                        {
+                                            imageNameTrans.gameObject.SetActive(true);
+                                            ForceRebuildLayout(imageNameTrans.gameObject);
+                                        });
+                                        trigger.triggers.Add(enterEntry);
+
+                                        EventTrigger.Entry exitEntry = new EventTrigger.Entry();
+                                        exitEntry.eventID = EventTriggerType.PointerExit;
+                                        exitEntry.callback.AddListener((data) =>
+                                        {
+                                            imageNameTrans.gameObject.SetActive(false);
+                                        });
+                                        trigger.triggers.Add(exitEntry);
+                                    }
+                                }
+
+                                Text nameTxt = imageNameTrans != null ? imageNameTrans.Find("Text Name")?.GetComponent<Text>() : null;
+                                if (nameTxt != null)
+                                {
+                                    nameTxt.text = pName;
+                                    if (imageNameTrans != null)
+                                    {
+                                        LayoutRebuilder.ForceRebuildLayoutImmediate(imageNameTrans.GetComponent<RectTransform>());
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 item.steamLobbyId = data.lobbyId;
@@ -2056,7 +2143,9 @@ public class PokerUIManager : MonoBehaviour
                 hostName = "本地测试房间 (Local LAN)",
                 hostSteamId = 0,
                 playerCount = 1,
-                maxPlayers = 6
+                maxPlayers = 6,
+                mode = "常规",
+                playersInfo = "0:本地玩家"
             }
         };
         UpdateRoomListUI(mockLobbies);
