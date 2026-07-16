@@ -60,8 +60,16 @@ public class PeekSkill : BaseSkill
         if (targetCard.HasValue && caster.connectionToClient != null)
         {
             uint tNetId = (target1 != null) ? target1.netId : 0;
-            caster.TargetPeekSingleCard(caster.connectionToClient, type1, index1, tNetId, targetCard.Value);
+            
+            float duration = 3f;
+            if (caster.equippedTrinkets.Contains(15))
+            {
+                duration = 60f;
+            }
+
+            caster.TargetPeekSingleCard(caster.connectionToClient, type1, index1, tNetId, targetCard.Value, duration);
             caster.TargetReceiveSkillMessage(caster.connectionToClient, "透视成功！", 2);
+            caster.AddActivePeek(type1, index1, tNetId, duration);
 
             // ==========================================
             // 【眼镜起效】：额外随机偷看一张全场未知的牌！
@@ -106,8 +114,9 @@ public class PeekSkill : BaseSkill
                     var luckyCard = pool[Random.Range(0, pool.Count)];
 
                     // 顺着网线悄悄发给施法者！
-                    caster.TargetPeekSingleCard(caster.connectionToClient, luckyCard.type, luckyCard.index, luckyCard.netId, luckyCard.card);
+                    caster.TargetPeekSingleCard(caster.connectionToClient, luckyCard.type, luckyCard.index, luckyCard.netId, luckyCard.card, duration);
                     caster.TargetReceiveSkillMessage(caster.connectionToClient, "触发[眼镜]效果：额外显示了一张牌！", this.skillID);
+                    caster.AddActivePeek(luckyCard.type, luckyCard.index, luckyCard.netId, duration);
                 }
             }
         }
@@ -162,6 +171,7 @@ public class SwapSkill : BaseSkill
                 if (target != caster)
                     target.TargetReceiveSkillMessage(target.connectionToClient, $"你的第{targetIndex + 1}张手牌被改变了！", this.skillID);
             }
+            serverContext.NotifyCardChanged(0, targetIndex, target.netId, newCard);
         }
         else if (targetType == 1 && targetIndex >= 0 && targetIndex < 5)
         {
@@ -175,6 +185,7 @@ public class SwapSkill : BaseSkill
 
             if (caster.connectionToClient != null)
                 caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动成功！一张公共牌的命运被改变了！", this.skillID);
+            serverContext.NotifyCardChanged(1, targetIndex, 0, newCard);
         }
     }
 }
@@ -244,6 +255,12 @@ public class WishSkill : BaseSkill
     public override bool CanBeResisted => false;
     public override bool CanBeReflected => false;
 
+    public override bool CanCast(PokerPlayer caster)
+    {
+        if (caster.serverHasWishBuff) return false;
+        return base.CanCast(caster);
+    }
+
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         caster.serverHasWishBuff = true;
@@ -262,7 +279,7 @@ public class ExchangeSkill : BaseSkill
     {
         skillID = 7;
         skillName = "交换";
-        energyCost = 5;
+        energyCost = 4;
         castTime = 5.0f;
     }
 
@@ -323,6 +340,7 @@ public class ExchangeSkill : BaseSkill
         {
             p.serverHand[index] = newCard;
             p.TargetUpdateSingleHandCard(p.connectionToClient, index, newCard);
+            ctx.NotifyCardChanged(0, index, p.netId, newCard);
         }
         else if (type == 1 && index >= 0 && index < 5)
         {
@@ -333,6 +351,7 @@ public class ExchangeSkill : BaseSkill
                 ctx.serverCommunityCards[index] = newCard;
                 ctx.RpcUpdateCommunityCard(index, newCard.suit, newCard.rank);
             }
+            ctx.NotifyCardChanged(1, index, 0, newCard);
         }
     }
 }
@@ -447,7 +466,7 @@ public class AssistSkill : BaseSkill
     {
         skillID = 11;
         skillName = "援助";
-        energyCost = 3;
+        energyCost = 2;
         castTime = 2f;
     }
 
@@ -478,13 +497,19 @@ public class SealSkill : BaseSkill
     {
         skillID = 12;
         skillName = "封印";
-        energyCost = 3;
-        castTime = 3f;
+        energyCost = 1;
+        castTime = 2f;
     }
 
     public override bool IsSelfTargeted => true;
     public override bool CanBeResisted => false;
     public override bool CanBeReflected => false;
+
+    public override bool CanCast(PokerPlayer caster)
+    {
+        if (caster.serverNextHandSealed) return false;
+        return base.CanCast(caster);
+    }
 
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
@@ -503,8 +528,8 @@ public class ResonanceSkill : BaseSkill
     {
         skillID = 13;
         skillName = "共鸣";
-        energyCost = 3;
-        castTime = 2f;
+        energyCost = 1;
+        castTime = 3f;
     }
 
     public override bool IsSelfTargeted => true;
@@ -526,7 +551,10 @@ public class ResonanceSkill : BaseSkill
                 var pResult = HandEvaluator.GetBestHand(p.serverHand, serverContext.serverCommunityCards, serverContext.isShortDeckMode);
                 if (pResult.rank == casterRank)
                 {
-                    p.RpcTriggerResonanceBlink(3.0f);
+                    if (caster.connectionToClient != null)
+                    {
+                        caster.TargetTriggerResonanceBlink(caster.connectionToClient, p.netId, 3.0f);
+                    }
                     triggeredAny = true;
                 }
             }
@@ -541,6 +569,69 @@ public class ResonanceSkill : BaseSkill
             else
             {
                 caster.TargetReceiveSkillMessage(caster.connectionToClient, "未发现相同牌型的玩家。", this.skillID);
+            }
+        }
+    }
+}
+
+public class TrickRoomSkill : BaseSkill
+{
+    public TrickRoomSkill()
+    {
+        skillID = 14;
+        skillName = "戏法空间";
+        energyCost = 5;
+        castTime = 3f;
+    }
+
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
+
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
+    {
+        serverContext.ToggleTrickRoom();
+    }
+}
+
+public class InspirationSkill : BaseSkill
+{
+    public InspirationSkill()
+    {
+        skillID = 15;
+        skillName = "灵机";
+        energyCost = 1;
+        castTime = 2f;
+    }
+
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
+
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
+    {
+        List<int> candidates = new List<int>();
+        foreach (int key in caster.skillDatabase.Keys)
+        {
+            if (key != 15 && key != 98 && !caster.equippedSkills.Contains(key))
+            {
+                candidates.Add(key);
+            }
+        }
+
+        if (candidates.Count > 0)
+        {
+            int randomSkill = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+            int index = caster.equippedSkills.IndexOf(15);
+            if (index != -1)
+            {
+                caster.equippedSkills[index] = randomSkill;
+
+                if (caster.connectionToClient != null)
+                {
+                    string newSkillName = caster.skillDatabase[randomSkill].skillName;
+                    caster.TargetReceiveSkillMessage(caster.connectionToClient, $"【灵机】一动！技能变成了【{newSkillName}】！", 15);
+                }
             }
         }
     }

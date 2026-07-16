@@ -198,7 +198,13 @@ public class SteamLobby : MonoBehaviour
 
     public void JoinLobby(ulong lobbyId)
     {
-        if (!SteamManager.Initialized)
+        bool isOffline = false;
+        if (PokerUIManager.Instance != null && PokerUIManager.Instance.toggleOfflineMode != null)
+        {
+            isOffline = PokerUIManager.Instance.toggleOfflineMode.isOn;
+        }
+
+        if (!SteamManager.Initialized || isOffline)
         {
             Mirror.NetworkManager.singleton.networkAddress = "localhost";
             Mirror.NetworkManager.singleton.StartClient();

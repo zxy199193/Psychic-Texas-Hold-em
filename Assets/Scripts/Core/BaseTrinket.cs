@@ -50,10 +50,13 @@ public class CrownTrinket : BaseTrinket
         return current - 1; 
     }   
 
-    // 获胜能量奖励 +5（默认赢了给 2 点，带上奖牌直接给 7 点！）
-    public override int ModifyWinEnergyBonus(int current, PokerPlayer player) 
-    { 
-        return current + 5; 
+    public override int ModifyMaxEnergy(int currentMax, PokerPlayer player)
+    {
+        if (player.serverMedalBuffActive)
+        {
+            return currentMax + 3;
+        }
+        return currentMax;
     } 
 }
 
@@ -97,4 +100,18 @@ public class GolemTrinket : BaseTrinket { public GolemTrinket() { trinketID = 11
 public class HatTrinket : BaseTrinket { public HatTrinket() { trinketID = 12; trinketName = "帽子"; } }
 
 // 13. 兽爪
-public class BeastClawTrinket : BaseTrinket { public BeastClawTrinket() { trinketID = 13; trinketName = "兽爪"; } }
+public class BeastClawTrinket : BaseTrinket { public BeastClawTrinket() { trinketID = 13; trinketName = "兽爪"; } }
+
+// 14. 电池
+public class BatteryTrinket : BaseTrinket
+{
+    public BatteryTrinket() { trinketID = 14; trinketName = "电池"; }
+    public override int ModifyMaxEnergy(int currentMax, PokerPlayer player) { return currentMax - 6; }
+    public override int ModifyEnergyRegen(int currentRegen, PokerPlayer player) { return currentRegen - 2; }
+}
+
+// 15. 眼药
+public class EyeDropsTrinket : BaseTrinket
+{
+    public EyeDropsTrinket() { trinketID = 15; trinketName = "眼药"; }
+}

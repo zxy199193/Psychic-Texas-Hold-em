@@ -12,6 +12,7 @@ public class ServerGameManager : NetworkBehaviour
 
     [Header("服务器运行状态 (仅方便在面板查看)")]
     [SyncVar] public GamePhase currentPhase = GamePhase.Idle;
+    [SyncVar] public bool serverIsTrickRoomActive = false;
     [Header("下注与回合管理 (同步变量)")]
     public readonly SyncList<int> syncPotAmounts = new SyncList<int>(); // 全网同步的各池金额（[0]是主池，[1]是边池1...）
     
@@ -42,6 +43,7 @@ public class ServerGameManager : NetworkBehaviour
     [Header("中场休息控制")]
     [SyncVar] public int currentRoundCount = 1;     // 当前是第几圈
     [SyncVar] public int handsPlayedThisRound = 0;  // 这一圈已经打了几把了
+    [SyncVar] public int maxCircles = 0;           // 最大圈数（0表示无限）
 
     [Header("机器人配置")]
     public GameObject botPrefab; // 用来存放你的 BotPlayerPrefab
@@ -101,11 +103,69 @@ public class ServerGameManager : NetworkBehaviour
         if (hasGameStarted) return;
         isShortDeckMode = isShortDeck;
 
+        // Clean up any remaining bots in the scene first
+        PokerPlayer[] existingPlayers = FindObjectsOfType<PokerPlayer>();
+        foreach (var p in existingPlayers)
+        {
+            if (p != null && p.GetComponent<PokerBot>() != null)
+            {
+                NetworkServer.Destroy(p.gameObject);
+            }
+        }
+
         activePlayers.Clear();
         activePlayers.AddRange(FindObjectsOfType<PokerPlayer>());
+
+        // Find the host's syncMaxCircles configuration
+        int hostCircles = 0;
         foreach (var p in activePlayers)
         {
-            if (p != null) p.isReady = false;
+            if (p != null)
+            {
+                Debug.Log($"[ServerGameManager] Player in lobby: {p.playerName}, isRoomHost={p.isRoomHost}, syncMaxCircles={p.syncMaxCircles}");
+                if (p.isRoomHost)
+                {
+                    hostCircles = p.syncMaxCircles;
+                }
+            }
+        }
+        maxCircles = hostCircles;
+        Debug.Log($"[ServerGameManager] StartGameAction: maxCircles is set to {maxCircles}");
+
+        // Reset game metadata and disconnected player cache
+        currentRoundCount = 1;
+        handsPlayedThisRound = 0;
+        disconnectedPlayersChips.Clear();
+
+        foreach (var p in activePlayers)
+        {
+            if (p != null)
+            {
+                // Reset player stats for a fresh new game
+                p.chips = 1000;
+                p.energy = 5;
+                p.rebuyCount = 0;
+                p.isFolded = false;
+                p.isAllIn = false;
+                p.isMyTurn = false;
+                p.hasActed = false;
+                p.isCasting = false;
+                p.isReady = false;
+                p.overdraftTurnsRemaining = 0;
+                p.serverIsSensing = false;
+                p.localIsSensing = false;
+                p.serverHasReflectWall = false;
+                p.serverHasWishBuff = false;
+                p.serverIsMindControlled = false;
+                p.localIsMindControlled = false;
+                p.overdraftPending = false;
+                p.serverNextHandSealed = false;
+                p.serverHoleCardsSealed = false;
+                p.serverGolemActiveThisHand = false;
+                p.serverIsHosted = false;
+                p.serverMedalBuffActive = false;
+                p.serverHand.Clear();
+            }
         }
 
         // 2. 智能补位逻辑：从 AI 档案库中随机抽取并生成机器人
@@ -141,6 +201,8 @@ public class ServerGameManager : NetworkBehaviour
 
                     botPlayer.equippedSkills.Clear();
                     botPlayer.equippedSkills.AddRange(profile.equippedSkills);
+                    botPlayer.originalSkills.Clear();
+                    botPlayer.originalSkills.AddRange(profile.equippedSkills);
 
                     botPlayer.equippedTrinkets.Clear();
                     botPlayer.equippedTrinkets.AddRange(profile.equippedTrinkets);
@@ -168,6 +230,12 @@ public class ServerGameManager : NetworkBehaviour
     [Server]
     public void StartNewHand()
     {
+        if (serverIsTrickRoomActive)
+        {
+            serverIsTrickRoomActive = false;
+            RpcSetTrickRoomState(false);
+        }
+
         Debug.Log("--- 服务器：牌局开始，正在洗牌 ---");
         currentPhase = GamePhase.PreFlop;
         serverCommunityCards.Clear();
@@ -227,10 +295,40 @@ public class ServerGameManager : NetworkBehaviour
         // ==========================================
         foreach (PokerPlayer p in activePlayers)
         {
+            if (p.originalSkills != null && p.originalSkills.Count > 0)
+            {
+                bool isDifferent = false;
+                if (p.equippedSkills.Count != p.originalSkills.Count) isDifferent = true;
+                else
+                {
+                    for (int j = 0; j < p.equippedSkills.Count; j++)
+                    {
+                        if (p.equippedSkills[j] != p.originalSkills[j])
+                        {
+                            isDifferent = true;
+                            break;
+                        }
+                    }
+                }
+                if (isDifferent)
+                {
+                    p.equippedSkills.Clear();
+                    foreach (int id in p.originalSkills)
+                    {
+                        p.equippedSkills.Add(id);
+                    }
+                }
+            }
+
             // 1. 获取饰品修饰后的属性！
             int playerMaxEnergy = p.GetMaxEnergy(maxEnergy);
             int playerRegen = p.GetEnergyRegen(roundEnergyRegen);
             int playerInit = p.GetInitialEnergy(initialEnergy);
+
+            if (p.isCasting)
+            {
+                p.InterruptDueToShowdown();
+            }
 
             if (p.overdraftPending)
             {
@@ -244,7 +342,18 @@ public class ServerGameManager : NetworkBehaviour
 
             // 【王冠起效】：自动回蓝与初始蓝量被覆盖
             if (isFirstHand) p.energy = playerInit;
-            else p.energy = Mathf.Clamp(p.energy + playerRegen, 0, playerMaxEnergy);
+            else
+            {
+                if (p.serverMedalBuffActive && p.equippedTrinkets.Contains(3))
+                {
+                    p.energy = playerMaxEnergy;
+                    Debug.Log($"[MedalBuff] Player {p.playerName} Medal buff applied. Energy set to max: {p.energy}");
+                }
+                else
+                {
+                    p.energy = Mathf.Clamp(p.energy + playerRegen, 0, playerMaxEnergy);
+                }
+            }
 
             // 这里的重置必须放在扣盲注前面，否则会把盲注洗掉！
             p.currentBet = 0;
@@ -255,6 +364,7 @@ public class ServerGameManager : NetworkBehaviour
             p.interferenceRate = 0;
             p.serverHasReflectWall = false;
             p.serverIsMindControlled = false;
+            p.serverActivePeeks.Clear();
 
             if (p.serverNextHandSealed)
             {
@@ -335,7 +445,7 @@ public class ServerGameManager : NetworkBehaviour
 
             if (p.connectionToClient != null)
             {
-                p.TargetReceiveHoleCards(p.connectionToClient, c1, c2);
+                p.TargetReceiveHoleCards(p.connectionToClient, c1, c2, p.serverHoleCardsSealed);
             }
 
             p.RpcShowEnemyCardBacks();
@@ -453,7 +563,8 @@ public class ServerGameManager : NetworkBehaviour
         RpcAddGameLog("--- Showdown (摊牌) ---", 1);
 
         // 中断所有正在施法的玩家技能并返还能量
-        foreach (var p in activePlayers)
+        PokerPlayer[] allScenePlayers = FindObjectsOfType<PokerPlayer>();
+        foreach (var p in allScenePlayers)
         {
             if (p != null && p.isCasting)
             {
@@ -492,6 +603,22 @@ public class ServerGameManager : NetworkBehaviour
             int playerMaxE = winner.GetMaxEnergy(maxEnergy);
             int actualBonus = winner.GetWinEnergyBonus(winnerBonus);
             winner.energy = Mathf.Clamp(winner.energy + actualBonus, 0, playerMaxE);
+
+            // 更新奖牌 (Crown/Medal) buff 状态
+            foreach (var p in activePlayers)
+            {
+                if (p != null)
+                {
+                    if (p == winner && p.equippedTrinkets.Contains(3))
+                    {
+                        p.serverMedalBuffActive = true;
+                    }
+                    else
+                    {
+                        p.serverMedalBuffActive = false;
+                    }
+                }
+            }
 
             RpcShowResult($"{winner.playerName}赢得{totalWin}筹码！(对手弃牌)", 3);
             RpcAddGameLog($"{winner.playerName} 获胜，赢得 {totalWin} 筹码 (对手弃牌)！", 4);
@@ -540,7 +667,7 @@ public class ServerGameManager : NetworkBehaviour
             foreach (var w in tempWinners)
             {
                 w.chips += splitAmount;
-                w.energy = Mathf.Clamp(w.energy + winnerBonus, 0, maxEnergy);
+                w.energy = Mathf.Clamp(w.energy + winnerBonus, 0, w.GetMaxEnergy(maxEnergy));
                 resultMsg += $"[{w.playerName}]赢得{splitAmount}筹码！";
                 tempUltimateWinners.Add(w);
 
@@ -551,6 +678,22 @@ public class ServerGameManager : NetworkBehaviour
 
                 if (winAmounts.ContainsKey(w)) winAmounts[w] += splitAmount;
                 else winAmounts[w] = splitAmount;
+            }
+        }
+
+        // 更新奖牌 (Crown/Medal) buff 状态
+        foreach (var p in activePlayers)
+        {
+            if (p != null)
+            {
+                if (tempUltimateWinners.Contains(p) && p.equippedTrinkets.Contains(3))
+                {
+                    p.serverMedalBuffActive = true;
+                }
+                else
+                {
+                    p.serverMedalBuffActive = false;
+                }
             }
         }
 
@@ -593,22 +736,61 @@ public class ServerGameManager : NetworkBehaviour
         yield return new WaitForSeconds(delay);
 
         handsPlayedThisRound++;
+        Debug.Log($"[ServerGameManager] HandleRoundEnd: handsPlayedThisRound={handsPlayedThisRound}, activePlayers.Count={activePlayers.Count}, currentRoundCount={currentRoundCount}, maxCircles={maxCircles}");
 
         // 如果这一圈打的把数，等于当前场上存活的玩家数，说明每个人都当过庄家了！一圈结束！
         if (handsPlayedThisRound >= activePlayers.Count)
         {
-            currentPhase = GamePhase.Halftime;
-            RpcAddGameLog("--- Halftime (中场休息) ---", 1);
-            RpcEnterHalftime(currentRoundCount);
-
-            // ==========================================
-            // 全自动逼迫机器人按下准备按钮！
-            // ==========================================
-            foreach (var p in activePlayers)
+            if (maxCircles > 0 && currentRoundCount >= maxCircles)
             {
-                if (p != null && p.GetComponent<PokerBot>() != null)
+                currentPhase = GamePhase.Idle;
+                hasGameStarted = false;
+
+                // Reset ready states and destroy bots!
+                List<PokerPlayer> botsToDestroy = new List<PokerPlayer>();
+                foreach (var p in activePlayers)
                 {
-                    p.isReady = true; // 机器人秒准备！(因为是SyncVar，会自动同步给所有玩家的 UI)
+                    if (p != null)
+                    {
+                        p.isReady = false;
+                        p.isMyTurn = false;
+                        if (p.GetComponent<PokerBot>() != null)
+                        {
+                            botsToDestroy.Add(p);
+                        }
+                    }
+                }
+                foreach (var bot in botsToDestroy)
+                {
+                    activePlayers.Remove(bot);
+                    NetworkServer.Destroy(bot.gameObject);
+                }
+
+                RpcAddGameLog("--- Game Over (游戏结束) ---", 1);
+                RpcEnterGameEnd();
+            }
+            else
+            {
+                currentPhase = GamePhase.Halftime;
+                RpcAddGameLog("--- Halftime (中场休息) ---", 1);
+                RpcEnterHalftime(currentRoundCount, maxCircles);
+
+                // ==========================================
+                // 全自动逼迫机器人和托管玩家按下准备按钮！
+                // ==========================================
+                foreach (var p in activePlayers)
+                {
+                    if (p != null)
+                    {
+                        if (p.GetComponent<PokerBot>() != null || p.serverIsHosted)
+                        {
+                            p.isReady = true; // 机器人 or 托管玩家秒准备！(因为是SyncVar，会自动同步给所有玩家的 UI)
+                        }
+                        else
+                        {
+                            p.isReady = false; // 普通玩家重置准备状态
+                        }
+                    }
                 }
             }
         }
@@ -619,9 +801,15 @@ public class ServerGameManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void RpcEnterHalftime(int roundCount)
+    private void RpcEnterGameEnd()
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowHalftimePanel(roundCount);
+        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowGameEndPanel();
+    }
+
+    [ClientRpc]
+    private void RpcEnterHalftime(int roundCount, int maxCirclesVal)
+    {
+        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowHalftimePanel(roundCount, maxCirclesVal);
     }
 
     [Server]
@@ -727,6 +915,8 @@ public class ServerGameManager : NetworkBehaviour
     [Server]
     public void HandlePlayerFold(PokerPlayer player)
     {
+        if (!hasGameStarted || currentPhase == GamePhase.Idle || currentPhase == GamePhase.Halftime) return;
+        if (currentPlayerIndex < 0 || currentPlayerIndex >= activePlayers.Count) return;
         if (activePlayers[currentPlayerIndex] != player) return;
         if (player.serverIsMindControlled)
         {
@@ -745,6 +935,8 @@ public class ServerGameManager : NetworkBehaviour
     [Server]
     public void HandlePlayerCall(PokerPlayer player)
     {
+        if (!hasGameStarted || currentPhase == GamePhase.Idle || currentPhase == GamePhase.Halftime) return;
+        if (currentPlayerIndex < 0 || currentPlayerIndex >= activePlayers.Count) return;
         if (activePlayers[currentPlayerIndex] != player) return;
 
         int callAmount = highestBet - player.currentBet;
@@ -785,6 +977,8 @@ public class ServerGameManager : NetworkBehaviour
     [Server]
     public void HandlePlayerRaise(PokerPlayer player, int raiseAmount)
     {
+        if (!hasGameStarted || currentPhase == GamePhase.Idle || currentPhase == GamePhase.Halftime) return;
+        if (currentPlayerIndex < 0 || currentPlayerIndex >= activePlayers.Count) return;
         if (activePlayers[currentPlayerIndex] != player) return;
         if (player.serverGolemActiveThisHand) return;
 
@@ -882,6 +1076,31 @@ public class ServerGameManager : NetworkBehaviour
             {
                 Debug.Log($"荷官：轮到机器人{activePlayers[index].playerName}说话了！");
                 bot.TriggerBotTurn();
+            }
+
+            // 如果玩家开启了托管，则由系统代理其进行跟注/过牌/弃牌操作
+            if (activePlayers[index].serverIsHosted)
+            {
+                StartCoroutine(HostedPlayerAutoActionRoutine(activePlayers[index]));
+            }
+        }
+    }
+
+    private System.Collections.IEnumerator HostedPlayerAutoActionRoutine(PokerPlayer player)
+    {
+        yield return new WaitForSeconds(1.0f); // 停顿1秒模拟自动思考
+        if (player != null && player.isMyTurn && player.serverIsHosted)
+        {
+            int callAmount = highestBet - player.currentBet;
+            if (callAmount == 0)
+            {
+                Debug.Log($"[托管系统] 玩家 [{player.playerName}] 自动 Check");
+                HandlePlayerCall(player);
+            }
+            else
+            {
+                Debug.Log($"[托管系统] 玩家 [{player.playerName}] 自动 Fold");
+                HandlePlayerFold(player);
             }
         }
     }
@@ -1202,8 +1421,14 @@ public class ServerGameManager : NetworkBehaviour
 
             // Visibility conditions: caster, target player, or sensing buff active
             bool shouldSee = (p == caster) || 
-                             (targetType == 0 && target != null && p == target) || 
-                             p.serverIsSensing;
+                             (targetType == 0 && target != null && p == target);
+
+            // If the caster doesn't have the Hat (12), players with Sensing can also see it
+            bool isCasterHat = caster.equippedTrinkets.Contains(12);
+            if (!isCasterHat && p.serverIsSensing)
+            {
+                shouldSee = true;
+            }
 
             if (shouldSee && p.connectionToClient != null)
             {
@@ -1218,5 +1443,80 @@ public class ServerGameManager : NetworkBehaviour
         {
             deck.ReturnCardAndShuffle(card);
         }
+    }
+
+    public void NotifyCardChanged(int targetType, int targetIndex, uint ownerNetId, Card newCard)
+    {
+        foreach (var p in activePlayers)
+        {
+            if (p == null || p.connectionToClient == null) continue;
+
+            for (int i = p.serverActivePeeks.Count - 1; i >= 0; i--)
+            {
+                var info = p.serverActivePeeks[i];
+
+                if (Time.time >= info.expireTime)
+                {
+                    p.serverActivePeeks.RemoveAt(i);
+                    continue;
+                }
+
+                bool isMatch = false;
+                if (targetType == 1 && info.type == 1 && info.index == targetIndex)
+                {
+                    isMatch = true;
+                }
+                else if (targetType == 0 && info.type == 0 && info.index == targetIndex && info.ownerNetId == ownerNetId)
+                {
+                    isMatch = true;
+                }
+
+                if (isMatch)
+                {
+                    float remainingTime = info.expireTime - Time.time;
+                    if (remainingTime > 0)
+                    {
+                        p.TargetPeekSingleCard(p.connectionToClient, targetType, targetIndex, ownerNetId, newCard, remainingTime);
+                    }
+                }
+            }
+        }
+    }
+
+    [Server]
+    public void ToggleTrickRoom()
+    {
+        serverIsTrickRoomActive = !serverIsTrickRoomActive;
+        RpcSetTrickRoomState(serverIsTrickRoomActive);
+        RpcAddGameLog(serverIsTrickRoomActive ? "【戏法空间】已启动！上下颠倒！" : "【戏法空间】已被解除，恢复正常。", 3);
+    }
+
+    [ClientRpc]
+    public void RpcSetTrickRoomState(bool active)
+    {
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.SetTrickRoomFlipped(active);
+        }
+    }
+
+    private Dictionary<ulong, int> disconnectedPlayersChips = new Dictionary<ulong, int>();
+
+    [Server]
+    public void SaveDisconnectedPlayerChips(ulong steamId, int chips)
+    {
+        disconnectedPlayersChips[steamId] = chips;
+        Debug.Log($"[ServerGameManager] 保存掉线玩家 {steamId} 的筹码: {chips}");
+    }
+
+    [Server]
+    public int GetDisconnectedPlayerChips(ulong steamId)
+    {
+        if (disconnectedPlayersChips.TryGetValue(steamId, out int chips))
+        {
+            disconnectedPlayersChips.Remove(steamId);
+            return chips;
+        }
+        return 0;
     }
 }

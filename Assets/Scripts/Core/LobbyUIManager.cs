@@ -292,7 +292,7 @@ public class LobbyUIManager : MonoBehaviour
             UIMgr.selectedCountText.text = $"选择技能 [{localSelectedSkills.Count}/3]";
     }
 
-    public void ShowHalftimePanel(int roundCount)
+    public void ShowHalftimePanel(int roundCount, int maxCirclesVal)
     {
         UIMgr.ClearAllTable();
         if (UIMgr.inGameSkillBar != null)
@@ -318,7 +318,17 @@ public class LobbyUIManager : MonoBehaviour
         if (UIMgr.halftimeUIGroup != null) UIMgr.halftimeUIGroup.SetActive(true);
         if (UIMgr.lobbyUIGroup != null) UIMgr.lobbyUIGroup.SetActive(false);
         if (UIMgr.btnHalftimeStartHost != null) UIMgr.btnHalftimeStartHost.gameObject.SetActive(false);
-        if (UIMgr.txtHalftimeRoundTitle != null) UIMgr.txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}圈 】";
+        if (UIMgr.txtHalftimeRoundTitle != null)
+        {
+            if (maxCirclesVal > 0)
+            {
+                UIMgr.txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}/{maxCirclesVal}圈 】";
+            }
+            else
+            {
+                UIMgr.txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}圈 】";
+            }
+        }
 
         if (PokerPlayer.LocalPlayer != null)
         {
@@ -330,10 +340,18 @@ public class LobbyUIManager : MonoBehaviour
         InitLobbyTrinketSelection();
     }
 
+    public void OnBtnReturnToRoomClicked()
+    {
+        if (UIMgr.gameEndPanel != null) UIMgr.gameEndPanel.SetActive(false);
+        bool isHost = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost;
+        SetupLobbyUI(isHost);
+    }
+
     public void HideHalftimePanel()
     {
         if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(false);
         if (UIMgr.halftimeUIGroup != null) UIMgr.halftimeUIGroup.SetActive(false);
+        if (UIMgr.halftimeStatsWindow != null) UIMgr.halftimeStatsWindow.SetActive(false);
 
         UIMgr.GenerateInGameSkillBar();
         UIMgr.GenerateInGameTrinketUI();

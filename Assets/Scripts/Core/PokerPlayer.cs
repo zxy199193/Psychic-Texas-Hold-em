@@ -51,6 +51,17 @@ public class PokerPlayer : NetworkBehaviour
 
     public List<Card> serverHand = new List<Card>();
 
+    [System.Serializable]
+    public class PeekInfo
+    {
+        public int type;
+        public int index;
+        public uint ownerNetId;
+        public float expireTime;
+    }
+    public List<PeekInfo> serverActivePeeks = new List<PeekInfo>();
+    public List<int> originalSkills = new List<int>();
+
     public int interferenceRate = 0; // 干扰失败率
 
     public bool serverIsMindControlled = false;
@@ -64,10 +75,13 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar] public bool isRoomHost = false;
     [SyncVar] public bool syncFillBots = false;
     [SyncVar] public bool syncShortDeck = false;
+    [SyncVar] public int syncMaxCircles = 0; // 0 表示无限，其他有 6, 8, 10, 12
 
     [SyncVar] public bool serverNextHandSealed = false;
     [SyncVar] public bool serverHoleCardsSealed = false;
     [SyncVar] public bool serverGolemActiveThisHand = false;
+    [SyncVar] public bool serverIsHosted = false;
+    [SyncVar] public bool serverMedalBuffActive = false;
 
     [Command]
     public void CmdSetFillBots(bool value)
@@ -85,6 +99,28 @@ public class PokerPlayer : NetworkBehaviour
         }
     }
 
+    [Command]
+    public void CmdSetMaxCircles(int value)
+    {
+        syncMaxCircles = value;
+    }
+
+    [Command]
+    public void CmdSetRoomHost(bool value)
+    {
+        isRoomHost = value;
+    }
+
+    [Command]
+    public void CmdSetHosted(bool value)
+    {
+        serverIsHosted = value;
+        if (value && ServerGameManager.Instance != null && ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.Halftime)
+        {
+            isReady = true;
+        }
+    }
+
     // ==========================================
     // 【性能优化】：缓存 AI 大脑，拒绝每帧 GetComponent
     // ==========================================
@@ -95,10 +131,21 @@ public class PokerPlayer : NetworkBehaviour
         // 玩家生成时自动获取一次，终身受用！(如果是真人玩家，这里就是 null)
         myBotBrain = GetComponent<PokerBot>();
     }
+
+    private void OnDestroy()
+    {
+        if (isServer)
+        {
+            if (this.steamId != 0 && ServerGameManager.Instance != null)
+            {
+                ServerGameManager.Instance.SaveDisconnectedPlayerChips(this.steamId, this.chips);
+            }
+        }
+    }
     // ==========================================
     // 【核心修复】：注册表字典声明
     // ==========================================
-    private Dictionary<int, BaseSkill> skillDatabase = new Dictionary<int, BaseSkill>();
+    public Dictionary<int, BaseSkill> skillDatabase = new Dictionary<int, BaseSkill>();
     private Dictionary<int, BaseTrinket> trinketDatabase = new Dictionary<int, BaseTrinket>();
 
     public override void OnStartLocalPlayer()
@@ -116,6 +163,29 @@ public class PokerPlayer : NetworkBehaviour
             CmdSetSteamInfo("Player_" + Random.Range(1000, 9999), 0);
         }
         CmdRequestSyncTable();
+
+        if (isServer)
+        {
+            CmdSetRoomHost(true);
+            
+            // Sync initial UI toggle states to server SyncVars immediately
+            if (PokerUIManager.Instance != null)
+            {
+                if (PokerUIManager.Instance.toggleFillBots != null)
+                {
+                    CmdSetFillBots(PokerUIManager.Instance.toggleFillBots.isOn);
+                }
+                if (PokerUIManager.Instance.toggleShortDeck != null)
+                {
+                    CmdSetShortDeck(PokerUIManager.Instance.toggleShortDeck.isOn);
+                }
+                if (PokerUIManager.Instance.dropdownMaxCircles != null)
+                {
+                    int defaultCircles = PokerUIManager.Instance.IndexToMaxCircles(PokerUIManager.Instance.dropdownMaxCircles.value);
+                    CmdSetMaxCircles(defaultCircles);
+                }
+            }
+        }
     }
 
     [Command]
@@ -127,6 +197,16 @@ public class PokerPlayer : NetworkBehaviour
         {
             SteamLobby.Instance.UpdateLobbyPlayerMetadata();
         }
+
+        if (ServerGameManager.Instance != null && sId != 0)
+        {
+            int restoredChips = ServerGameManager.Instance.GetDisconnectedPlayerChips(sId);
+            if (restoredChips > 0)
+            {
+                this.chips = restoredChips;
+                ServerGameManager.Instance.RpcAddGameLog($"[{newName}] 重新连入游戏，已成功恢复掉线前的 {restoredChips} 筹码！", 2);
+            }
+        }
     }
 
     [Command]
@@ -136,9 +216,9 @@ public class PokerPlayer : NetworkBehaviour
     }
 
     [TargetRpc]
-    public void TargetReceiveHoleCards(NetworkConnectionToClient target, Card card1, Card card2)
+    public void TargetReceiveHoleCards(NetworkConnectionToClient target, Card card1, Card card2, bool isSealed)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowMyHoleCards(card1, card2);
+        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowMyHoleCards(card1, card2, isSealed);
     }
 
     [ClientRpc]
@@ -186,12 +266,19 @@ public class PokerPlayer : NetworkBehaviour
         }
     }
 
-    [ClientRpc]
-    public void RpcTriggerResonanceBlink(float duration)
+    [TargetRpc]
+    public void TargetTriggerResonanceBlink(NetworkConnectionToClient conn, uint targetPlayerNetId, float duration)
     {
         if (PokerUIManager.Instance != null)
         {
-            PokerUIManager.Instance.BlinkPlayerHoleCards(this, duration);
+            if (NetworkClient.spawned.TryGetValue(targetPlayerNetId, out NetworkIdentity identity))
+            {
+                PokerPlayer target = identity.GetComponent<PokerPlayer>();
+                if (target != null)
+                {
+                    PokerUIManager.Instance.BlinkPlayerHoleCards(target, duration);
+                }
+            }
         }
     }
 
@@ -214,7 +301,12 @@ public class PokerPlayer : NetworkBehaviour
         if (this.isReady) return;
 
         equippedSkills.Clear();
-        foreach (int id in selectedSkillIDs) equippedSkills.Add(id);
+        originalSkills.Clear();
+        foreach (int id in selectedSkillIDs)
+        {
+            equippedSkills.Add(id);
+            originalSkills.Add(id);
+        }
     }
 
     [Command]
@@ -253,6 +345,8 @@ public class PokerPlayer : NetworkBehaviour
         skillDatabase.Add(11, new AssistSkill());
         skillDatabase.Add(12, new SealSkill());
         skillDatabase.Add(13, new ResonanceSkill());
+        skillDatabase.Add(14, new TrickRoomSkill());
+        skillDatabase.Add(15, new InspirationSkill());
 
         trinketDatabase.Add(1, new RedGemTrinket());
         trinketDatabase.Add(2, new BlueGemTrinket());
@@ -267,6 +361,23 @@ public class PokerPlayer : NetworkBehaviour
         trinketDatabase.Add(11, new GolemTrinket());
         trinketDatabase.Add(12, new HatTrinket());
         trinketDatabase.Add(13, new BeastClawTrinket());
+        trinketDatabase.Add(14, new BatteryTrinket());
+        trinketDatabase.Add(15, new EyeDropsTrinket());
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        equippedSkills.Callback += OnEquippedSkillsChanged;
+    }
+
+    private void OnEquippedSkillsChanged(SyncList<int>.Operation op, int itemIndex, int oldItem, int newItem)
+    {
+        if (isLocalPlayer && PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.GenerateInGameSkillBar();
+            PokerUIManager.Instance.RefreshSkillButtonsState(this.energy);
+        }
     }
 
     public override void OnStopServer()
@@ -313,6 +424,18 @@ public class PokerPlayer : NetworkBehaviour
         }
 
         BaseSkill skillToCast = skillDatabase[skillID];
+
+        if (skillID == 6 && this.serverHasWishBuff)
+        {
+            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "本轮已许过愿，无法重复使用！", 0);
+            return;
+        }
+        if (skillID == 12 && this.serverNextHandSealed)
+        {
+            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "本轮已使用封印，无法重复使用！", 0);
+            return;
+        }
+
         int actualEnergyCost = skillToCast.energyCost;
         if (skillID == 98 && equippedTrinkets.Contains(9))
         {
@@ -342,6 +465,12 @@ public class PokerPlayer : NetworkBehaviour
             targetNetId = this.netId;
             targetType = 0;
             targetIndex = -1;
+        }
+
+        if (skillID == 9 && targetPlayer != null && targetPlayer.serverIsHosted)
+        {
+            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "无法对已托管的玩家使用精神控制！", 0);
+            return;
         }
 
         // ==========================================
@@ -410,22 +539,7 @@ public class PokerPlayer : NetworkBehaviour
 
     private bool IsSensingBlocked()
     {
-        PokerPlayer target1 = currentCastingTarget;
-        PokerPlayer target2 = null;
-        if (currentCastingSkillName == "交换" && this.dualTargetType == 0)
-        {
-            if (ServerGameManager.Instance != null)
-            {
-                foreach (var p in ServerGameManager.Instance.activePlayers)
-                {
-                    if (p != null && p.netId == this.dualTargetNetId) { target2 = p; break; }
-                }
-            }
-        }
-
-        return this.equippedTrinkets.Contains(12) || 
-               (target1 != null && target1.equippedTrinkets.Contains(12)) ||
-               (target2 != null && target2.equippedTrinkets.Contains(12));
+        return this.equippedTrinkets.Contains(12);
     }
 
     // 【核心修复】：参数补齐了 actualCastTime
@@ -472,12 +586,12 @@ public class PokerPlayer : NetworkBehaviour
         {
             if (id != 98) activeSkillCount++;
         }
-        bool isSingleSkillMode = (activeSkillCount == 1);
+        bool isDoubleSkillMode = (activeSkillCount == 2);
 
         if (target != this && target != null && skill.CanBeResisted)
         {
             int resistCost = target.GetResistCost(skill.energyCost);
-            if (this.equippedTrinkets.Contains(13) && isSingleSkillMode)
+            if (this.equippedTrinkets.Contains(13) && isDoubleSkillMode)
             {
                 resistCost += 1;
             }
@@ -498,7 +612,7 @@ public class PokerPlayer : NetworkBehaviour
         if (target2 != this && target2 != null && target2 != target && skill.CanBeResisted)
         {
             int resistCost2 = target2.GetResistCost(skill.energyCost);
-            if (this.equippedTrinkets.Contains(13) && isSingleSkillMode)
+            if (this.equippedTrinkets.Contains(13) && isDoubleSkillMode)
             {
                 resistCost2 += 1;
             }
@@ -614,6 +728,25 @@ public class PokerPlayer : NetworkBehaviour
                 }
             }
             skill.Execute(this, target, targetType, targetIndex, ServerGameManager.Instance);
+
+            // 电池饰品触发：每当其他玩家使用技能时恢复一点能量（抵抗不算，本处即为成功释放）
+            if (ServerGameManager.Instance != null)
+            {
+                int baseMax = ServerGameManager.Instance.maxEnergy;
+                foreach (var p in ServerGameManager.Instance.activePlayers)
+                {
+                    if (p != null && p != this && p.equippedTrinkets.Contains(14))
+                    {
+                        int pMaxE = p.GetMaxEnergy(baseMax);
+                        int oldE = p.energy;
+                        p.energy = Mathf.Clamp(p.energy + 1, 0, pMaxE);
+                        if (p.energy > oldE)
+                        {
+                            Debug.Log($"[电池饰品] 玩家 [{p.playerName}] 因为 [{this.playerName}] 施放技能，能量恢复 1 点 (当前: {p.energy}/{pMaxE})");
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -768,9 +901,34 @@ public class PokerPlayer : NetworkBehaviour
     }
 
     [TargetRpc]
-    public void TargetPeekSingleCard(NetworkConnectionToClient targetConn, int targetType, int targetIndex, uint ownerNetId, Card card)
+    public void TargetPeekSingleCard(NetworkConnectionToClient targetConn, int targetType, int targetIndex, uint ownerNetId, Card card, float duration)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowSpecificCardTemporarily(targetType, targetIndex, ownerNetId, card, 3f);
+        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowSpecificCardTemporarily(targetType, targetIndex, ownerNetId, card, duration);
+    }
+
+    public void AddActivePeek(int type, int index, uint ownerNetId, float duration)
+    {
+        float expireTime = Time.time + duration;
+        bool found = false;
+        foreach (var info in serverActivePeeks)
+        {
+            if (info.type == type && info.index == index && info.ownerNetId == ownerNetId)
+            {
+                info.expireTime = Mathf.Max(info.expireTime, expireTime);
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            serverActivePeeks.Add(new PeekInfo
+            {
+                type = type,
+                index = index,
+                ownerNetId = ownerNetId,
+                expireTime = expireTime
+            });
+        }
     }
 
     [TargetRpc]
@@ -918,6 +1076,10 @@ public class PokerPlayer : NetworkBehaviour
     {
         // 切换准备状态 (如果是 true 就变 false，反之亦然)
         isReady = !isReady;
+        if (!isReady && serverIsHosted)
+        {
+            serverIsHosted = false;
+        }
     }
 
     [Command]

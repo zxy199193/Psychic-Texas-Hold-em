@@ -37,6 +37,9 @@ public class PokerUIManager : MonoBehaviour
 {
     public static PokerUIManager Instance;
 
+    [Header("戏法空间翻转目标（如果不拖拽，会自动寻找 Canvas 下的第一个子节点）")]
+    public RectTransform trickRoomUIRoot;
+
     #region 子管理器组件 (Sub-Managers)
     [HideInInspector] public LobbyUIManager lobbyUIManager;
     [HideInInspector] public PokerCardAnimator cardAnimator;
@@ -121,6 +124,30 @@ public class PokerUIManager : MonoBehaviour
     public GameObject[] enemyDisconnectNodes;
     public GameObject[] enemyTurnHighlightNodes;
     public GameObject[] enemyWinnerNodes;
+
+    [Header("4.05 托管系统 (Hosting System)")]
+    public Button btnHosting;
+    public GameObject hostingButtonMarker;
+    public GameObject myHostingNode;
+    public GameObject[] enemyHostingNodes;
+
+    [Header("4.06 中场成绩看板 (Halftime Stats)")]
+    public Button btnHalftimeStats;
+    public GameObject halftimeStatsWindow;
+    public Transform halftimeStatsContainer;
+    public GameObject halftimeStatsItemPrefab;
+
+    [Header("4.07 圈数设置 (Lap Settings)")]
+    public Dropdown dropdownMaxCircles;
+
+    [Header("11.0 游戏结束面板 (Game End Panel)")]
+    public GameObject gameEndPanel;
+    public Transform gameEndStatsContainer;
+    public Button btnReturnToMainMenu;
+    public Button btnReturnToRoom;
+
+    [Header("11.1 圈数与轮数显示 (Lap & Round UI)")]
+    public Text txtGameProgress;
 
     [Header("4.1 对手饰品槽 UI (Enemy Trinkets Slots)")]
     public List<EnemyTrinketGroup> enemyTrinketGroups = new List<EnemyTrinketGroup>();
@@ -223,6 +250,7 @@ public class PokerUIManager : MonoBehaviour
     private bool hasSyncedSkillsThisSession = false;
     private Dictionary<Button, SkillConfig> activeDynamicSkillButtons = new Dictionary<Button, SkillConfig>();
     private PokerPlayer[] cachedAllPlayers = new PokerPlayer[0];
+    private uint[] enemySeatNetIds = new uint[5];
     private float playerSearchTimer = 0f;
     private Dictionary<uint, GameObject> activeLobbyPlayersUI = new Dictionary<uint, GameObject>();
     private Dictionary<Text, int> textIntCache = new Dictionary<Text, int>();
@@ -317,6 +345,62 @@ public class PokerUIManager : MonoBehaviour
         {
             logScrollRect.scrollSensitivity = logScrollSensitivity;
         }
+
+        if (btnHosting != null)
+        {
+            btnHosting.onClick.AddListener(() =>
+            {
+                if (PokerPlayer.LocalPlayer != null)
+                {
+                    PokerPlayer.LocalPlayer.CmdSetHosted(!PokerPlayer.LocalPlayer.serverIsHosted);
+                }
+            });
+        }
+
+        if (btnHalftimeStats != null)
+        {
+            btnHalftimeStats.onClick.AddListener(() =>
+            {
+                if (halftimeStatsWindow != null)
+                {
+                    bool nextState = !halftimeStatsWindow.activeSelf;
+                    halftimeStatsWindow.SetActive(nextState);
+                    if (nextState)
+                    {
+                        RefreshHalftimeStatsWindow();
+                    }
+                }
+            });
+        }
+
+        if (btnReturnToMainMenu != null)
+        {
+            btnReturnToMainMenu.onClick.AddListener(() =>
+            {
+                if (gameEndPanel != null) gameEndPanel.SetActive(false);
+                lobbyUIManager.OnBtnLobbyBackClicked();
+            });
+        }
+
+        if (btnReturnToRoom != null)
+        {
+            btnReturnToRoom.onClick.AddListener(() =>
+            {
+                lobbyUIManager.OnBtnReturnToRoomClicked();
+            });
+        }
+
+        if (dropdownMaxCircles != null)
+        {
+            dropdownMaxCircles.onValueChanged.AddListener((index) =>
+            {
+                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost)
+                {
+                    int maxC = IndexToMaxCircles(index);
+                    PokerPlayer.LocalPlayer.CmdSetMaxCircles(maxC);
+                }
+            });
+        }
         currentDisplayedEnemyTrinkets = new List<int>[enemySeats.Length];
         for (int i = 0; i < currentDisplayedEnemyTrinkets.Length; i++)
         {
@@ -345,6 +429,35 @@ public class PokerUIManager : MonoBehaviour
         else if (PokerPlayer.LocalPlayer == null)
         {
             hasSyncedSkillsThisSession = false;
+        }
+
+        if (txtGameProgress != null)
+        {
+            if (ServerGameManager.Instance != null && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle)
+            {
+                txtGameProgress.gameObject.SetActive(true);
+                int curRound = ServerGameManager.Instance.currentRoundCount;
+                int maxC = ServerGameManager.Instance.maxCircles;
+                int curHand = ServerGameManager.Instance.handsPlayedThisRound + 1;
+                int progressTotalSeats = ServerGameManager.Instance.totalSeatCount;
+
+                if (progressTotalSeats <= 0)
+                {
+                    progressTotalSeats = cachedAllPlayers != null ? cachedAllPlayers.Length : 0;
+                }
+                if (progressTotalSeats <= 0) progressTotalSeats = 6;
+
+                if (curHand > progressTotalSeats) curHand = progressTotalSeats;
+
+                string circleStr = (maxC > 0) ? $"第{curRound}/{maxC}圈" : $"第{curRound}圈";
+                string handStr = $"第{curHand}/{progressTotalSeats}轮";
+
+                txtGameProgress.text = $"{circleStr}   {handStr}";
+            }
+            else
+            {
+                txtGameProgress.gameObject.SetActive(false);
+            }
         }
 
         // 刷新对局玩家缓存
@@ -401,6 +514,7 @@ public class PokerUIManager : MonoBehaviour
             PokerPlayer hostPlayer = null;
             foreach (var p in allPlayersInRoom)
             {
+                if (p == null) continue;
                 if (p.isReady) readyCount++;
                 if (p.isRoomHost) hostPlayer = p;
             }
@@ -415,6 +529,20 @@ public class PokerUIManager : MonoBehaviour
                 {
                     toggleShortDeck.isOn = hostPlayer.syncShortDeck;
                 }
+                if (dropdownMaxCircles != null)
+                {
+                    int hostIndex = MaxCirclesToIndex(hostPlayer.syncMaxCircles);
+                    if (dropdownMaxCircles.value != hostIndex)
+                    {
+                        dropdownMaxCircles.value = hostIndex;
+                    }
+                }
+            }
+
+            bool isHost = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost;
+            if (dropdownMaxCircles != null && dropdownMaxCircles.interactable != isHost)
+            {
+                dropdownMaxCircles.interactable = isHost;
             }
 
             if (txtPlayerCount != null) txtPlayerCount.text = $"【 当前人数：{pCount}/6 】";
@@ -544,6 +672,16 @@ public class PokerUIManager : MonoBehaviour
                 {
                     myTurnHighlightNode.SetActive(p.isMyTurn);
                 }
+
+                bool localHosted = p.serverIsHosted;
+                if (myHostingNode != null && myHostingNode.activeSelf != localHosted)
+                {
+                    myHostingNode.SetActive(localHosted);
+                }
+                if (hostingButtonMarker != null && hostingButtonMarker.activeSelf != localHosted)
+                {
+                    hostingButtonMarker.SetActive(localHosted);
+                }
             }
             else
             {
@@ -588,23 +726,27 @@ public class PokerUIManager : MonoBehaviour
                     }
                     SetAreaDarkened(enemyHandAreas[enemyIndex], p.isFolded);
 
-                    if (enemyIndex < enemyAvatarImages.Length && enemyAvatarImages[enemyIndex] != null && enemyAvatarImages[enemyIndex].texture == null)
+                    if (enemyIndex < enemyAvatarImages.Length && enemyAvatarImages[enemyIndex] != null)
                     {
-                        if (p.steamId == 0)
+                        if (enemySeatNetIds[enemyIndex] != p.netId || enemyAvatarImages[enemyIndex].texture == null)
                         {
-                            if (allBotAvatars != null && p.botAvatarID >= 0 && p.botAvatarID < allBotAvatars.Length && allBotAvatars[p.botAvatarID] != null)
+                            enemySeatNetIds[enemyIndex] = p.netId;
+                            if (p.steamId == 0)
                             {
-                                enemyAvatarImages[enemyIndex].texture = allBotAvatars[p.botAvatarID];
+                                if (allBotAvatars != null && p.botAvatarID >= 0 && p.botAvatarID < allBotAvatars.Length && allBotAvatars[p.botAvatarID] != null)
+                                {
+                                    enemyAvatarImages[enemyIndex].texture = allBotAvatars[p.botAvatarID];
+                                }
+                                else
+                                {
+                                    enemyAvatarImages[enemyIndex].texture = botDefaultAvatar;
+                                }
                             }
                             else
                             {
-                                enemyAvatarImages[enemyIndex].texture = botDefaultAvatar;
+                                Texture2D tex = GetSteamAvatar(p.steamId);
+                                if (tex != null) enemyAvatarImages[enemyIndex].texture = tex;
                             }
-                        }
-                        else
-                        {
-                            Texture2D tex = GetSteamAvatar(p.steamId);
-                            if (tex != null) enemyAvatarImages[enemyIndex].texture = tex;
                         }
                     }
 
@@ -612,6 +754,14 @@ public class PokerUIManager : MonoBehaviour
                     {
                         if (enemyTurnHighlightNodes[enemyIndex].activeSelf != p.isMyTurn)
                             enemyTurnHighlightNodes[enemyIndex].SetActive(p.isMyTurn);
+                    }
+
+                    if (enemyHostingNodes != null && enemyIndex < enemyHostingNodes.Length && enemyHostingNodes[enemyIndex] != null)
+                    {
+                        if (enemyHostingNodes[enemyIndex].activeSelf != p.serverIsHosted)
+                        {
+                            enemyHostingNodes[enemyIndex].SetActive(p.serverIsHosted);
+                        }
                     }
                 }
             }
@@ -641,6 +791,11 @@ public class PokerUIManager : MonoBehaviour
                                 enemyTurnHighlightNodes[i].SetActive(false);
                             }
                         }
+                    }
+
+                    if (!seatOccupied[i] && enemyHostingNodes != null && i < enemyHostingNodes.Length && enemyHostingNodes[i] != null)
+                    {
+                        enemyHostingNodes[i].SetActive(false);
                     }
                 }
             }
@@ -823,6 +978,14 @@ public class PokerUIManager : MonoBehaviour
         if (isTargeting && (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape)))
         {
             CancelTargeting();
+        }
+
+        if (gameEndPanel != null && gameEndPanel.activeSelf)
+        {
+            if (btnReturnToRoom != null)
+            {
+                btnReturnToRoom.interactable = Mirror.NetworkClient.isConnected;
+            }
         }
     }
 
@@ -1040,7 +1203,7 @@ public class PokerUIManager : MonoBehaviour
 
     #region 卡牌渲染与位置更新 (Card Rendering & Seat Helpers)
 
-    public void ShowMyHoleCards(Card c1, Card c2)
+    public void ShowMyHoleCards(Card c1, Card c2, bool isSealed)
     {
         localHoleCards.Clear();
         localHoleCards.Add(c1);
@@ -1048,8 +1211,6 @@ public class PokerUIManager : MonoBehaviour
         localCommunityCards.Clear();
         currentHandScore = -1;
         if (maxHandTypePanel != null) maxHandTypePanel.SetActive(false);
-
-        bool isSealed = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.serverHoleCardsSealed;
 
         ClearArea(myHandArea);
         GameObject go1 = Instantiate(cardPrefab, myHandArea);
@@ -1340,6 +1501,11 @@ public class PokerUIManager : MonoBehaviour
                 int cost = kvp.Value.energyCost;
                 int skillID = kvp.Value.skillID;
                 bool isSkillDisabled = isOverdrafted || (skillID == 10 && isOverdraftPending);
+                if (PokerPlayer.LocalPlayer != null)
+                {
+                    if (skillID == 6 && PokerPlayer.LocalPlayer.serverHasWishBuff) isSkillDisabled = true;
+                    if (skillID == 12 && PokerPlayer.LocalPlayer.serverNextHandSealed) isSkillDisabled = true;
+                }
                 kvp.Key.interactable = !isSkillDisabled && (currentEnergy >= cost);
             }
         }
@@ -1509,6 +1675,27 @@ public class PokerUIManager : MonoBehaviour
         foreach (var c in allCards)
         {
             c.SetElevated(IsValidTarget(c, skillID));
+
+            // 如果该底牌属于托管中的玩家，强制置灰显示
+            if (c.targetType == 0)
+            {
+                PokerPlayer owner = null;
+                if (cachedAllPlayers != null)
+                {
+                    foreach (var p in cachedAllPlayers)
+                    {
+                        if (p != null && p.netId == c.ownerNetId)
+                        {
+                            owner = p;
+                            break;
+                        }
+                    }
+                }
+                if (owner != null && owner.serverIsHosted)
+                {
+                    SetSingleCardDarkened(c, true);
+                }
+            }
         }
     }
 
@@ -1530,6 +1717,7 @@ public class PokerUIManager : MonoBehaviour
         {
             c.SetElevated(false);
             c.SetHighlight(false);
+            SetSingleCardDarkened(c, false); // 确保恢复原生亮度状态
         }
     }
 
@@ -1566,7 +1754,21 @@ public class PokerUIManager : MonoBehaviour
         }
         else if (skillID == 9)
         {
-            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
+            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId)
+            {
+                if (cachedAllPlayers != null)
+                {
+                    foreach (var p in cachedAllPlayers)
+                    {
+                        if (p != null && p.netId == c.ownerNetId)
+                        {
+                            if (p.serverIsHosted) return false;
+                            break;
+                        }
+                    }
+                }
+                return true;
+            }
         }
         else if (skillID == 11)
         {
@@ -1774,7 +1976,8 @@ public class PokerUIManager : MonoBehaviour
         if (PokerPlayer.LocalPlayer == null) return;
         activeDynamicSkillButtons.Clear();
 
-        foreach (int equippedID in localSelectedSkills)
+        List<int> skillsToRender = new List<int>(PokerPlayer.LocalPlayer.equippedSkills);
+        foreach (int equippedID in skillsToRender)
         {
             SkillConfig config = allSkillConfigs.Find(c => c.skillID == equippedID);
             if (config == null) continue;
@@ -2258,7 +2461,7 @@ public class PokerUIManager : MonoBehaviour
     public void HideMainMenu() => lobbyUIManager.HideMainMenu();
     public void InitLobbySkillSelection() => lobbyUIManager.InitLobbySkillSelection();
     public void InitLobbyTrinketSelection() => lobbyUIManager.InitLobbyTrinketSelection();
-    public void ShowHalftimePanel(int roundCount) => lobbyUIManager.ShowHalftimePanel(roundCount);
+    public void ShowHalftimePanel(int roundCount, int maxCirclesVal) => lobbyUIManager.ShowHalftimePanel(roundCount, maxCirclesVal);
     public void HideHalftimePanel() => lobbyUIManager.HideHalftimePanel();
     public void OnBtnHalftimeReadyClicked() => lobbyUIManager.OnBtnHalftimeReadyClicked();
     public void OnBtnHalftimeStartClicked() => lobbyUIManager.OnBtnHalftimeStartClicked();
@@ -2300,6 +2503,241 @@ public class PokerUIManager : MonoBehaviour
     public void ToggleSensingBuffUI(bool isActive)
     {
         if (sensingBuffNode != null) sensingBuffNode.SetActive(isActive);
+    }
+
+    public int IndexToMaxCircles(int index)
+    {
+        switch (index)
+        {
+            case 0: return 6;
+            case 1: return 8;
+            case 2: return 10;
+            case 3: return 12;
+            default: return 0; // 无限
+        }
+    }
+
+    public int MaxCirclesToIndex(int maxCircles)
+    {
+        switch (maxCircles)
+        {
+            case 6: return 0;
+            case 8: return 1;
+            case 10: return 2;
+            case 12: return 3;
+            default: return 4; // 无限
+        }
+    }
+
+    public void ShowGameEndPanel()
+    {
+        if (gameEndPanel != null)
+        {
+            gameEndPanel.SetActive(true);
+            RefreshGameEndStatsWindow();
+        }
+    }
+
+    public void RefreshGameEndStatsWindow()
+    {
+        if (gameEndStatsContainer == null || halftimeStatsItemPrefab == null) return;
+
+        // Clear existing items
+        for (int i = gameEndStatsContainer.childCount - 1; i >= 0; i--)
+        {
+            Transform child = gameEndStatsContainer.GetChild(i);
+            child.SetParent(null);
+            Destroy(child.gameObject);
+        }
+
+        // Get and sort players by profit
+        PokerPlayer[] players = FindObjectsOfType<PokerPlayer>();
+        System.Array.Sort(players, (a, b) =>
+        {
+            int profitA = a.chips - 1000 * (a.rebuyCount + 1);
+            int profitB = b.chips - 1000 * (b.rebuyCount + 1);
+            return profitB.CompareTo(profitA); // Descending order
+        });
+
+        // Instantiate items
+        for (int i = 0; i < players.Length; i++)
+        {
+            PokerPlayer p = players[i];
+            if (p == null) continue;
+
+            GameObject go = Instantiate(halftimeStatsItemPrefab, gameEndStatsContainer);
+
+            // 1. Rank
+            Transform rankTrans = DeepFind(go.transform, "Text Rank") ?? DeepFind(go.transform, "Text Ranking") ?? DeepFind(go.transform, "Rank") ?? go.transform.Find("Rank");
+            if (rankTrans != null)
+            {
+                Text t = rankTrans.GetComponent<Text>();
+                if (t != null) t.text = (i + 1).ToString();
+            }
+
+            // 2. Name
+            Transform nameTrans = DeepFind(go.transform, "Text Name") ?? DeepFind(go.transform, "Text PlayerName") ?? DeepFind(go.transform, "Name") ?? go.transform.Find("Name");
+            if (nameTrans != null)
+            {
+                Text t = nameTrans.GetComponent<Text>();
+                if (t != null) t.text = p.playerName;
+            }
+
+            // 3. Chips
+            Transform chipsTrans = DeepFind(go.transform, "Text Chips") ?? DeepFind(go.transform, "Chips") ?? go.transform.Find("Chips");
+            if (chipsTrans != null)
+            {
+                Text t = chipsTrans.GetComponent<Text>();
+                if (t != null) t.text = p.chips.ToString();
+            }
+
+            // 4. Rebuys
+            Transform rebuysTrans = DeepFind(go.transform, "Text Rebuys") ?? DeepFind(go.transform, "Rebuys") ?? DeepFind(go.transform, "RebuyCount") ?? go.transform.Find("Rebuys");
+            if (rebuysTrans != null)
+            {
+                Text t = rebuysTrans.GetComponent<Text>();
+                if (t != null) t.text = p.rebuyCount.ToString();
+            }
+
+            // 5. Profit
+            Transform profitTrans = DeepFind(go.transform, "Text Profit") ?? DeepFind(go.transform, "Profit") ?? go.transform.Find("Profit");
+            if (profitTrans != null)
+            {
+                Text t = profitTrans.GetComponent<Text>();
+                if (t != null)
+                {
+                    int profit = p.chips - 1000 * (p.rebuyCount + 1);
+                    t.text = (profit >= 0 ? "+" : "") + profit.ToString();
+                }
+            }
+
+            // 6. Avatar
+            Transform avatarTrans = DeepFind(go.transform, "RawImage Steam Avatar") ?? DeepFind(go.transform, "RawImage Avatar") ?? DeepFind(go.transform, "RawImage") ?? go.transform.Find("RawImage");
+            if (avatarTrans != null)
+            {
+                RawImage img = avatarTrans.GetComponent<RawImage>();
+                if (img != null)
+                {
+                    if (p.steamId == 0)
+                    {
+                        if (allBotAvatars != null && p.botAvatarID >= 0 && p.botAvatarID < allBotAvatars.Length && allBotAvatars[p.botAvatarID] != null)
+                        {
+                            img.texture = allBotAvatars[p.botAvatarID];
+                        }
+                        else
+                        {
+                            img.texture = botDefaultAvatar;
+                        }
+                    }
+                    else
+                    {
+                        Texture2D tex = GetSteamAvatar(p.steamId);
+                        if (tex != null) img.texture = tex;
+                    }
+                }
+            }
+        }
+    }
+
+    public void RefreshHalftimeStatsWindow()
+    {
+        if (halftimeStatsContainer == null || halftimeStatsItemPrefab == null) return;
+
+        // Clear existing items
+        for (int i = halftimeStatsContainer.childCount - 1; i >= 0; i--)
+        {
+            Transform child = halftimeStatsContainer.GetChild(i);
+            child.SetParent(null);
+            Destroy(child.gameObject);
+        }
+
+        // Get and sort players by profit
+        PokerPlayer[] players = FindObjectsOfType<PokerPlayer>();
+        System.Array.Sort(players, (a, b) =>
+        {
+            int profitA = a.chips - 1000 * (a.rebuyCount + 1);
+            int profitB = b.chips - 1000 * (b.rebuyCount + 1);
+            return profitB.CompareTo(profitA); // Descending order
+        });
+
+        // Instantiate items
+        for (int i = 0; i < players.Length; i++)
+        {
+            PokerPlayer p = players[i];
+            if (p == null) continue;
+
+            GameObject go = Instantiate(halftimeStatsItemPrefab, halftimeStatsContainer);
+
+            // 1. Rank
+            Transform rankTrans = DeepFind(go.transform, "Text Rank") ?? DeepFind(go.transform, "Text Ranking") ?? DeepFind(go.transform, "Rank") ?? go.transform.Find("Rank");
+            if (rankTrans != null)
+            {
+                Text t = rankTrans.GetComponent<Text>();
+                if (t != null) t.text = (i + 1).ToString();
+            }
+
+            // 2. Name
+            Transform nameTrans = DeepFind(go.transform, "Text Name") ?? DeepFind(go.transform, "Text PlayerName") ?? DeepFind(go.transform, "Name") ?? go.transform.Find("Name");
+            if (nameTrans != null)
+            {
+                Text t = nameTrans.GetComponent<Text>();
+                if (t != null) t.text = p.playerName;
+            }
+
+            // 3. Chips
+            Transform chipsTrans = DeepFind(go.transform, "Text Chips") ?? DeepFind(go.transform, "Chips") ?? go.transform.Find("Chips");
+            if (chipsTrans != null)
+            {
+                Text t = chipsTrans.GetComponent<Text>();
+                if (t != null) t.text = p.chips.ToString();
+            }
+
+            // 4. Rebuys
+            Transform rebuysTrans = DeepFind(go.transform, "Text Rebuys") ?? DeepFind(go.transform, "Rebuys") ?? DeepFind(go.transform, "RebuyCount") ?? go.transform.Find("Rebuys");
+            if (rebuysTrans != null)
+            {
+                Text t = rebuysTrans.GetComponent<Text>();
+                if (t != null) t.text = p.rebuyCount.ToString();
+            }
+
+            // 5. Profit
+            Transform profitTrans = DeepFind(go.transform, "Text Profit") ?? DeepFind(go.transform, "Profit") ?? go.transform.Find("Profit");
+            if (profitTrans != null)
+            {
+                Text t = profitTrans.GetComponent<Text>();
+                if (t != null)
+                {
+                    int profit = p.chips - 1000 * (p.rebuyCount + 1);
+                    t.text = (profit >= 0 ? "+" : "") + profit.ToString();
+                }
+            }
+
+            // 6. Avatar
+            Transform avatarTrans = DeepFind(go.transform, "RawImage Steam Avatar") ?? DeepFind(go.transform, "RawImage Avatar") ?? DeepFind(go.transform, "RawImage") ?? go.transform.Find("RawImage");
+            if (avatarTrans != null)
+            {
+                RawImage img = avatarTrans.GetComponent<RawImage>();
+                if (img != null)
+                {
+                    if (p.steamId == 0)
+                    {
+                        if (allBotAvatars != null && p.botAvatarID >= 0 && p.botAvatarID < allBotAvatars.Length && allBotAvatars[p.botAvatarID] != null)
+                        {
+                            img.texture = allBotAvatars[p.botAvatarID];
+                        }
+                        else
+                        {
+                            img.texture = botDefaultAvatar;
+                        }
+                    }
+                    else
+                    {
+                        Texture2D tex = GetSteamAvatar(p.steamId);
+                        if (tex != null) img.texture = tex;
+                    }
+                }
+            }
+        }
     }
 
     public void ClearArea(Transform area)
@@ -2773,4 +3211,30 @@ public class PokerUIManager : MonoBehaviour
     }
 
     #endregion
+
+    public void SetTrickRoomFlipped(bool flipped)
+    {
+        RectTransform targetRect = trickRoomUIRoot;
+        
+        // 智能兜底：如果没有拖入指定的节点，自动去寻找父级 Canvas 的第一个子物体
+        if (targetRect == null)
+        {
+            Canvas canvas = GetComponentInParent<Canvas>();
+            if (canvas != null && canvas.transform.childCount > 0)
+            {
+                targetRect = canvas.transform.GetChild(0).GetComponent<RectTransform>();
+            }
+        }
+
+        // 如果连 Canvas 子物体也找不到，最后用自己本身兜底
+        if (targetRect == null)
+        {
+            targetRect = GetComponent<RectTransform>();
+        }
+
+        if (targetRect != null)
+        {
+            targetRect.localScale = new Vector3(1f, flipped ? -1f : 1f, 1f);
+        }
+    }
 }
