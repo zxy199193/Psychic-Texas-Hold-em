@@ -363,6 +363,7 @@ public class PokerPlayer : NetworkBehaviour
         trinketDatabase.Add(13, new BeastClawTrinket());
         trinketDatabase.Add(14, new BatteryTrinket());
         trinketDatabase.Add(15, new EyeDropsTrinket());
+        trinketDatabase.Add(16, new ArmbandTrinket());
     }
 
     public override void OnStartClient()
@@ -436,11 +437,7 @@ public class PokerPlayer : NetworkBehaviour
             return;
         }
 
-        int actualEnergyCost = skillToCast.energyCost;
-        if (skillID == 98 && equippedTrinkets.Contains(9))
-        {
-            actualEnergyCost = 0;
-        }
+        int actualEnergyCost = GetSkillCost(skillToCast);
 
         if (this.energy < actualEnergyCost)
         {
@@ -1035,8 +1032,37 @@ public class PokerPlayer : NetworkBehaviour
     public int GetResistCost(int baseCost)
     {
         int finalValue = baseCost;
+
+        // 1. 先计算袖章（ID 16）
+        if (equippedTrinkets.Contains(16))
+        {
+            if (trinketDatabase.TryGetValue(16, out BaseTrinket trinket))
+            {
+                finalValue = trinket.ModifyResistCost(finalValue, this);
+            }
+        }
+
+        // 2. 再计算除了袖章（ID 16）和斗篷（ID 5）之外的其它饰品
         foreach (int id in equippedTrinkets)
-            if (trinketDatabase.TryGetValue(id, out BaseTrinket trinket)) finalValue = trinket.ModifyResistCost(finalValue, this);
+        {
+            if (id != 16 && id != 5)
+            {
+                if (trinketDatabase.TryGetValue(id, out BaseTrinket trinket))
+                {
+                    finalValue = trinket.ModifyResistCost(finalValue, this);
+                }
+            }
+        }
+
+        // 3. 最后计算斗篷（ID 5）
+        if (equippedTrinkets.Contains(5))
+        {
+            if (trinketDatabase.TryGetValue(5, out BaseTrinket trinket))
+            {
+                finalValue = trinket.ModifyResistCost(finalValue, this);
+            }
+        }
+
         return Mathf.Max(0, finalValue);
     }
 
@@ -1103,5 +1129,74 @@ public class PokerPlayer : NetworkBehaviour
         {
             ServerGameManager.Instance.StartNextRoundFromHalftime();
         }
+    }
+
+    public bool IsMostLosingPlayer()
+    {
+        if (ServerGameManager.Instance == null) return false;
+        var players = ServerGameManager.Instance.activePlayers;
+        if (players == null || players.Count <= 1) return false;
+
+        int minProfit = int.MaxValue;
+        foreach (var p in players)
+        {
+            if (p == null) continue;
+            int profit = p.chips - (p.rebuyCount + 1) * 1000;
+            if (profit < minProfit)
+            {
+                minProfit = profit;
+            }
+        }
+
+        int myProfit = this.chips - (this.rebuyCount + 1) * 1000;
+        return myProfit == minProfit;
+    }
+
+    public int GetSkillCost(BaseSkill skill)
+    {
+        if (skill == null) return 0;
+        int finalCost = skill.energyCost;
+
+        if (skill.skillID == 98 && equippedTrinkets.Contains(9))
+        {
+            return 0;
+        }
+
+        foreach (int id in equippedTrinkets)
+        {
+            if (trinketDatabase.TryGetValue(id, out BaseTrinket trinket))
+            {
+                finalCost = trinket.ModifySkillCost(finalCost, skill, this);
+            }
+        }
+        return finalCost;
+    }
+
+    public int GetSkillCost(int skillID)
+    {
+        if (skillDatabase.TryGetValue(skillID, out BaseSkill skill))
+        {
+            return GetSkillCost(skill);
+        }
+
+        if (PokerUIManager.Instance != null && PokerUIManager.Instance.allSkillConfigs != null)
+        {
+            var config = PokerUIManager.Instance.allSkillConfigs.Find(c => c.skillID == skillID);
+            if (config != null)
+            {
+                if (skillID == 98 && equippedTrinkets.Contains(9)) return 0;
+
+                int finalCost = config.energyCost;
+                foreach (int id in equippedTrinkets)
+                {
+                    if (trinketDatabase.TryGetValue(id, out BaseTrinket trinket))
+                    {
+                        finalCost = trinket.ModifySkillCost(finalCost, null, this);
+                    }
+                }
+                return finalCost;
+            }
+        }
+        return 0;
     }
 }

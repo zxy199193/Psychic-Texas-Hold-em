@@ -1498,8 +1498,19 @@ public class PokerUIManager : MonoBehaviour
         {
             if (kvp.Key != null && kvp.Value != null) 
             {
-                int cost = kvp.Value.energyCost;
                 int skillID = kvp.Value.skillID;
+                int cost = kvp.Value.energyCost;
+                if (PokerPlayer.LocalPlayer != null)
+                {
+                    cost = PokerPlayer.LocalPlayer.GetSkillCost(skillID);
+                }
+
+                Transform costTransform = DeepFind(kvp.Key.transform, "Text Cost");
+                if (costTransform != null)
+                {
+                    SafeSetText(costTransform, cost.ToString());
+                }
+
                 bool isSkillDisabled = isOverdrafted || (skillID == 10 && isOverdraftPending);
                 if (PokerPlayer.LocalPlayer != null)
                 {
@@ -1513,7 +1524,7 @@ public class PokerUIManager : MonoBehaviour
         if (btnSensingSkill != null)
         {
             bool isAlreadySensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
-            int sensingCost = (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.equippedTrinkets.Contains(9)) ? 0 : 1;
+            int sensingCost = (PokerPlayer.LocalPlayer != null) ? PokerPlayer.LocalPlayer.GetSkillCost(98) : 1;
             btnSensingSkill.interactable = !isOverdrafted && !isAlreadySensing && (currentEnergy >= sensingCost);
 
             Transform costTrans = DeepFind(btnSensingSkill.transform, "Text Cost");

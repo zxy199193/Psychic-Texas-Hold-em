@@ -16,6 +16,7 @@ public abstract class BaseTrinket
     public virtual int ModifyInitialEnergy(int currentInit, PokerPlayer player) { return currentInit; }
     public virtual int ModifyWinEnergyBonus(int currentBonus, PokerPlayer player) { return currentBonus; }
     public virtual int ModifyInterfereRate(int currentRate, PokerPlayer player) { return currentRate; }
+    public virtual int ModifySkillCost(int currentCost, BaseSkill skill, PokerPlayer player) { return currentCost; }
 }
 
 // 1. 红宝石
@@ -114,4 +115,30 @@ public class BatteryTrinket : BaseTrinket
 public class EyeDropsTrinket : BaseTrinket
 {
     public EyeDropsTrinket() { trinketID = 15; trinketName = "眼药"; }
+}
+
+// 16. 袖章
+public class ArmbandTrinket : BaseTrinket
+{
+    public ArmbandTrinket() { trinketID = 16; trinketName = "袖章"; }
+
+    public override int ModifySkillCost(int currentCost, BaseSkill skill, PokerPlayer player)
+    {
+        if (player.IsMostLosingPlayer())
+        {
+            if (currentCost <= 1) return currentCost;
+            return Mathf.Max(1, currentCost - 2);
+        }
+        return currentCost;
+    }
+
+    public override int ModifyResistCost(int currentCost, PokerPlayer player)
+    {
+        if (player.IsMostLosingPlayer())
+        {
+            if (currentCost <= 1) return currentCost;
+            return Mathf.Max(1, currentCost - 2);
+        }
+        return currentCost;
+    }
 }

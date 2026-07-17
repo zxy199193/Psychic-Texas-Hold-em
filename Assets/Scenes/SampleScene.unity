@@ -734,6 +734,10 @@ MonoBehaviour:
     trinketName: "\u9B54\u50CF"
     icon: {fileID: 21300000, guid: 4e8fa8a996c095c4b9d3ff88c5e48e01, type: 3}
     description: "[\u8BB8\u613F]\u6548\u679C\u6539\u4E3A\u5E95\u724C\u5FC5\u5B9A\u80FD\u7EC4\u6210\u4E09\u6761\uFF0C\u4F46\u8FD9\u5C40\u65E0\u6CD5\u52A0\u6CE8"
+  - trinketID: 16
+    trinketName: "\u8896\u7AE0"
+    icon: {fileID: 21300000, guid: 394346560631b784fb68f0b4322e7ab4, type: 3}
+    description: "\u5F53\u73A9\u5BB6\u4E3A\u573A\u4E0A\u4E8F\u635F\u6700\u9AD8\u65F6\uFF0C\u6240\u6709\u6280\u80FD\u80FD\u91CF\u6D88\u8017-2\uFF08\u6700\u4F4E\u4E3A1\uFF09"
   lobbyTrinketContainer: {fileID: 39818242}
   lobbyTrinketItemPrefab: {fileID: 6658299180349496754, guid: a4714de458956d245a9dbb7959642e76, type: 3}
   maxTrinketSelection: 2
