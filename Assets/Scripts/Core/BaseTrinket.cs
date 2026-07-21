@@ -82,7 +82,7 @@ public class GlassesTrinket : BaseTrinket { public GlassesTrinket() { trinketID 
 public class TuningForkTrinket : BaseTrinket
 {
     public TuningForkTrinket() { trinketID = 7; trinketName = "音叉"; }
-    public override int ModifyInterfereRate(int currentRate, PokerPlayer player) { return 50; } // 覆盖原有的 20%
+    public override int ModifyInterfereRate(int currentRate, PokerPlayer player) { return 60; } // 覆盖原有的 25%
 }
 
 // 8. 神像 (在 ServerGameManager 中直接判断)

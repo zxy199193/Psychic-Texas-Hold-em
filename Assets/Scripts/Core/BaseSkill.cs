@@ -53,7 +53,15 @@ public class PeekSkill : BaseSkill
         Card? targetCard = null;
 
         if (type1 == 0 && target1 != null && index1 < target1.serverHand.Count)
+        {
+            if (target1.serverHoleCardsSealed || target1.IsCardSealed(index1))
+            {
+                if (caster.connectionToClient != null)
+                    caster.TargetReceiveSkillMessage(caster.connectionToClient, "底牌被封印了，透视失败！", 2);
+                return;
+            }
             targetCard = target1.serverHand[index1];
+        }
         else if (type1 == 1 && index1 < 5)
             targetCard = serverContext.futureCommunityCards[index1];
 
@@ -95,13 +103,13 @@ public class PeekSkill : BaseSkill
                 {
                     if (p != caster && p.serverHand.Count >= 2)
                     {
-                        // 【核心修复 2】：排除当前已经被主动指定透视的那个敌人的那张底牌！
-                        if (!(type1 == 0 && tNetId == p.netId && index1 == 0))
+                        // 【核心修复 2】：排除当前已经被主动指定透视的那个敌人的那张底牌！并且不能是封印的牌！
+                        if (!(type1 == 0 && tNetId == p.netId && index1 == 0) && !p.serverHoleCardsSealed && !p.IsCardSealed(0))
                         {
                             pool.Add(new RandomCardPoolInfo { type = 0, index = 0, netId = p.netId, card = p.serverHand[0] });
                         }
 
-                        if (!(type1 == 0 && tNetId == p.netId && index1 == 1))
+                        if (!(type1 == 0 && tNetId == p.netId && index1 == 1) && !p.serverHoleCardsSealed && !p.IsCardSealed(1))
                         {
                             pool.Add(new RandomCardPoolInfo { type = 0, index = 1, netId = p.netId, card = p.serverHand[1] });
                         }
@@ -139,6 +147,12 @@ public class SwapSkill : BaseSkill
         Card oldCard = default;
         if (targetType == 0 && target != null && targetIndex >= 0 && targetIndex < target.serverHand.Count)
         {
+            if (target.serverHoleCardsSealed || target.IsCardSealed(targetIndex))
+            {
+                if (caster.connectionToClient != null)
+                    caster.TargetReceiveSkillMessage(caster.connectionToClient, "底牌被封印了，变牌失败！", this.skillID);
+                return;
+            }
             oldCard = target.serverHand[targetIndex];
         }
         else if (targetType == 1 && targetIndex >= 0 && targetIndex < 5)
@@ -232,7 +246,7 @@ public class InterfereSkill : BaseSkill
     {
         if (target1 == null) return;
 
-        int rateToAdd = caster.GetInterfereRate(30);
+        int rateToAdd = caster.GetInterfereRate(35);
         target1.interferenceRate += rateToAdd;
 
         if (caster.connectionToClient != null)
@@ -306,6 +320,20 @@ public class ExchangeSkill : BaseSkill
                 if (p.netId == netId2) { target2 = p; break; }
             }
             if (target2 == null) return;
+        }
+
+        if (type1 == 0 && target1 != null && (target1.serverHoleCardsSealed || target1.IsCardSealed(index1)))
+        {
+            if (caster.connectionToClient != null)
+                caster.TargetReceiveSkillMessage(caster.connectionToClient, "目标1被封印了，交换失败！", this.skillID);
+            return;
+        }
+
+        if (type2 == 0 && target2 != null && (target2.serverHoleCardsSealed || target2.IsCardSealed(index2)))
+        {
+            if (caster.connectionToClient != null)
+                caster.TargetReceiveSkillMessage(caster.connectionToClient, "目标2被封印了，交换失败！", this.skillID);
+            return;
         }
 
         Card? card1Nullable = GetCard(target1, type1, index1, serverContext);
@@ -497,27 +525,40 @@ public class SealSkill : BaseSkill
     {
         skillID = 12;
         skillName = "封印";
-        energyCost = 1;
-        castTime = 2f;
-    }
-
-    public override bool IsSelfTargeted => true;
-    public override bool CanBeResisted => false;
-    public override bool CanBeReflected => false;
-
-    public override bool CanCast(PokerPlayer caster)
-    {
-        if (caster.serverNextHandSealed) return false;
-        return base.CanCast(caster);
+        energyCost = 3;
+        castTime = 4f;
     }
 
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
-        caster.serverNextHandSealed = true;
-        serverContext.RpcAddGameLog($"[{caster.playerName}]使用了[封印]技能！下一局生效。", 3);
-        if (caster.connectionToClient != null)
+        if (targetType != 0 || target == null || targetIndex < 0 || targetIndex >= target.serverHand.Count)
         {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "封印成功！下一局你将无法看到底牌。", this.skillID);
+            if (caster.connectionToClient != null)
+            {
+                caster.TargetReceiveSkillMessage(caster.connectionToClient, "无效的目标！只能封印底牌。", this.skillID);
+            }
+            return;
+        }
+
+        if (targetIndex == 0)
+        {
+            target.serverCard0Sealed = true;
+        }
+        else if (targetIndex == 1)
+        {
+            target.serverCard1Sealed = true;
+        }
+
+        serverContext.NotifyCardSealed(0, targetIndex, target.netId);
+        serverContext.RpcAddGameLog($"[{caster.playerName}]对[{target.playerName}]的第{targetIndex + 1}张底牌使用了[封印]！该牌进入封印且受保护状态。", 3);
+
+        if (target.connectionToClient != null)
+        {
+            target.TargetReceiveSkillMessage(target.connectionToClient, $"你的第{targetIndex + 1}张底牌被封印了！无法查看且不受任何技能影响。", this.skillID);
+        }
+        if (caster.connectionToClient != null && caster != target)
+        {
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功封印了[{target.playerName}]的第{targetIndex + 1}张底牌！", this.skillID);
         }
     }
 }
@@ -580,17 +621,25 @@ public class TrickRoomSkill : BaseSkill
     {
         skillID = 14;
         skillName = "戏法空间";
-        energyCost = 5;
-        castTime = 3f;
+        energyCost = 2;
+        castTime = 2f;
     }
-
-    public override bool IsSelfTargeted => true;
-    public override bool CanBeResisted => false;
-    public override bool CanBeReflected => false;
 
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
-        serverContext.ToggleTrickRoom();
+        if (target == null) return;
+
+        target.serverIsTrickRoomFlipped = !target.serverIsTrickRoomFlipped;
+
+        serverContext.RpcAddGameLog($"[{caster.playerName}]对[{target.playerName}]使用了[戏法空间]！", 3);
+        if (target.connectionToClient != null)
+        {
+            target.TargetReceiveSkillMessage(target.connectionToClient, target.serverIsTrickRoomFlipped ? "戏法空间启动！你的画面颠倒了！" : "戏法空间解除！你的画面恢复了正常！", this.skillID);
+        }
+        if (caster.connectionToClient != null && caster != target)
+        {
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功对[{target.playerName}]发动戏法空间！", this.skillID);
+        }
     }
 }
 
@@ -600,7 +649,7 @@ public class InspirationSkill : BaseSkill
     {
         skillID = 15;
         skillName = "灵机";
-        energyCost = 1;
+        energyCost = 0;
         castTime = 2f;
     }
 
@@ -633,6 +682,68 @@ public class InspirationSkill : BaseSkill
                     caster.TargetReceiveSkillMessage(caster.connectionToClient, $"【灵机】一动！技能变成了【{newSkillName}】！", 15);
                 }
             }
+        }
+    }
+}
+
+public class GravityFieldSkill : BaseSkill
+{
+    public GravityFieldSkill()
+    {
+        skillID = 16;
+        skillName = "重力场";
+        energyCost = 5;
+        castTime = 4f;
+    }
+
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
+
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
+    {
+        if (serverContext == null) return;
+
+        serverContext.serverIsGravityFieldActive = true;
+        serverContext.RpcAddGameLog($"【重力场】被 [{caster.playerName}] 启动了！这局游戏内当前能量最高的玩家所有技能与抵抗能耗+2！", 3);
+    }
+}
+
+public class ShackleSkill : BaseSkill
+{
+    public ShackleSkill()
+    {
+        skillID = 17;
+        skillName = "枷锁";
+        energyCost = 3;
+        castTime = 3f;
+    }
+
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
+    {
+        if (target == null) return;
+
+        if (target.serverIsShackled)
+        {
+            serverContext.RpcAddGameLog($"[{caster.playerName}] 对 [{target.playerName}] 使用了 [枷锁]，但是 [{target.playerName}] 已经戴有枷锁，技能未产生额外效果！", 3);
+            if (caster.connectionToClient != null)
+            {
+                caster.TargetReceiveSkillMessage(caster.connectionToClient, $"[{target.playerName}] 身上已存有枷锁，本次施法无效！", this.skillID);
+            }
+            return;
+        }
+
+        target.serverIsShackled = true;
+        target.serverShackledSkillCount = 0;
+
+        serverContext.RpcAddGameLog($"[{caster.playerName}] 对 [{target.playerName}] 使用了 [枷锁]！本局内其技能与抵抗限制为最多3次！", 3);
+        if (target.connectionToClient != null)
+        {
+            target.TargetReceiveSkillMessage(target.connectionToClient, "你被枷锁束缚了！本局最多只能使用（含抵抗）3次技能！", this.skillID);
+        }
+        if (caster.connectionToClient != null)
+        {
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功对 [{target.playerName}] 施加了枷锁！", this.skillID);
         }
     }
 }

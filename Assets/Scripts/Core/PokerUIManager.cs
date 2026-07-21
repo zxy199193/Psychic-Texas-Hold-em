@@ -1492,6 +1492,8 @@ public class PokerUIManager : MonoBehaviour
     public void RefreshSkillButtonsState(int currentEnergy)
     {
         bool isOverdrafted = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.overdraftTurnsRemaining > 0;
+        bool isShackledSilenced = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.IsShacklesSilenced;
+        bool isSilenced = isOverdrafted || isShackledSilenced;
         bool isOverdraftPending = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.overdraftPending;
 
         foreach (var kvp in activeDynamicSkillButtons)
@@ -1511,7 +1513,7 @@ public class PokerUIManager : MonoBehaviour
                     SafeSetText(costTransform, cost.ToString());
                 }
 
-                bool isSkillDisabled = isOverdrafted || (skillID == 10 && isOverdraftPending);
+                bool isSkillDisabled = isSilenced || (skillID == 10 && isOverdraftPending);
                 if (PokerPlayer.LocalPlayer != null)
                 {
                     if (skillID == 6 && PokerPlayer.LocalPlayer.serverHasWishBuff) isSkillDisabled = true;
@@ -1525,7 +1527,7 @@ public class PokerUIManager : MonoBehaviour
         {
             bool isAlreadySensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
             int sensingCost = (PokerPlayer.LocalPlayer != null) ? PokerPlayer.LocalPlayer.GetSkillCost(98) : 1;
-            btnSensingSkill.interactable = !isOverdrafted && !isAlreadySensing && (currentEnergy >= sensingCost);
+            btnSensingSkill.interactable = !isSilenced && !isAlreadySensing && (currentEnergy >= sensingCost);
 
             Transform costTrans = DeepFind(btnSensingSkill.transform, "Text Cost");
             if (costTrans == null) costTrans = btnSensingSkill.transform.Find("Text Cost");
@@ -1588,7 +1590,8 @@ public class PokerUIManager : MonoBehaviour
         if (btnResistSkill != null)
         {
             bool isOverdrafted = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.overdraftTurnsRemaining > 0;
-            bool finalCanResist = canResist && !isOverdrafted;
+            bool isShackledSilenced = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.IsShacklesSilenced;
+            bool finalCanResist = canResist && !isOverdrafted && !isShackledSilenced;
             btnResistSkill.interactable = finalCanResist;
             if (txtResistCost != null) txtResistCost.text = finalCanResist ? resistCost.ToString() : "X";
 
@@ -1782,6 +1785,18 @@ public class PokerUIManager : MonoBehaviour
             }
         }
         else if (skillID == 11)
+        {
+            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
+        }
+        else if (skillID == 12)
+        {
+            if (c.targetType == 0) return true;
+        }
+        else if (skillID == 14)
+        {
+            if (c.targetType == 0) return true;
+        }
+        else if (skillID == 17)
         {
             if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
         }
@@ -2844,7 +2859,7 @@ public class PokerUIManager : MonoBehaviour
         // 只有当翻出的有效公共牌数量 >= 3 且拥有 2 张手牌时才进行计算和显示
         if (validCommunity.Count >= 3 && localHoleCards.Count == 2)
         {
-            if (isCurrentlyBlurred || PokerPlayer.LocalPlayer.serverHoleCardsSealed)
+            if (isCurrentlyBlurred || PokerPlayer.LocalPlayer.serverHoleCardsSealed || PokerPlayer.LocalPlayer.serverCard0Sealed || PokerPlayer.LocalPlayer.serverCard1Sealed)
             {
                 SetTextAndRebuildLayout(maxHandTypeText, "当前牌型：???");
                 currentHandScore = -1; // 重置以便解除模糊后能重新更新
@@ -3246,6 +3261,43 @@ public class PokerUIManager : MonoBehaviour
         if (targetRect != null)
         {
             targetRect.localScale = new Vector3(1f, flipped ? -1f : 1f, 1f);
+        }
+    }
+
+    public void SetMyCardSealState(int targetIndex, bool sealedState)
+    {
+        CardTarget targetObj = FindSpecificCardTarget(0, targetIndex, PokerPlayer.LocalPlayer.netId);
+        if (targetObj != null)
+        {
+            CardView cv = targetObj.GetComponent<CardView>();
+            if (cv != null)
+            {
+                if (sealedState)
+                {
+                    cv.ShowBack();
+                }
+                else
+                {
+                    if (targetIndex >= 0 && targetIndex < localHoleCards.Count)
+                    {
+                        cv.SetCard(localHoleCards[targetIndex], true);
+                    }
+                }
+            }
+        }
+        UpdateMaxHandTypeTip(forceUpdate: true);
+    }
+
+    public void HideSpecificCardPeek(int targetType, int targetIndex, uint ownerNetId)
+    {
+        CardTarget targetObj = FindSpecificCardTarget(targetType, targetIndex, ownerNetId);
+        if (targetObj != null)
+        {
+            CardView cv = targetObj.GetComponent<CardView>();
+            if (cv != null)
+            {
+                cv.ShowBack();
+            }
         }
     }
 }

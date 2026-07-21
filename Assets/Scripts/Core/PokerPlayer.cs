@@ -79,9 +79,14 @@ public class PokerPlayer : NetworkBehaviour
 
     [SyncVar] public bool serverNextHandSealed = false;
     [SyncVar] public bool serverHoleCardsSealed = false;
+    [SyncVar(hook = nameof(OnCard0SealedChanged))] public bool serverCard0Sealed = false;
+    [SyncVar(hook = nameof(OnCard1SealedChanged))] public bool serverCard1Sealed = false;
     [SyncVar] public bool serverGolemActiveThisHand = false;
     [SyncVar] public bool serverIsHosted = false;
     [SyncVar] public bool serverMedalBuffActive = false;
+    [SyncVar(hook = nameof(OnTrickRoomFlippedChanged))] public bool serverIsTrickRoomFlipped = false;
+    [SyncVar(hook = nameof(OnShackledChanged))] public bool serverIsShackled = false;
+    [SyncVar(hook = nameof(OnShackledSkillCountChanged))] public int serverShackledSkillCount = 0;
 
     [Command]
     public void CmdSetFillBots(bool value)
@@ -347,6 +352,8 @@ public class PokerPlayer : NetworkBehaviour
         skillDatabase.Add(13, new ResonanceSkill());
         skillDatabase.Add(14, new TrickRoomSkill());
         skillDatabase.Add(15, new InspirationSkill());
+        skillDatabase.Add(16, new GravityFieldSkill());
+        skillDatabase.Add(17, new ShackleSkill());
 
         trinketDatabase.Add(1, new RedGemTrinket());
         trinketDatabase.Add(2, new BlueGemTrinket());
@@ -379,6 +386,86 @@ public class PokerPlayer : NetworkBehaviour
             PokerUIManager.Instance.GenerateInGameSkillBar();
             PokerUIManager.Instance.RefreshSkillButtonsState(this.energy);
         }
+    }
+
+    private void OnCard0SealedChanged(bool oldVal, bool newVal)
+    {
+        if (isLocalPlayer && PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.SetMyCardSealState(0, newVal);
+        }
+    }
+
+    private void OnCard1SealedChanged(bool oldVal, bool newVal)
+    {
+        if (isLocalPlayer && PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.SetMyCardSealState(1, newVal);
+        }
+    }
+
+    private void OnTrickRoomFlippedChanged(bool oldVal, bool newVal)
+    {
+        if (isLocalPlayer && PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.SetTrickRoomFlipped(newVal);
+        }
+    }
+
+    private void OnShackledChanged(bool oldVal, bool newVal)
+    {
+        if (isLocalPlayer && PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.RefreshSkillButtonsState(this.energy);
+        }
+    }
+
+    private void OnShackledSkillCountChanged(int oldVal, int newVal)
+    {
+        if (isLocalPlayer && PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.RefreshSkillButtonsState(this.energy);
+        }
+    }
+
+    public bool IsShacklesSilenced => serverIsShackled && serverShackledSkillCount >= 3;
+
+    [TargetRpc]
+    public void TargetCancelPeek(NetworkConnectionToClient targetConn, int targetType, int targetIndex, uint ownerNetId)
+    {
+        if (PokerUIManager.Instance != null)
+        {
+            PokerUIManager.Instance.HideSpecificCardPeek(targetType, targetIndex, ownerNetId);
+        }
+    }
+
+    public bool IsCardSealed(int index)
+    {
+        if (index == 0) return serverCard0Sealed;
+        if (index == 1) return serverCard1Sealed;
+        return false;
+    }
+
+    public bool IsGravityFieldDebuffed()
+    {
+        if (ServerGameManager.Instance == null || !ServerGameManager.Instance.serverIsGravityFieldActive)
+        {
+            return false;
+        }
+
+        var players = ServerGameManager.Instance.activePlayers;
+        if (players == null || players.Count == 0) return false;
+
+        int maxEnergy = -1;
+        foreach (var p in players)
+        {
+            if (p != null && p.energy > maxEnergy)
+            {
+                maxEnergy = p.energy;
+            }
+        }
+
+        return this.energy == maxEnergy;
     }
 
     public override void OnStopServer()
@@ -416,6 +503,11 @@ public class PokerPlayer : NetworkBehaviour
     public void ServerCastSkill(int skillID, uint targetNetId, int targetType, int targetIndex)
     {
         if (overdraftTurnsRemaining > 0) return;
+        if (IsShacklesSilenced)
+        {
+            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "你已被枷锁束缚，本局无法再使用技能！", 0);
+            return;
+        }
         if (!skillDatabase.ContainsKey(skillID)) return;
 
         if (!equippedSkills.Contains(skillID) && skillID != 98)
@@ -431,11 +523,7 @@ public class PokerPlayer : NetworkBehaviour
             if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "本轮已许过愿，无法重复使用！", 0);
             return;
         }
-        if (skillID == 12 && this.serverNextHandSealed)
-        {
-            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "本轮已使用封印，无法重复使用！", 0);
-            return;
-        }
+
 
         int actualEnergyCost = GetSkillCost(skillToCast);
 
@@ -473,28 +561,30 @@ public class PokerPlayer : NetworkBehaviour
         // ==========================================
         // 【封印检测拦截】：检测目标底牌是否被封印
         // ==========================================
-        if ((skillID == 2 || skillID == 3) && targetType == 0 && targetPlayer != null && targetPlayer.serverHoleCardsSealed)
+        if (skillID == 12 && targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
         {
-            this.energy -= actualEnergyCost;
+            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "该底牌已经被封印，无需重复封印！", 0);
+            return;
+        }
+
+        if ((skillID == 2 || skillID == 3) && targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
+        {
             if (this.connectionToClient != null)
             {
                 TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 99);
             }
-            this.energy += actualEnergyCost;
             return;
         }
 
         if (skillID == 7) // 交换技能有双目标，需要额外检查目标 1 和目标 2
         {
             // 检查目标 1 是否被封印
-            if (targetType == 0 && targetPlayer != null && targetPlayer.serverHoleCardsSealed)
+            if (targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
             {
-                this.energy -= actualEnergyCost;
                 if (this.connectionToClient != null)
                 {
                     TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 99);
                 }
-                this.energy += actualEnergyCost;
                 return;
             }
 
@@ -504,14 +594,12 @@ public class PokerPlayer : NetworkBehaviour
             {
                 targetPlayer2 = targetIdentity2.GetComponent<PokerPlayer>();
             }
-            if (targetPlayer2 != null && targetPlayer2.serverHoleCardsSealed)
+            if (targetPlayer2 != null && (targetPlayer2.serverHoleCardsSealed || targetPlayer2.IsCardSealed(this.dualTargetIndex)))
             {
-                this.energy -= actualEnergyCost;
                 if (this.connectionToClient != null)
                 {
                     TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 99);
                 }
-                this.energy += actualEnergyCost;
                 return;
             }
         }
@@ -528,6 +616,10 @@ public class PokerPlayer : NetworkBehaviour
 
         this.energy -= actualEnergyCost;
         currentCastingEnergyCost = actualEnergyCost;
+        if (serverIsShackled)
+        {
+            serverShackledSkillCount++;
+        }
 
         // 【核心修复】：传入真实饰品计算后的读条时间
         float actualCastTime = GetCastTime(skillToCast.castTime);
@@ -758,11 +850,21 @@ public class PokerPlayer : NetworkBehaviour
     public void ServerResist()
     {
         if (overdraftTurnsRemaining > 0) return;
+        if (IsShacklesSilenced)
+        {
+            if (this.connectionToClient != null)
+                TargetReceiveSkillMessage(this.connectionToClient, "你已被枷锁束缚，无法使用抵抗！", 99);
+            return;
+        }
         if (incomingAttacker != null && incomingAttacker.isCasting)
         {
             if (this.energy >= incomingResistCost)
             {
                 this.energy -= incomingResistCost;
+                if (serverIsShackled)
+                {
+                    serverShackledSkillCount++;
+                }
                 incomingAttacker.InterruptBy(this);
                 incomingAttacker = null;
             }
@@ -1063,6 +1165,12 @@ public class PokerPlayer : NetworkBehaviour
             }
         }
 
+        // 4. 重力场效果
+        if (IsGravityFieldDebuffed())
+        {
+            finalValue += 2;
+        }
+
         return Mathf.Max(0, finalValue);
     }
 
@@ -1169,6 +1277,10 @@ public class PokerPlayer : NetworkBehaviour
                 finalCost = trinket.ModifySkillCost(finalCost, skill, this);
             }
         }
+        if (IsGravityFieldDebuffed())
+        {
+            finalCost += 2;
+        }
         return finalCost;
     }
 
@@ -1193,6 +1305,10 @@ public class PokerPlayer : NetworkBehaviour
                     {
                         finalCost = trinket.ModifySkillCost(finalCost, null, this);
                     }
+                }
+                if (IsGravityFieldDebuffed())
+                {
+                    finalCost += 2;
                 }
                 return finalCost;
             }

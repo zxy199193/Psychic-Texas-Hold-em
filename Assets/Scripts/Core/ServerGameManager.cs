@@ -12,7 +12,9 @@ public class ServerGameManager : NetworkBehaviour
 
     [Header("服务器运行状态 (仅方便在面板查看)")]
     [SyncVar] public GamePhase currentPhase = GamePhase.Idle;
-    [SyncVar] public bool serverIsTrickRoomActive = false;
+
+    [SyncVar] public bool serverIsGravityFieldActive = false;
+
     [Header("下注与回合管理 (同步变量)")]
     public readonly SyncList<int> syncPotAmounts = new SyncList<int>(); // 全网同步的各池金额（[0]是主池，[1]是边池1...）
     
@@ -161,9 +163,14 @@ public class ServerGameManager : NetworkBehaviour
                 p.overdraftPending = false;
                 p.serverNextHandSealed = false;
                 p.serverHoleCardsSealed = false;
+                p.serverCard0Sealed = false;
+                p.serverCard1Sealed = false;
                 p.serverGolemActiveThisHand = false;
                 p.serverIsHosted = false;
                 p.serverMedalBuffActive = false;
+                p.serverIsTrickRoomFlipped = false;
+                p.serverIsShackled = false;
+                p.serverShackledSkillCount = 0;
                 p.serverHand.Clear();
             }
         }
@@ -230,12 +237,9 @@ public class ServerGameManager : NetworkBehaviour
     [Server]
     public void StartNewHand()
     {
-        if (serverIsTrickRoomActive)
-        {
-            serverIsTrickRoomActive = false;
-            RpcSetTrickRoomState(false);
-        }
 
+
+        serverIsGravityFieldActive = false;
         Debug.Log("--- 服务器：牌局开始，正在洗牌 ---");
         currentPhase = GamePhase.PreFlop;
         serverCommunityCards.Clear();
@@ -365,6 +369,11 @@ public class ServerGameManager : NetworkBehaviour
             p.serverHasReflectWall = false;
             p.serverIsMindControlled = false;
             p.serverActivePeeks.Clear();
+            p.serverCard0Sealed = false;
+            p.serverCard1Sealed = false;
+            p.serverIsTrickRoomFlipped = false;
+            p.serverIsShackled = false;
+            p.serverShackledSkillCount = 0;
 
             if (p.serverNextHandSealed)
             {
@@ -710,8 +719,10 @@ public class ServerGameManager : NetworkBehaviour
             // 直接把完整的 score 分数传进去，让翻译官自己去拆解！
             string professionalName = GetProfessionalHandName(finalHand.rank.ToString(), finalHand.score);
 
-            p.RpcRevealHoleCards(p.serverHand[0], p.serverHand[1], professionalName, isWinner, p.serverHoleCardsSealed);
+            p.RpcRevealHoleCards(p.serverHand[0], p.serverHand[1], professionalName, isWinner, p.serverHoleCardsSealed || p.serverCard0Sealed || p.serverCard1Sealed);
             p.serverHoleCardsSealed = false;
+            p.serverCard0Sealed = false;
+            p.serverCard1Sealed = false;
 
             if (isWinner)
             {
@@ -1483,22 +1494,7 @@ public class ServerGameManager : NetworkBehaviour
         }
     }
 
-    [Server]
-    public void ToggleTrickRoom()
-    {
-        serverIsTrickRoomActive = !serverIsTrickRoomActive;
-        RpcSetTrickRoomState(serverIsTrickRoomActive);
-        RpcAddGameLog(serverIsTrickRoomActive ? "【戏法空间】已启动！上下颠倒！" : "【戏法空间】已被解除，恢复正常。", 3);
-    }
 
-    [ClientRpc]
-    public void RpcSetTrickRoomState(bool active)
-    {
-        if (PokerUIManager.Instance != null)
-        {
-            PokerUIManager.Instance.SetTrickRoomFlipped(active);
-        }
-    }
 
     private Dictionary<ulong, int> disconnectedPlayersChips = new Dictionary<ulong, int>();
 
@@ -1518,5 +1514,40 @@ public class ServerGameManager : NetworkBehaviour
             return chips;
         }
         return 0;
+    }
+
+    [Server]
+    public void NotifyCardSealed(int targetType, int targetIndex, uint ownerNetId)
+    {
+        foreach (var p in activePlayers)
+        {
+            if (p == null || p.connectionToClient == null) continue;
+
+            for (int i = p.serverActivePeeks.Count - 1; i >= 0; i--)
+            {
+                var info = p.serverActivePeeks[i];
+                if (Time.time >= info.expireTime)
+                {
+                    p.serverActivePeeks.RemoveAt(i);
+                    continue;
+                }
+
+                bool isMatch = false;
+                if (targetType == 1 && info.type == 1 && info.index == targetIndex)
+                {
+                    isMatch = true;
+                }
+                else if (targetType == 0 && info.type == 0 && info.index == targetIndex && info.ownerNetId == ownerNetId)
+                {
+                    isMatch = true;
+                }
+
+                if (isMatch)
+                {
+                    p.serverActivePeeks.RemoveAt(i);
+                    p.TargetCancelPeek(p.connectionToClient, targetType, targetIndex, ownerNetId);
+                }
+            }
+        }
     }
 }
