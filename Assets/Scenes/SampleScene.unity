@@ -5253,12 +5253,12 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   loopType: 0
-  loops: 1
+  loops: -1
   id: 
   isRelative: 0
   isFrom: 0
-  isIndependentUpdate: 0
-  autoKill: 1
+  isIndependentUpdate: 1
+  autoKill: 0
   autoGenerate: 1
   isActive: 1
   isValid: 1

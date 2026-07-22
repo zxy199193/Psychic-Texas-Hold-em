@@ -87,6 +87,7 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar(hook = nameof(OnTrickRoomFlippedChanged))] public bool serverIsTrickRoomFlipped = false;
     [SyncVar(hook = nameof(OnShackledChanged))] public bool serverIsShackled = false;
     [SyncVar(hook = nameof(OnShackledSkillCountChanged))] public int serverShackledSkillCount = 0;
+    [SyncVar] public bool serverArmbandActive = false;
 
     [Command]
     public void CmdSetFillBots(bool value)
@@ -135,6 +136,7 @@ public class PokerPlayer : NetworkBehaviour
     {
         // 玩家生成时自动获取一次，终身受用！(如果是真人玩家，这里就是 null)
         myBotBrain = GetComponent<PokerBot>();
+        InitializeDatabases();
     }
 
     private void OnDestroy()
@@ -330,13 +332,10 @@ public class PokerPlayer : NetworkBehaviour
     // 技能与饰品内核注册
     // ==========================================
 
-    public override void OnStartServer()
+    private void InitializeDatabases()
     {
-        base.OnStartServer();
-        if (connectionToClient == null || connectionToClient.connectionId == 0)
-        {
-            isRoomHost = true;
-        }
+        if (skillDatabase.Count > 0) return;
+
         skillDatabase.Add(98, new SensingSkill());
         skillDatabase.Add(2, new PeekSkill());
         skillDatabase.Add(3, new SwapSkill());
@@ -371,6 +370,15 @@ public class PokerPlayer : NetworkBehaviour
         trinketDatabase.Add(14, new BatteryTrinket());
         trinketDatabase.Add(15, new EyeDropsTrinket());
         trinketDatabase.Add(16, new ArmbandTrinket());
+    }
+
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        if (connectionToClient == null || connectionToClient.connectionId == 0)
+        {
+            isRoomHost = true;
+        }
     }
 
     public override void OnStartClient()
@@ -1241,23 +1249,7 @@ public class PokerPlayer : NetworkBehaviour
 
     public bool IsMostLosingPlayer()
     {
-        if (ServerGameManager.Instance == null) return false;
-        var players = ServerGameManager.Instance.activePlayers;
-        if (players == null || players.Count <= 1) return false;
-
-        int minProfit = int.MaxValue;
-        foreach (var p in players)
-        {
-            if (p == null) continue;
-            int profit = p.chips - (p.rebuyCount + 1) * 1000;
-            if (profit < minProfit)
-            {
-                minProfit = profit;
-            }
-        }
-
-        int myProfit = this.chips - (this.rebuyCount + 1) * 1000;
-        return myProfit == minProfit;
+        return serverArmbandActive;
     }
 
     public int GetSkillCost(BaseSkill skill)

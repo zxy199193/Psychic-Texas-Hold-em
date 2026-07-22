@@ -294,6 +294,27 @@ public class ServerGameManager : NetworkBehaviour
                 RpcAddGameLog($"[{p.playerName}]筹码耗尽，已自动重新买入1000筹码！", 2);
             }
         }
+
+        // 计算并锁定本局的“输最多玩家”（用于袖章饰品效果）
+        int minProfit = int.MaxValue;
+        foreach (var p in activePlayers)
+        {
+            if (p == null) continue;
+            int profit = p.chips - (p.rebuyCount + 1) * 1000;
+            if (profit < minProfit)
+            {
+                minProfit = profit;
+            }
+        }
+        foreach (var p in activePlayers)
+        {
+            if (p != null)
+            {
+                int myProfit = p.chips - (p.rebuyCount + 1) * 1000;
+                p.serverArmbandActive = (myProfit == minProfit);
+            }
+        }
+
         // ==========================================
         // 第一步：先遍历所有人，重置状态、加能量、发牌
         // ==========================================
@@ -345,7 +366,7 @@ public class ServerGameManager : NetworkBehaviour
             }
 
             // 【王冠起效】：自动回蓝与初始蓝量被覆盖
-            if (isFirstHand) p.energy = playerInit;
+            if (isFirstHand) p.energy = Mathf.Clamp(playerInit, 0, playerMaxEnergy);
             else
             {
                 if (p.serverMedalBuffActive && p.equippedTrinkets.Contains(3))
@@ -606,7 +627,7 @@ public class ServerGameManager : NetworkBehaviour
             winner.chips += totalWin;
             if (totalWin > 0)
             {
-                RpcPlayWinChipsAnimation(winner.netId, totalWin);
+                RpcPlayWinChipsAnimation(winner.netId, totalWin, winner.chips);
             }
             // 【王冠起效】
             int playerMaxE = winner.GetMaxEnergy(maxEnergy);
@@ -682,7 +703,7 @@ public class ServerGameManager : NetworkBehaviour
 
                 if (splitAmount > 0)
                 {
-                    RpcPlayWinChipsAnimation(w.netId, splitAmount);
+                    RpcPlayWinChipsAnimation(w.netId, splitAmount, w.chips);
                 }
 
                 if (winAmounts.ContainsKey(w)) winAmounts[w] += splitAmount;
@@ -1374,11 +1395,11 @@ public class ServerGameManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void RpcPlayWinChipsAnimation(uint playerNetId, int winAmount)
+    private void RpcPlayWinChipsAnimation(uint playerNetId, int winAmount, int targetChips)
     {
         if (PokerUIManager.Instance != null)
         {
-            PokerUIManager.Instance.PlayWinChipsAnimation(playerNetId, winAmount);
+            PokerUIManager.Instance.PlayWinChipsAnimation(playerNetId, winAmount, targetChips);
         }
     }
 

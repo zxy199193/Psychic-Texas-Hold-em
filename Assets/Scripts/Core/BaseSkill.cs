@@ -19,7 +19,7 @@ public abstract class BaseSkill
         // 如果正在发功，不能同时放另一个技能
         if (caster.isCasting) return false;
 
-        return caster.energy >= energyCost;
+        return caster.energy >= caster.GetSkillCost(this);
     }
 
     // 技能生效时的具体逻辑 (由服务器调用)

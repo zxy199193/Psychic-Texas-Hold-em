@@ -2910,12 +2910,12 @@ public class PokerUIManager : MonoBehaviour
 
     #region 筹码飞行动画特效 (Win Chips Flying Animation)
 
-    public void PlayWinChipsAnimation(uint playerNetId, int winAmount)
+    public void PlayWinChipsAnimation(uint playerNetId, int winAmount, int targetChips)
     {
-        StartCoroutine(WinChipsAnimationRoutine(playerNetId, winAmount));
+        StartCoroutine(WinChipsAnimationRoutine(playerNetId, winAmount, targetChips));
     }
 
-    private System.Collections.IEnumerator WinChipsAnimationRoutine(uint playerNetId, int winAmount)
+    private System.Collections.IEnumerator WinChipsAnimationRoutine(uint playerNetId, int winAmount, int targetChips)
     {
         PokerPlayer winner = FindPlayerByNetId(playerNetId);
         if (winner == null) yield break;
@@ -2924,7 +2924,7 @@ public class PokerUIManager : MonoBehaviour
         activeWinAnimations.Add(playerNetId);
 
         // 初始化/校准该玩家的视觉显示数值（应从增加前的值开始）
-        visualChipsDict[playerNetId] = winner.chips - winAmount;
+        visualChipsDict[playerNetId] = targetChips - winAmount;
 
         Vector3 startPos = potContainer != null ? potContainer.position : Vector3.zero;
         Transform targetTextTransform = GetPlayerChipsTextTransform(winner);
@@ -2943,7 +2943,7 @@ public class PokerUIManager : MonoBehaviour
 
         for (int i = 0; i < spawnCount; i++)
         {
-            SpawnSingleFlyingChip(startPos, endPos, winner, i, spawnCount, winAmount);
+            SpawnSingleFlyingChip(startPos, endPos, winner, i, spawnCount, winAmount, targetChips);
             yield return new WaitForSeconds(interval);
         }
     }
@@ -3008,7 +3008,7 @@ public class PokerUIManager : MonoBehaviour
         }
     }
 
-    private void SpawnSingleFlyingChip(Vector3 startPos, Vector3 endPos, PokerPlayer winner, int index, int totalCount, int totalWinAmount)
+    private void SpawnSingleFlyingChip(Vector3 startPos, Vector3 endPos, PokerPlayer winner, int index, int totalCount, int totalWinAmount, int targetChips)
     {
         if (chipSprite == null)
         {
@@ -3091,8 +3091,8 @@ public class PokerUIManager : MonoBehaviour
                 if (index == totalCount - 1)
                 {
                     activeWinAnimations.Remove(winner.netId);
-                    visualChipsDict[winner.netId] = winner.chips;
-                    UpdateChipsTextDisplay(winner, winner.chips);
+                    visualChipsDict[winner.netId] = targetChips;
+                    UpdateChipsTextDisplay(winner, targetChips);
                 }
 
                 Destroy(chipGo);
