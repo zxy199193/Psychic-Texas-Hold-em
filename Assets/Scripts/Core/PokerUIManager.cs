@@ -73,6 +73,25 @@ public class PokerUIManager : MonoBehaviour
     public Text txtHalftimeReadyCount;
     public Text txtHalftimeReadyBtnText;
     public Button btnHalftimeStartHost;
+    public Text txtMainMenuChips;
+
+    [Header("14. 设置面板 UI (Game Settings UI)")]
+    public Button btnSettings;
+    public GameSettingsUI gameSettingsUI;
+
+    [Header("12. 创建房间与密码面板 UI (Create Room & Password Popups)")]
+    public CreateRoomConfigUI createRoomConfigUI;
+    public RoomPasswordVerifyUI roomPasswordVerifyUI;
+    public Button btnLobbyCreateRoom;
+
+    [Header("13. 准备界面房间配置信息 UI (Ready Lobby Room Info)")]
+    public Text txtLobbyRoomName;
+    public Text txtLobbyMaxPlayers;
+    public Text txtLobbyMaxCircles;
+    public Text txtLobbyBigBlind;
+    public Text txtLobbyBuyIn;
+    public GameObject goLobbyShortDeckBadge;
+    public GameObject goLobbyFillBotsBadge;
 
     [Header("2. 全局牌桌 UI (Table Core)")]
     public Transform communityArea;
@@ -314,32 +333,34 @@ public class PokerUIManager : MonoBehaviour
             btnLobbyBack.onClick.AddListener(OnBtnLobbyBackClicked);
         }
 
+        if (btnLobbyCreateRoom != null)
+        {
+            btnLobbyCreateRoom.onClick.AddListener(() =>
+            {
+                if (createRoomConfigUI != null)
+                {
+                    createRoomConfigUI.gameObject.SetActive(true);
+                }
+            });
+        }
+
         if (btnCloseRoomList != null)
         {
             btnCloseRoomList.onClick.AddListener(OnBtnCloseRoomListClicked);
         }
 
-        if (toggleFillBots != null)
+        if (btnSettings != null)
         {
-            toggleFillBots.onValueChanged.AddListener((isOn) =>
+            btnSettings.onClick.AddListener(() =>
             {
-                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost)
+                if (gameSettingsUI != null)
                 {
-                    PokerPlayer.LocalPlayer.CmdSetFillBots(isOn);
+                    gameSettingsUI.gameObject.SetActive(true);
                 }
             });
         }
 
-        if (toggleShortDeck != null)
-        {
-            toggleShortDeck.onValueChanged.AddListener((isOn) =>
-            {
-                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost)
-                {
-                    PokerPlayer.LocalPlayer.CmdSetShortDeck(isOn);
-                }
-            });
-        }
+        // 已移除旧大厅中动态更改选项的监听器，配置已统一在建房弹窗中提前设定
 
         if (logScrollRect != null)
         {
@@ -390,17 +411,7 @@ public class PokerUIManager : MonoBehaviour
             });
         }
 
-        if (dropdownMaxCircles != null)
-        {
-            dropdownMaxCircles.onValueChanged.AddListener((index) =>
-            {
-                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost)
-                {
-                    int maxC = IndexToMaxCircles(index);
-                    PokerPlayer.LocalPlayer.CmdSetMaxCircles(maxC);
-                }
-            });
-        }
+        // 已移除旧大厅中动态更改总圈数的监听器
         currentDisplayedEnemyTrinkets = new List<int>[enemySeats.Length];
         for (int i = 0; i < currentDisplayedEnemyTrinkets.Length; i++)
         {
@@ -519,34 +530,34 @@ public class PokerUIManager : MonoBehaviour
                 if (p.isRoomHost) hostPlayer = p;
             }
 
-            if (hostPlayer != null && PokerPlayer.LocalPlayer != null && !PokerPlayer.LocalPlayer.isRoomHost)
-            {
-                if (toggleFillBots != null && toggleFillBots.isOn != hostPlayer.syncFillBots)
-                {
-                    toggleFillBots.isOn = hostPlayer.syncFillBots;
-                }
-                if (toggleShortDeck != null && toggleShortDeck.isOn != hostPlayer.syncShortDeck)
-                {
-                    toggleShortDeck.isOn = hostPlayer.syncShortDeck;
-                }
-                if (dropdownMaxCircles != null)
-                {
-                    int hostIndex = MaxCirclesToIndex(hostPlayer.syncMaxCircles);
-                    if (dropdownMaxCircles.value != hostIndex)
-                    {
-                        dropdownMaxCircles.value = hostIndex;
-                    }
-                }
-            }
-
-            bool isHost = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost;
-            if (dropdownMaxCircles != null && dropdownMaxCircles.interactable != isHost)
-            {
-                dropdownMaxCircles.interactable = isHost;
-            }
+            // 已清理旧大厅中用于动态同步下拉框与勾选框状态的冗余逻辑
 
             if (txtPlayerCount != null) txtPlayerCount.text = $"【 当前人数：{pCount}/6 】";
             if (txtLobbyReadyCount != null) txtLobbyReadyCount.text = $"准备完成: {readyCount}/{pCount}";
+
+            // 刷新准备界面各房间参数显示
+            if (ServerGameManager.Instance != null)
+            {
+                if (txtLobbyRoomName != null)
+                {
+                    string rName = ServerGameManager.Instance.roomName;
+                    txtLobbyRoomName.text = string.IsNullOrEmpty(rName) ? "局域网房间" : rName;
+                }
+                if (txtLobbyMaxPlayers != null) txtLobbyMaxPlayers.text = ServerGameManager.Instance.maxPlayers.ToString();
+                if (txtLobbyMaxCircles != null) txtLobbyMaxCircles.text = ServerGameManager.Instance.maxCircles.ToString();
+                if (txtLobbyBigBlind != null) txtLobbyBigBlind.text = ServerGameManager.Instance.bigBlind.ToString();
+                
+                if (txtLobbyBuyIn != null)
+                {
+                    int bb = ServerGameManager.Instance.bigBlind;
+                    int buyIn = ServerGameManager.Instance.buyInChips;
+                    int multiplier = bb > 0 ? (buyIn / bb) : 100;
+                    txtLobbyBuyIn.text = multiplier + "BB";
+                }
+
+                if (goLobbyShortDeckBadge != null) goLobbyShortDeckBadge.SetActive(ServerGameManager.Instance.isShortDeckMode);
+                if (goLobbyFillBotsBadge != null) goLobbyFillBotsBadge.SetActive(ServerGameManager.Instance.fillBots);
+            }
 
             if (PokerPlayer.LocalPlayer != null)
             {
@@ -557,7 +568,7 @@ public class PokerUIManager : MonoBehaviour
 
                 if (btnStartGame != null)
                 {
-                    bool conditionMet = pCount >= 2 || (toggleFillBots != null && toggleFillBots.isOn);
+                    bool conditionMet = pCount >= 2 || (ServerGameManager.Instance != null && ServerGameManager.Instance.fillBots);
                     bool allReady = (readyCount == pCount);
                     btnStartGame.interactable = (conditionMet && allReady);
                 }
@@ -2253,10 +2264,21 @@ public class PokerUIManager : MonoBehaviour
                     item.playerIconPrefab = lobbyPlayerIconPrefab;
                 }
 
+                // 填充新版房间信息字段
+                if (item.txtRoomName != null) item.txtRoomName.text = data.hostName;
+                if (item.txtRoomPassword != null) item.txtRoomPassword.text = data.hasPassword ? "需要密码" : "无";
+                if (item.txtMaxPlayers != null) item.txtMaxPlayers.text = data.maxPlayers.ToString();
+                if (item.txtMaxCircles != null) item.txtMaxCircles.text = data.maxCircles.ToString();
+                if (item.txtBigBlind != null) item.txtBigBlind.text = data.bigBlind.ToString();
+                if (item.txtBuyIn != null) item.txtBuyIn.text = data.buyInMultiplier + "BB";
+
+                if (item.tgShortDeck != null) item.tgShortDeck.isOn = data.shortDeck;
+                if (item.tgFillBots != null) item.tgFillBots.isOn = data.fillBots;
+
+                // 兼容旧字段填充
                 if (item.txtHostName != null) item.txtHostName.text = data.hostName;
                 if (item.txtPlayerCount != null) item.txtPlayerCount.text = $"{data.playerCount}/{data.maxPlayers}";
                 if (item.txtMode != null) item.txtMode.text = data.mode;
-                
                 if (item.imgHostAvatar != null && data.hostSteamId != 0)
                 {
                     Texture2D avatar = GetSteamAvatar(data.hostSteamId);
@@ -2273,6 +2295,7 @@ public class PokerUIManager : MonoBehaviour
                     }
 
                     // 2. 解析并实例化头像
+                    int spawnedCount = 0;
                     if (!string.IsNullOrEmpty(data.playersInfo) && item.playerIconPrefab != null)
                     {
                         string[] players = data.playersInfo.Split(',');
@@ -2287,6 +2310,7 @@ public class PokerUIManager : MonoBehaviour
                                 string pName = parts[1];
 
                                 GameObject iconGo = Instantiate(item.playerIconPrefab, item.playerListContainer);
+                                spawnedCount++;
 
                                 RawImage avatarImg = iconGo.transform.Find("RawImage Steam Avatar")?.GetComponent<RawImage>();
                                 Transform imageNameTrans = avatarImg != null ? avatarImg.transform.Find("Image Name") : null;
@@ -2341,6 +2365,16 @@ public class PokerUIManager : MonoBehaviour
                             }
                         }
                     }
+
+                    // 3. 补齐空位头像 (Empty Slots)
+                    int emptySlotsNeeded = data.maxPlayers - spawnedCount;
+                    if (emptySlotsNeeded > 0 && item.emptySlotPrefab != null)
+                    {
+                        for (int i = 0; i < emptySlotsNeeded; i++)
+                        {
+                            Instantiate(item.emptySlotPrefab, item.playerListContainer);
+                        }
+                    }
                 }
 
                 item.steamLobbyId = data.lobbyId;
@@ -2350,12 +2384,36 @@ public class PokerUIManager : MonoBehaviour
                     item.btnJoin.onClick.RemoveAllListeners();
                     item.btnJoin.onClick.AddListener(() =>
                     {
-                        if (SteamLobby.Instance != null)
+                        if (data.hasPassword)
                         {
-                            SteamLobby.Instance.JoinLobby(data.lobbyId);
+                            if (roomPasswordVerifyUI != null)
+                            {
+                                roomPasswordVerifyUI.Show(data.lobbyId, data.passwordValue, () =>
+                                {
+                                    if (SteamLobby.Instance != null)
+                                    {
+                                        SteamLobby.Instance.JoinLobby(data.lobbyId);
+                                    }
+                                    if (roomListPanel != null) roomListPanel.SetActive(false);
+                                });
+                            }
+                            else
+                            {
+                                if (SteamLobby.Instance != null)
+                                {
+                                    SteamLobby.Instance.JoinLobby(data.lobbyId);
+                                }
+                                if (roomListPanel != null) roomListPanel.SetActive(false);
+                            }
                         }
-                        
-                        if (roomListPanel != null) roomListPanel.SetActive(false);
+                        else
+                        {
+                            if (SteamLobby.Instance != null)
+                            {
+                                SteamLobby.Instance.JoinLobby(data.lobbyId);
+                            }
+                            if (roomListPanel != null) roomListPanel.SetActive(false);
+                        }
                     });
                 }
             }
@@ -2374,7 +2432,31 @@ public class PokerUIManager : MonoBehaviour
                 playerCount = 1,
                 maxPlayers = 6,
                 mode = "常规",
-                playersInfo = "0:本地玩家"
+                playersInfo = "0:本地玩家",
+                hasPassword = false,
+                passwordValue = "",
+                bigBlind = 10,
+                buyInMultiplier = 100,
+                maxCircles = 6,
+                shortDeck = false,
+                fillBots = false
+            },
+            new SteamLobbyData
+            {
+                lobbyId = 987654321,
+                hostName = "加密测试房间 (Password Protected)",
+                hostSteamId = 0,
+                playerCount = 1,
+                maxPlayers = 4,
+                mode = "加密",
+                playersInfo = "0:加密玩家",
+                hasPassword = true,
+                passwordValue = "1234",
+                bigBlind = 20,
+                buyInMultiplier = 150,
+                maxCircles = 8,
+                shortDeck = true,
+                fillBots = true
             }
         };
         UpdateRoomListUI(mockLobbies);
@@ -2491,6 +2573,14 @@ public class PokerUIManager : MonoBehaviour
     public void HideHalftimePanel() => lobbyUIManager.HideHalftimePanel();
     public void OnBtnHalftimeReadyClicked() => lobbyUIManager.OnBtnHalftimeReadyClicked();
     public void OnBtnHalftimeStartClicked() => lobbyUIManager.OnBtnHalftimeStartClicked();
+
+    public void UpdateMainMenuChipsText(int amount)
+    {
+        if (txtMainMenuChips != null)
+        {
+            txtMainMenuChips.text = "背包筹码: " + amount;
+        }
+    }
 
     // PokerCardAnimator delegates
     public void PrepareCardForFlight(GameObject cardObj, List<GameObject> targetList) => cardAnimator.PrepareCardForFlight(cardObj, targetList);

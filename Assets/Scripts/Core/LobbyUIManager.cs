@@ -12,23 +12,31 @@ public class LobbyUIManager : MonoBehaviour
 
     public void OnBtnCreateRoomClicked()
     {
-        bool isOffline = (UIMgr.toggleOfflineMode != null && UIMgr.toggleOfflineMode.isOn);
-
-        if (isOffline)
+        if (UIMgr.createRoomConfigUI != null)
         {
-            Debug.Log("【单机测试模式】启动！不连接 Steam 大厅。");
-            Mirror.NetworkManager.singleton.StartHost();
-        }
-        else if (SteamLobby.Instance != null && SteamManager.Initialized)
-        {
-            SteamLobby.Instance.HostLobby();
+            UIMgr.createRoomConfigUI.gameObject.SetActive(true);
         }
         else
         {
-            Mirror.NetworkManager.singleton.StartHost();
-        }
+            // 如果未关联新组件，回退到原先的默认直接启动逻辑
+            bool isOffline = (UIMgr.toggleOfflineMode != null && UIMgr.toggleOfflineMode.isOn);
 
-        SetupLobbyUI(true);
+            if (isOffline)
+            {
+                Debug.Log("【单机测试模式】启动！不连接 Steam 大厅。");
+                Mirror.NetworkManager.singleton.StartHost();
+            }
+            else if (SteamLobby.Instance != null && SteamManager.Initialized)
+            {
+                SteamLobby.Instance.HostLobby();
+            }
+            else
+            {
+                Mirror.NetworkManager.singleton.StartHost();
+            }
+
+            SetupLobbyUI(true);
+        }
     }
 
     public void OnBtnJoinRoomClicked()
@@ -91,10 +99,28 @@ public class LobbyUIManager : MonoBehaviour
             Mirror.NetworkManager.singleton.StopClient();
         }
 
-        // 返回主界面 UI
+        // 返回大厅/房间列表 UI 并刷新列表
         if (UIMgr.lobbyUIGroup != null) UIMgr.lobbyUIGroup.SetActive(false);
-        if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(true);
         if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(false);
+        if (UIMgr.roomListPanel != null)
+        {
+            UIMgr.roomListPanel.SetActive(true);
+            if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(false);
+            if (SteamLobby.Instance != null)
+            {
+                SteamLobby.Instance.RequestLobbyList();
+            }
+        }
+        else
+        {
+            if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(true);
+        }
+
+        // 重新同步一次云端筹码，刷新筹码显示
+        if (PlayFabAuthManager.Instance != null && PlayFabAuthManager.Instance.isLoggedIn)
+        {
+            PlayFabAuthManager.Instance.GetUserChips();
+        }
         
         // 重置大厅 UI 状态
         if (UIMgr.btnCreateRoom != null) UIMgr.btnCreateRoom.gameObject.SetActive(true);
@@ -120,22 +146,22 @@ public class LobbyUIManager : MonoBehaviour
         if (UIMgr.toggleFillBots != null)
         {
             UIMgr.toggleFillBots.gameObject.SetActive(true);
-            UIMgr.toggleFillBots.interactable = isHost;
+            UIMgr.toggleFillBots.interactable = false;
         }
         if (UIMgr.toggleShortDeck != null)
         {
             UIMgr.toggleShortDeck.gameObject.SetActive(true);
-            UIMgr.toggleShortDeck.interactable = isHost;
+            UIMgr.toggleShortDeck.interactable = false;
         }
         if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(true);
     }
 
     public void OnBtnStartGameClicked()
     {
-        if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isServer)
+        if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost)
         {
-            bool fillBots = UIMgr.toggleFillBots != null && UIMgr.toggleFillBots.isOn;
-            bool isShortDeck = UIMgr.toggleShortDeck != null && UIMgr.toggleShortDeck.isOn;
+            bool fillBots = ServerGameManager.Instance != null && ServerGameManager.Instance.fillBots;
+            bool isShortDeck = ServerGameManager.Instance != null && ServerGameManager.Instance.isShortDeckMode;
             PokerPlayer.LocalPlayer.CmdStartGame(fillBots, isShortDeck);
         }
     }

@@ -1,6 +1,7 @@
 using UnityEngine;
 using Mirror;
 using System.Collections.Generic;
+using PlayFab;
 
 public class ServerGameManager : NetworkBehaviour
 {
@@ -38,8 +39,12 @@ public class ServerGameManager : NetworkBehaviour
     public int winnerBonus = 2;      // 赢家奖励
 
     [Header("盲注系统配置")]
-    public int smallBlind = 5;
-    public int bigBlind = 10;
+    [SyncVar] public int smallBlind = 5;
+    [SyncVar] public int bigBlind = 10;
+    [SyncVar] public int buyInChips = 1000;
+    [SyncVar] public string roomName = "";
+    [SyncVar] public int maxPlayers = 6;
+    [SyncVar] public bool fillBots = false;
     public int dealerIndex = 0; // 记录当前谁是庄家
 
     [Header("中场休息控制")]
@@ -76,6 +81,15 @@ public class ServerGameManager : NetworkBehaviour
     private void Awake()
     {
         Instance = this;
+    }
+
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+#if UNITY_SERVER || UNITY_EDITOR
+        PlayFabSettings.staticSettings.DeveloperSecretKey = "5P9JPZJGWAM4GA3MACU8YMFDSWCRTH6ZN1CTKJ9JGIK6ZER957";
+        Debug.Log("[ServerGameManager] PlayFab Developer Secret Key initialized in Server/Editor mode.");
+#endif
     }
 
     // 每帧监控当前说话的玩家是否突然蒸发
@@ -144,7 +158,8 @@ public class ServerGameManager : NetworkBehaviour
             if (p != null)
             {
                 // Reset player stats for a fresh new game
-                p.chips = 1000;
+                p.chips = buyInChips;
+                p.startingChips = buyInChips;
                 p.energy = 5;
                 p.rebuyCount = 0;
                 p.isFolded = false;
@@ -200,8 +215,9 @@ public class ServerGameManager : NetworkBehaviour
                     // 核心：把档案里的数据，注入给刚生成的机器人肉体！
                     // ==========================================
                     botPlayer.playerName = profile.botName;
-                    // （注：头像 ID 传给 botPlayer，稍后让 UI 根据 ID 去读取对应的头像）
                     botPlayer.botAvatarID = profile.avatarID;
+                    botPlayer.chips = buyInChips;
+                    botPlayer.startingChips = buyInChips;
 
                     botLogic.personality = profile.personality;
                     botLogic.targetingPreference = profile.targetingPreference;
@@ -284,14 +300,36 @@ public class ServerGameManager : NetworkBehaviour
         {
             if (p.chips <= 0)
             {
-                p.chips = 1000; // 自动发放 1000 筹码
+                p.chips = buyInChips; // 自动发放 buyInChips 筹码
                 p.rebuyCount++; // 买入次数 +1
+                p.startingChips = buyInChips; // 重置 startingChips
+
+                // 扣除 PlayFab 中的 buyInChips 筹码买入费
+                if (!string.IsNullOrEmpty(p.playFabId) && p.myBotBrain == null)
+                {
+                    var request = new PlayFab.ServerModels.SubtractUserVirtualCurrencyRequest
+                    {
+                        PlayFabId = p.playFabId,
+                        VirtualCurrency = "CP",
+                        Amount = buyInChips
+                    };
+                    PlayFabServerAPI.SubtractUserVirtualCurrency(request, 
+                        result => Debug.Log($"[PlayFab Server] Successfully deducted {buyInChips} CP for rebuy from {p.playerName}."),
+                        error => Debug.LogError($"[PlayFab Server] Failed to deduct rebuy CP from {p.playerName}: {error.GenerateErrorReport()}")
+                    );
+                }
+
                 // 悄悄告诉破产的玩家
                 if (p.connectionToClient != null)
                 {
-                    p.TargetReceiveSkillMessage(p.connectionToClient, "筹码耗尽，已自动为您重新买入1000筹码！", 0);
+                    p.TargetReceiveSkillMessage(p.connectionToClient, $"筹码耗尽，已自动为您重新买入{buyInChips}筹码！", 0);
                 }
-                RpcAddGameLog($"[{p.playerName}]筹码耗尽，已自动重新买入1000筹码！", 2);
+                RpcAddGameLog($"[{p.playerName}]筹码耗尽，已自动重新买入{buyInChips}筹码！", 2);
+            }
+            else
+            {
+                // 正常每一局开始，记录玩家当前的筹码，用于局末结算差额
+                p.startingChips = p.chips;
             }
         }
 
@@ -763,8 +801,64 @@ public class ServerGameManager : NetworkBehaviour
     // ==========================================
     // 中场休息调度系统
     // ==========================================
+    [Server]
+    private void SyncHandResultsToPlayFab()
+    {
+        foreach (var p in activePlayers)
+        {
+            if (p == null) continue;
+            if (string.IsNullOrEmpty(p.playFabId) || p.myBotBrain != null) continue;
+
+            int netChange = p.chips - p.startingChips;
+            if (netChange == 0) continue;
+
+            PokerPlayer targetPlayer = p;
+            int changeAmount = netChange;
+
+            if (changeAmount > 0)
+            {
+                var request = new PlayFab.ServerModels.AddUserVirtualCurrencyRequest
+                {
+                    PlayFabId = targetPlayer.playFabId,
+                    VirtualCurrency = "CP",
+                    Amount = changeAmount
+                };
+
+                PlayFabServerAPI.AddUserVirtualCurrency(request, result =>
+                {
+                    Debug.Log($"[PlayFab Server] Successfully added {changeAmount} CP to {targetPlayer.playerName}. New balance: {result.Balance}");
+                    targetPlayer.startingChips = targetPlayer.chips;
+                },
+                error =>
+                {
+                    Debug.LogError($"[PlayFab Server] Failed to add CP to {targetPlayer.playerName}: {error.GenerateErrorReport()}");
+                });
+            }
+            else
+            {
+                var request = new PlayFab.ServerModels.SubtractUserVirtualCurrencyRequest
+                {
+                    PlayFabId = targetPlayer.playFabId,
+                    VirtualCurrency = "CP",
+                    Amount = Mathf.Abs(changeAmount)
+                };
+
+                PlayFabServerAPI.SubtractUserVirtualCurrency(request, result =>
+                {
+                    Debug.Log($"[PlayFab Server] Successfully subtracted {Mathf.Abs(changeAmount)} CP from {targetPlayer.playerName}. New balance: {result.Balance}");
+                    targetPlayer.startingChips = targetPlayer.chips;
+                },
+                error =>
+                {
+                    Debug.LogError($"[PlayFab Server] Failed to subtract CP from {targetPlayer.playerName}: {error.GenerateErrorReport()}");
+                });
+            }
+        }
+    }
+
     private System.Collections.IEnumerator HandleRoundEnd(float delay)
     {
+        SyncHandResultsToPlayFab();
         yield return new WaitForSeconds(delay);
 
         handsPlayedThisRound++;
@@ -1229,10 +1323,6 @@ public class ServerGameManager : NetworkBehaviour
 
         // 3 秒后，自动调用发牌！
         StartNewHand();
-    }
-    public override void OnStartServer()
-    {
-        base.OnStartServer();
     }
     // ==========================================
     // 边池核心算法：荷官扫拢筹码

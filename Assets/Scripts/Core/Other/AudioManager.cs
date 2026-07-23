@@ -46,6 +46,12 @@ public class AudioManager : MonoBehaviour
 
     private void Start()
     {
+        // 加载已保存的音量，若无则使用默认值
+        float savedBGM = PlayerPrefs.GetFloat("BGMVolume", 0.55f);
+        float savedSFX = PlayerPrefs.GetFloat("SFXVolume", 1.0f);
+        SetBGMVolume(savedBGM);
+        SetSFXVolume(savedSFX);
+
         // 尝试自动加载短筹码音效（如果用户将其移入 Resources 目录的话）
         if (chipShortClip == null)
         {
@@ -131,5 +137,42 @@ public class AudioManager : MonoBehaviour
         {
             loopingSource.Stop();
         }
+    }
+
+    // ==========================================
+    // 音量与保存设置 (Volume Settings)
+    // ==========================================
+    public void SetBGMVolume(float vol)
+    {
+        if (bgmSource != null)
+        {
+            bgmSource.volume = vol;
+        }
+        PlayerPrefs.SetFloat("BGMVolume", vol);
+        PlayerPrefs.Save();
+    }
+
+    public void SetSFXVolume(float vol)
+    {
+        if (sfxSource != null)
+        {
+            sfxSource.volume = vol;
+        }
+        if (loopingSource != null)
+        {
+            loopingSource.volume = vol;
+        }
+        PlayerPrefs.SetFloat("SFXVolume", vol);
+        PlayerPrefs.Save();
+    }
+
+    public float GetBGMVolume()
+    {
+        return bgmSource != null ? bgmSource.volume : PlayerPrefs.GetFloat("BGMVolume", 0.55f);
+    }
+
+    public float GetSFXVolume()
+    {
+        return sfxSource != null ? sfxSource.volume : PlayerPrefs.GetFloat("SFXVolume", 1.0f);
     }
 }

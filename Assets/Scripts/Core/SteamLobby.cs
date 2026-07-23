@@ -12,6 +12,13 @@ public struct SteamLobbyData
     public int maxPlayers;
     public string mode;
     public string playersInfo;
+    public bool hasPassword;
+    public string passwordValue;
+    public int bigBlind;
+    public int buyInMultiplier;
+    public int maxCircles;
+    public bool shortDeck;
+    public bool fillBots;
 }
 
 public class SteamLobby : MonoBehaviour
@@ -65,8 +72,41 @@ public class SteamLobby : MonoBehaviour
     // ==========================================
     // 1. Create Steam Lobby
     // ==========================================
+    private string tempRoomName = "";
+    private string tempPassword = "";
+    private int tempMaxPlayers = 6;
+    private int tempBigBlind = 10;
+    private int tempBuyInMultiplier = 100;
+    private int tempMaxCircles = 8;
+    private bool tempShortDeck = false;
+    private bool tempFillBots = false;
+
     public void HostLobby()
     {
+        // 默认使用静态容器里的设置
+        HostLobbyWithSettings(
+            RoomConfigContainer.roomName,
+            RoomConfigContainer.password,
+            RoomConfigContainer.maxPlayers,
+            RoomConfigContainer.bigBlind,
+            RoomConfigContainer.buyInMultiplier,
+            RoomConfigContainer.maxCircles,
+            RoomConfigContainer.shortDeck,
+            RoomConfigContainer.fillBots
+        );
+    }
+
+    public void HostLobbyWithSettings(string roomName, string password, int maxPlayers, int bigBlind, int buyInMultiplier, int maxCircles, bool shortDeck, bool fillBots)
+    {
+        tempRoomName = roomName;
+        tempPassword = password;
+        tempMaxPlayers = maxPlayers;
+        tempBigBlind = bigBlind;
+        tempBuyInMultiplier = buyInMultiplier;
+        tempMaxCircles = maxCircles;
+        tempShortDeck = shortDeck;
+        tempFillBots = fillBots;
+
         if (!SteamManager.Initialized)
         {
             Debug.LogError("Steam is not initialized.");
@@ -76,9 +116,9 @@ public class SteamLobby : MonoBehaviour
 
         LeaveLobby();
 
-        Debug.Log("Requesting public Steam lobby...");
-        // Set ELobbyType.k_ELobbyTypePublic so strangers/friends can search for it!
-        SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypePublic, 6);
+        Debug.Log($"Requesting public Steam lobby with custom maxPlayers={maxPlayers}...");
+        // Set dynamic player limit
+        SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypePublic, maxPlayers);
     }
 
     private void OnLobbyCreated(LobbyCreated_t callback)
@@ -105,7 +145,7 @@ public class SteamLobby : MonoBehaviour
         SteamMatchmaking.SetLobbyData(
             lobbyId,
             "name",
-            SteamFriends.GetPersonaName() + " 的房间"
+            string.IsNullOrEmpty(tempRoomName) ? (SteamFriends.GetPersonaName() + " 的房间") : tempRoomName
         );
 
         // 添加独特的游戏特征标记，过滤掉全球其他测试 SpaceWar 的房间
@@ -120,6 +160,16 @@ public class SteamLobby : MonoBehaviour
             "mode",
             "常规"
         );
+
+        // 写入所有自定义房间配置元数据
+        SteamMatchmaking.SetLobbyData(lobbyId, "has_password", string.IsNullOrEmpty(tempPassword) ? "0" : "1");
+        SteamMatchmaking.SetLobbyData(lobbyId, "password_value", tempPassword);
+        SteamMatchmaking.SetLobbyData(lobbyId, "big_blind", tempBigBlind.ToString());
+        SteamMatchmaking.SetLobbyData(lobbyId, "buy_in", tempBuyInMultiplier.ToString());
+        SteamMatchmaking.SetLobbyData(lobbyId, "max_circles", tempMaxCircles.ToString());
+        SteamMatchmaking.SetLobbyData(lobbyId, "short_deck", tempShortDeck ? "1" : "0");
+        SteamMatchmaking.SetLobbyData(lobbyId, "fill_bots", tempFillBots ? "1" : "0");
+        SteamMatchmaking.SetLobbyData(lobbyId, "max_players", tempMaxPlayers.ToString());
     }
 
     // ==========================================
@@ -172,15 +222,53 @@ public class SteamLobby : MonoBehaviour
             if (string.IsNullOrEmpty(mode)) mode = "常规";
             string playersInfo = SteamMatchmaking.GetLobbyData(lobbyId, "players_info");
 
+            // 读取自定义元数据
+            string maxPlayersStr = SteamMatchmaking.GetLobbyData(lobbyId, "max_players");
+            int maxPlayers = 6;
+            int.TryParse(maxPlayersStr, out maxPlayers);
+            if (maxPlayers <= 0) maxPlayers = 6;
+
+            string hasPasswordStr = SteamMatchmaking.GetLobbyData(lobbyId, "has_password");
+            bool hasPassword = (hasPasswordStr == "1");
+            string passwordValue = SteamMatchmaking.GetLobbyData(lobbyId, "password_value");
+
+            string bigBlindStr = SteamMatchmaking.GetLobbyData(lobbyId, "big_blind");
+            int bigBlind = 10;
+            int.TryParse(bigBlindStr, out bigBlind);
+            if (bigBlind <= 0) bigBlind = 10;
+
+            string buyInStr = SteamMatchmaking.GetLobbyData(lobbyId, "buy_in");
+            int buyInMultiplier = 100;
+            int.TryParse(buyInStr, out buyInMultiplier);
+            if (buyInMultiplier <= 0) buyInMultiplier = 100;
+
+            string maxCirclesStr = SteamMatchmaking.GetLobbyData(lobbyId, "max_circles");
+            int maxCircles = 8;
+            int.TryParse(maxCirclesStr, out maxCircles);
+            if (maxCircles <= 0) maxCircles = 8;
+
+            string shortDeckStr = SteamMatchmaking.GetLobbyData(lobbyId, "short_deck");
+            bool shortDeck = (shortDeckStr == "1");
+
+            string fillBotsStr = SteamMatchmaking.GetLobbyData(lobbyId, "fill_bots");
+            bool fillBots = (fillBotsStr == "1");
+
             lobbies.Add(new SteamLobbyData
             {
                 lobbyId = lobbyId.m_SteamID,
                 hostName = hostName,
                 hostSteamId = hostSteamId,
                 playerCount = memberCount,
-                maxPlayers = 6,
+                maxPlayers = maxPlayers,
                 mode = mode,
-                playersInfo = playersInfo
+                playersInfo = playersInfo,
+                hasPassword = hasPassword,
+                passwordValue = passwordValue,
+                bigBlind = bigBlind,
+                buyInMultiplier = buyInMultiplier,
+                maxCircles = maxCircles,
+                shortDeck = shortDeck,
+                fillBots = fillBots
             });
         }
 

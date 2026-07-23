@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 using Steamworks;
+using PlayFab;
 
 public class PokerPlayer : NetworkBehaviour
 {
@@ -88,6 +89,8 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar(hook = nameof(OnShackledChanged))] public bool serverIsShackled = false;
     [SyncVar(hook = nameof(OnShackledSkillCountChanged))] public int serverShackledSkillCount = 0;
     [SyncVar] public bool serverArmbandActive = false;
+    [SyncVar] public string playFabId = "";
+    [HideInInspector] public int startingChips = 0;
 
     [Command]
     public void CmdSetFillBots(bool value)
@@ -115,6 +118,30 @@ public class PokerPlayer : NetworkBehaviour
     public void CmdSetRoomHost(bool value)
     {
         isRoomHost = value;
+    }
+
+    [Command]
+    public void CmdSetRoomConfigs(string roomName, string password, int maxPlayers, int bigBlind, int buyInMultiplier, int maxCircles, bool shortDeck, bool fillBots)
+    {
+        if (!isRoomHost) return;
+
+        if (ServerGameManager.Instance != null)
+        {
+            ServerGameManager.Instance.bigBlind = bigBlind;
+            ServerGameManager.Instance.smallBlind = bigBlind / 2;
+            ServerGameManager.Instance.buyInChips = bigBlind * buyInMultiplier;
+            ServerGameManager.Instance.maxCircles = maxCircles;
+            ServerGameManager.Instance.isShortDeckMode = shortDeck;
+            ServerGameManager.Instance.roomName = roomName;
+            ServerGameManager.Instance.maxPlayers = maxPlayers;
+            ServerGameManager.Instance.fillBots = fillBots;
+
+            this.syncMaxCircles = maxCircles;
+            this.syncShortDeck = shortDeck;
+            this.syncFillBots = fillBots;
+
+            Debug.Log($"[Server] Applied Room Configurations: BB={bigBlind}, BuyIn={ServerGameManager.Instance.buyInChips}, ShortDeck={shortDeck}, MaxCircles={maxCircles}");
+        }
     }
 
     [Command]
@@ -171,27 +198,97 @@ public class PokerPlayer : NetworkBehaviour
         }
         CmdRequestSyncTable();
 
-        if (isServer)
+        if (isLocalPlayer)
         {
-            CmdSetRoomHost(true);
-            
-            // Sync initial UI toggle states to server SyncVars immediately
-            if (PokerUIManager.Instance != null)
+            if (RoomConfigContainer.bigBlind > 0)
             {
-                if (PokerUIManager.Instance.toggleFillBots != null)
+                CmdSetRoomConfigs(
+                    RoomConfigContainer.roomName,
+                    RoomConfigContainer.password,
+                    RoomConfigContainer.maxPlayers,
+                    RoomConfigContainer.bigBlind,
+                    RoomConfigContainer.buyInMultiplier,
+                    RoomConfigContainer.maxCircles,
+                    RoomConfigContainer.shortDeck,
+                    RoomConfigContainer.fillBots
+                );
+            }
+            else if (isServer)
+            {
+                CmdSetRoomHost(true);
+                if (PokerUIManager.Instance != null)
                 {
-                    CmdSetFillBots(PokerUIManager.Instance.toggleFillBots.isOn);
-                }
-                if (PokerUIManager.Instance.toggleShortDeck != null)
-                {
-                    CmdSetShortDeck(PokerUIManager.Instance.toggleShortDeck.isOn);
-                }
-                if (PokerUIManager.Instance.dropdownMaxCircles != null)
-                {
-                    int defaultCircles = PokerUIManager.Instance.IndexToMaxCircles(PokerUIManager.Instance.dropdownMaxCircles.value);
-                    CmdSetMaxCircles(defaultCircles);
+                    if (PokerUIManager.Instance.toggleFillBots != null)
+                    {
+                        CmdSetFillBots(PokerUIManager.Instance.toggleFillBots.isOn);
+                    }
+                    if (PokerUIManager.Instance.toggleShortDeck != null)
+                    {
+                        CmdSetShortDeck(PokerUIManager.Instance.toggleShortDeck.isOn);
+                    }
+                    if (PokerUIManager.Instance.dropdownMaxCircles != null)
+                    {
+                        int defaultCircles = PokerUIManager.Instance.IndexToMaxCircles(PokerUIManager.Instance.dropdownMaxCircles.value);
+                        CmdSetMaxCircles(defaultCircles);
+                    }
                 }
             }
+        }
+
+        StartCoroutine(SyncPlayFabIdRoutine());
+    }
+
+    private System.Collections.IEnumerator SyncPlayFabIdRoutine()
+    {
+        while (PlayFabAuthManager.Instance == null || !PlayFabAuthManager.Instance.isLoggedIn)
+        {
+            yield return new WaitForSeconds(0.2f);
+        }
+        CmdSetPlayFabId(PlayFabAuthManager.Instance.myPlayFabId);
+    }
+
+    [Command]
+    public void CmdSetPlayFabId(string pfId)
+    {
+        playFabId = pfId;
+        Debug.Log($"[Server] Player {playerName} mapped to PlayFab ID: {playFabId}");
+
+        if (isServer)
+        {
+            var request = new PlayFab.ServerModels.GetUserInventoryRequest
+            {
+                PlayFabId = playFabId
+            };
+
+            PlayFabServerAPI.GetUserInventory(request, result =>
+            {
+                if (result.VirtualCurrency.TryGetValue("CP", out int cloudChips))
+                {
+                    int targetBuyIn = 1000;
+                    if (ServerGameManager.Instance != null)
+                    {
+                        targetBuyIn = ServerGameManager.Instance.buyInChips;
+                    }
+                    this.chips = Mathf.Min(targetBuyIn, cloudChips);
+                    this.startingChips = this.chips;
+
+                    Debug.Log($"[Server] Successfully loaded cloud chips for player {playerName}: {cloudChips} CP. Table Buy-in: {this.chips}");
+                    if (ServerGameManager.Instance != null)
+                    {
+                        ServerGameManager.Instance.RpcAddGameLog($"[{playerName}] 成功载入云端筹码: {cloudChips} CP (携带 {this.chips} 上桌)", 2);
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[Server] CP currency not found for player {playerName} on PlayFab.");
+                    this.startingChips = this.chips;
+                }
+            },
+            error =>
+            {
+                Debug.LogError($"[Server] GetUserInventory failed for {playerName}: {error.GenerateErrorReport()}");
+                this.startingChips = this.chips;
+            });
         }
     }
 
@@ -375,7 +472,8 @@ public class PokerPlayer : NetworkBehaviour
     public override void OnStartServer()
     {
         base.OnStartServer();
-        if (connectionToClient == null || connectionToClient.connectionId == 0)
+        PokerPlayer[] players = FindObjectsOfType<PokerPlayer>();
+        if (players.Length <= 1)
         {
             isRoomHost = true;
         }
