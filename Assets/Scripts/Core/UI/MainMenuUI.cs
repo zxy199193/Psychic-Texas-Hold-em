@@ -11,11 +11,13 @@ public class MainMenuUI : MonoBehaviour
     public Button btnJoinRoom;
     public Button btnExitGame;
     public Button btnSettings;
+    public Button btnOpenShop;
 
     [Header("Controls & Text")]
     public Toggle toggleOfflineMode;
     public Toggle toggleUseDedicatedServer;
     public Text txtMainMenuChips;
+    public Text txtMainMenuDiamonds;
 
     [Header("Dedicated Server Config")]
     public string dedicatedServerIP = "167.99.108.169";
@@ -51,6 +53,12 @@ public class MainMenuUI : MonoBehaviour
             });
         }
 
+        if (btnOpenShop != null)
+        {
+            btnOpenShop.onClick.RemoveAllListeners();
+            btnOpenShop.onClick.AddListener(OnBtnOpenShopClicked);
+        }
+
         // 加载并初始化云服务器直连 Toggle 状态
         if (toggleUseDedicatedServer != null)
         {
@@ -74,11 +82,24 @@ public class MainMenuUI : MonoBehaviour
         if (lobbyUIMgr != null) lobbyUIMgr.OnBtnExitGameClicked();
     }
 
+    private void OnBtnOpenShopClicked()
+    {
+        if (lobbyUIMgr != null) lobbyUIMgr.ShowShopPanel(true);
+    }
+
     public void UpdateChipsText(int amount)
     {
         if (txtMainMenuChips != null)
         {
-            txtMainMenuChips.text = "背包筹码: " + amount;
+            txtMainMenuChips.text = amount.ToString();
+        }
+    }
+
+    public void UpdateDiamondsText(int amount)
+    {
+        if (txtMainMenuDiamonds != null)
+        {
+            txtMainMenuDiamonds.text = amount.ToString();
         }
     }
 }

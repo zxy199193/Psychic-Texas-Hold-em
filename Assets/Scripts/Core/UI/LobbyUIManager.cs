@@ -14,6 +14,8 @@ public class LobbyUIManager : MonoBehaviour
     public MainMenuUI mainMenuUI;
     public LobbyUI lobbyUI;
     public RoomUI roomUI;
+    public ShopUI shopUI;
+    public GameObject loadingPanel; // 全局加载遮罩物体
 
     private void Awake()
     {
@@ -42,6 +44,16 @@ public class LobbyUIManager : MonoBehaviour
         if (mainMenuUI != null) mainMenuUI.Initialize(this);
         if (lobbyUI != null) lobbyUI.Initialize(this);
         if (roomUI != null) roomUI.Initialize(this);
+        if (shopUI != null) shopUI.Initialize(this);
+
+        PlayFabAuthManager.OnCurrencyUpdated += OnCurrencyOrInventoryUpdated;
+        PlayFabAuthManager.OnLoginFailed += OnPlayFabSyncFailed;
+
+        // 如果当前还未登录，则启动时显示 Loading 遮罩
+        if (loadingPanel != null && PlayFabAuthManager.Instance != null && !PlayFabAuthManager.Instance.isLoggedIn)
+        {
+            loadingPanel.SetActive(true);
+        }
 
 #if UNITY_SERVER
         Debug.Log("[LobbyUIManager] Dedicated Server: Explicitly calling StartServer()...");
@@ -55,6 +67,57 @@ public class LobbyUIManager : MonoBehaviour
             Debug.LogError("[LobbyUIManager] NetworkManager not found during Start!");
         }
 #endif
+    }
+
+    private void OnDestroy()
+    {
+        PlayFabAuthManager.OnCurrencyUpdated -= OnCurrencyOrInventoryUpdated;
+        PlayFabAuthManager.OnLoginFailed -= OnPlayFabSyncFailed;
+    }
+
+    private void OnCurrencyOrInventoryUpdated()
+    {
+        // 同步成功，隐藏 Loading
+        ShowLoading(false);
+
+        InitLobbySkillSelection();
+        InitLobbyTrinketSelection();
+    }
+
+    private void OnPlayFabSyncFailed()
+    {
+        // 同步失败，隐藏 Loading 防止卡死
+        ShowLoading(false);
+    }
+
+    public void ShowLoading(bool show)
+    {
+        if (loadingPanel != null)
+        {
+            loadingPanel.SetActive(show);
+        }
+    }
+
+    public void ShowShopPanel(bool show)
+    {
+        if (shopUI != null)
+        {
+            if (show)
+            {
+                if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(false);
+                shopUI.OpenShop();
+            }
+            else
+            {
+                shopUI.CloseShop();
+                if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(true);
+                // 自动刷新一下筹码/钻石显示
+                if (PlayFabAuthManager.Instance != null && PlayFabAuthManager.Instance.isLoggedIn)
+                {
+                    PlayFabAuthManager.Instance.GetUserChips();
+                }
+            }
+        }
     }
 
     public void OnBtnCreateRoomClicked()
@@ -231,6 +294,10 @@ public class LobbyUIManager : MonoBehaviour
             if (roomUI.btnStartGame != null) roomUI.btnStartGame.gameObject.SetActive(isHost);
             if (roomUI.btnHalftimeStats != null) roomUI.btnHalftimeStats.gameObject.SetActive(false);
         }
+
+        // 重新同步并刷新大厅的技能与饰品锁状态
+        InitLobbySkillSelection();
+        InitLobbyTrinketSelection();
     }
 
     public void OnBtnStartGameClicked()
@@ -270,6 +337,15 @@ public class LobbyUIManager : MonoBehaviour
         foreach (var config in roomUI.allSkillConfigs)
         {
             if (config == null) continue;
+
+            // 检查 PlayFab 技能解锁状态，如果未解锁，则直接隐藏（不显示该技能卡片）
+            bool isUnlocked = true;
+            if (PlayFabAuthManager.Instance != null)
+            {
+                isUnlocked = PlayFabAuthManager.Instance.IsSkillUnlocked(config.skillID);
+            }
+            if (!isUnlocked) continue;
+
             GameObject go = Instantiate(roomUI.lobbySkillItemPrefab, roomUI.lobbySkillContainer);
             Transform iconTransform = DeepFind(go.transform, "Image Icon");
             Transform nameTransform = DeepFind(go.transform, "Text Name");
@@ -333,6 +409,14 @@ public class LobbyUIManager : MonoBehaviour
         {
             if (config == null) continue;
 
+            // 检查 PlayFab 饰品解锁状态，如果未解锁，则直接隐藏（不显示该饰品卡片）
+            bool isUnlocked = true;
+            if (PlayFabAuthManager.Instance != null)
+            {
+                isUnlocked = PlayFabAuthManager.Instance.IsTrinketUnlocked(config.trinketID);
+            }
+            if (!isUnlocked) continue;
+
             GameObject go = Instantiate(roomUI.lobbyTrinketItemPrefab, roomUI.lobbyTrinketContainer);
             Transform iconTransform = DeepFind(go.transform, "Image Icon");
             Transform nameTransform = DeepFind(go.transform, "Text Name");
@@ -350,24 +434,24 @@ public class LobbyUIManager : MonoBehaviour
             UIMgr.SafeSetText(descTransform, config.description);
 
             // 【魔像与神像互斥】：选择其中一个后，另一个置灰不可点击
-            bool isTrinketInteractable = true;
+            bool isMutualExclusive = false;
             if (config.trinketID == 11 && localSelectedTrinkets.Contains(8))
             {
-                isTrinketInteractable = false;
+                isMutualExclusive = true;
             }
             else if (config.trinketID == 8 && localSelectedTrinkets.Contains(11))
             {
-                isTrinketInteractable = false;
+                isMutualExclusive = true;
             }
 
             CanvasGroup cg = go.GetComponent<CanvasGroup>();
             if (cg == null) cg = go.AddComponent<CanvasGroup>();
-            cg.alpha = isTrinketInteractable ? 1f : 0.5f;
+            cg.alpha = isMutualExclusive ? 0.4f : 1f;
 
             UnityEngine.UI.Button btn = go.GetComponent<UnityEngine.UI.Button>();
             if (btn == null) continue;
 
-            btn.interactable = isTrinketInteractable;
+            btn.interactable = !isMutualExclusive;
 
             btn.onClick.AddListener(() =>
             {

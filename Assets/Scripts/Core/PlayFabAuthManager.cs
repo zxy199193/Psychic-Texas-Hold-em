@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PlayFab;
 using PlayFab.ClientModels;
 using Steamworks;
@@ -10,6 +11,11 @@ public class PlayFabAuthManager : MonoBehaviour
     [HideInInspector] public string myPlayFabId = "";
     [HideInInspector] public bool isLoggedIn = false;
     [HideInInspector] public int myChipsBalance = 0;
+    [HideInInspector] public int myDiamondsBalance = 0;
+    [HideInInspector] public List<ItemInstance> playerInventory = new List<ItemInstance>();
+
+    public static event System.Action OnCurrencyUpdated;
+    public static event System.Action OnLoginFailed;
 
     private void Awake()
     {
@@ -109,14 +115,26 @@ public class PlayFabAuthManager : MonoBehaviour
     private void OnLoginFailure(PlayFabError error)
     {
         Debug.LogError($"[PlayFabAuthManager] PlayFab Authentication Failed: {error.GenerateErrorReport()}");
+        OnLoginFailed?.Invoke();
     }
 
-    // 从云端数据库拉取/同步玩家的筹码数量
-    public void GetUserChips()
+    // 从云端数据库拉取/同步玩家的筹码和钻石数量
+    public void GetUserChips(System.Action onComplete = null)
     {
         var request = new GetUserInventoryRequest();
         PlayFabClientAPI.GetUserInventory(request, result =>
         {
+            // 缓存玩家背包道具列表
+            playerInventory = result.Inventory ?? new List<ItemInstance>();
+
+            // 打印背包调试信息
+            Debug.Log($"[PlayFabAuthManager] Synchronized inventory items count: {playerInventory.Count} for PlayFabId: {myPlayFabId}");
+            foreach (var item in playerInventory)
+            {
+                Debug.Log($"[PlayFabAuthManager] Inventory Item: {item.ItemId} (InstanceID: {item.ItemInstanceId})");
+            }
+
+            // 1. 同步筹码 CP
             if (result.VirtualCurrency.TryGetValue("CP", out int chipsBalance))
             {
                 myChipsBalance = chipsBalance;
@@ -128,12 +146,85 @@ public class PlayFabAuthManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("[PlayFabAuthManager] Virtual Currency 'CP' (Chips) not found in player inventory on PlayFab. Please check portal configuration.");
+                Debug.LogWarning("[PlayFabAuthManager] Virtual Currency 'CP' (Chips) not found in player inventory on PlayFab.");
             }
+
+            // 2. 同步钻石 DM
+            if (result.VirtualCurrency.TryGetValue("DM", out int diamondsBalance))
+            {
+                myDiamondsBalance = diamondsBalance;
+                Debug.Log($"[PlayFabAuthManager] Player diamonds balance synchronized: {myDiamondsBalance} DM");
+                if (GamePlayUI.Instance != null)
+                {
+                    GamePlayUI.Instance.UpdateMainMenuDiamondsText(myDiamondsBalance);
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[PlayFabAuthManager] Virtual Currency 'DM' (Diamonds) not found in player inventory on PlayFab. Please check portal configuration.");
+            }
+
+            // 触发事件通知订阅者余额及道具背包已刷新
+            OnCurrencyUpdated?.Invoke();
+
+            onComplete?.Invoke();
         },
         error =>
         {
             Debug.LogError($"[PlayFabAuthManager] GetUserInventory failed: {error.GenerateErrorReport()}");
+            OnLoginFailed?.Invoke();
+            onComplete?.Invoke();
+        });
+    }
+
+    public bool IsItemUnlocked(string itemId)
+    {
+        if (playerInventory == null)
+        {
+            Debug.LogWarning($"[PlayFabAuthManager] playerInventory is null when checking {itemId}!");
+            return false;
+        }
+        bool result = playerInventory.Exists(item => item.ItemId == itemId);
+        Debug.Log($"[PlayFabAuthManager] Check Unlock: ItemID={itemId}, Result={result} (Inventory Count={playerInventory.Count})");
+        return result;
+    }
+
+    public bool IsSkillUnlocked(int skillId)
+    {
+        // 价格为 0 的技能默认解锁（ID 1 至 6）
+        if (skillId >= 1 && skillId <= 6) return true;
+        return IsItemUnlocked("skill_" + skillId);
+    }
+
+    public bool IsTrinketUnlocked(int trinketId)
+    {
+        // 价格为 0 的饰品默认解锁（ID 1 至 4）
+        if (trinketId >= 1 && trinketId <= 4) return true;
+        return IsItemUnlocked("trinket_" + trinketId);
+    }
+
+    public void PurchaseShopItem(string itemId, string currency, int price, System.Action onSuccess, System.Action<string> onFailure)
+    {
+        var request = new PlayFab.ClientModels.PurchaseItemRequest
+        {
+            ItemId = itemId,
+            VirtualCurrency = currency,
+            Price = price
+        };
+        PlayFabClientAPI.PurchaseItem(request, result =>
+        {
+            Debug.Log($"[PlayFabAuthManager] Successfully purchased shop item: {itemId}");
+            // 重新拉取以刷新云端余额和背包，且刷新完成后再回调 onSuccess
+            GetUserChips(() =>
+            {
+                onSuccess?.Invoke();
+            });
+        },
+        error =>
+        {
+            string errMsg = error.GenerateErrorReport();
+            Debug.LogError($"[PlayFabAuthManager] PurchaseShopItem failed: {errMsg}");
+            onFailure?.Invoke(error.ErrorMessage);
         });
     }
 }

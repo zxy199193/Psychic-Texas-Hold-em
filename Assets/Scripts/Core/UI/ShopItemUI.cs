@@ -1,0 +1,86 @@
+using UnityEngine;
+using UnityEngine.UI;
+
+public class ShopItemUI : MonoBehaviour
+{
+    [Header("Core UI Components")]
+    public Text txtName;
+    public Image imgIcon;
+    public Text txtDescription;
+    public Text txtPrice;
+    public Button btnBuy;
+    public GameObject goLockedState; // 可选的：用于覆盖显示“已解锁/已拥有”的遮罩或图标
+
+    [Header("Skill Only Components")]
+    public Text txtEnergyCost;
+    public Text txtCastTime;
+
+    private ShopItemData itemData;
+    private System.Action<ShopItemData> onBuyClick;
+
+    public void Setup(ShopItemData data, bool isUnlocked, System.Action<ShopItemData> onBuyCallback)
+    {
+        this.itemData = data;
+        this.onBuyClick = onBuyCallback;
+
+        // 填充基本名称、图标与说明
+        if (txtName != null) txtName.text = data.displayName;
+        if (txtDescription != null) txtDescription.text = data.displayDescription;
+        if (imgIcon != null) imgIcon.sprite = data.displayIcon;
+
+        // 填充价格
+        if (txtPrice != null)
+        {
+            if (data.costCurrency == ShopCurrencyType.FREE)
+            {
+                txtPrice.text = "免费";
+            }
+            else
+            {
+                txtPrice.text = data.price.ToString();
+            }
+        }
+
+        // 技能特有信息填充
+        if (txtEnergyCost != null) txtEnergyCost.text = data.energyCost.ToString();
+        if (txtCastTime != null) txtCastTime.text = data.castTime.ToString("F0");
+
+        // 购买按钮交互与点击事件处理
+        if (btnBuy != null)
+        {
+            btnBuy.onClick.RemoveAllListeners();
+
+            if (data.isUniqueUnlock && isUnlocked)
+            {
+                btnBuy.interactable = false;
+                Text btnText = btnBuy.GetComponentInChildren<Text>();
+                if (btnText != null) btnText.text = "已拥有";
+            }
+            else
+            {
+                btnBuy.interactable = true;
+                btnBuy.onClick.AddListener(() => onBuyClick?.Invoke(itemData));
+
+                // 设置购买按钮上的文本：免费商品显示 priceDisplayString，收费商品显示价格数字
+                Text btnText = btnBuy.GetComponentInChildren<Text>();
+                if (btnText != null)
+                {
+                    if (data.costCurrency == ShopCurrencyType.FREE)
+                    {
+                        btnText.text = !string.IsNullOrEmpty(data.priceDisplayString) ? data.priceDisplayString : "免费";
+                    }
+                    else
+                    {
+                        btnText.text = data.price.ToString();
+                    }
+                }
+            }
+        }
+
+        // 状态遮罩控制
+        if (goLockedState != null)
+        {
+            goLockedState.SetActive(data.isUniqueUnlock && isUnlocked);
+        }
+    }
+}

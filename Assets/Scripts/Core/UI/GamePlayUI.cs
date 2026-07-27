@@ -2244,6 +2244,14 @@ public class GamePlayUI : MonoBehaviour
         }
     }
 
+    public void UpdateMainMenuDiamondsText(int amount)
+    {
+        if (lobbyUIManager != null && lobbyUIManager.mainMenuUI != null)
+        {
+            lobbyUIManager.mainMenuUI.UpdateDiamondsText(amount);
+        }
+    }
+
     // PokerCardAnimator delegates
     public void PrepareCardForFlight(GameObject cardObj, List<GameObject> targetList) => cardAnimator.PrepareCardForFlight(cardObj, targetList);
     public void ScheduleMasterDeal() => cardAnimator.ScheduleMasterDeal();
