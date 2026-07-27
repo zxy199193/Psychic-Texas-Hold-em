@@ -181,30 +181,36 @@ public class CreateRoomConfigUI : MonoBehaviour
         Debug.Log($"[CreateRoomConfigUI] Confirm configuration: Name={roomName}, BigBlind={RoomConfigContainer.bigBlind}, BuyIn={RoomConfigContainer.bigBlind * RoomConfigContainer.buyInMultiplier}, Password={password}");
 
         // 2.5 同步这些配置到已有的主要大厅控制项上，以便 Mirror 底层能通过已有关联逻辑进行初始化和同步
-        if (PokerUIManager.Instance != null)
-        {
-            if (PokerUIManager.Instance.toggleFillBots != null)
-                PokerUIManager.Instance.toggleFillBots.isOn = RoomConfigContainer.fillBots;
-            if (PokerUIManager.Instance.toggleShortDeck != null)
-                PokerUIManager.Instance.toggleShortDeck.isOn = RoomConfigContainer.shortDeck;
-            if (PokerUIManager.Instance.dropdownMaxCircles != null)
-                PokerUIManager.Instance.dropdownMaxCircles.value = PokerUIManager.Instance.MaxCirclesToIndex(RoomConfigContainer.maxCircles);
-        }
+
 
         // 3. 启动联机或单机建房
         bool isOffline = false;
-        if (PokerUIManager.Instance != null && PokerUIManager.Instance.toggleOfflineMode != null)
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.toggleOfflineMode != null)
         {
-            isOffline = PokerUIManager.Instance.toggleOfflineMode.isOn;
+            isOffline = GamePlayUI.Instance.toggleOfflineMode.isOn;
         }
 
         if (isOffline)
         {
             Debug.Log("【单机测试模式】以自定义配置启动主机！");
+            Mirror.Transport kcp = Mirror.NetworkManager.singleton.GetComponent<kcp2k.KcpTransport>();
+            if (kcp == null)
+            {
+                kcp = Mirror.NetworkManager.singleton.gameObject.AddComponent<kcp2k.KcpTransport>();
+            }
+            Mirror.NetworkManager.singleton.transport = kcp;
+            Mirror.Transport.active = kcp;
             Mirror.NetworkManager.singleton.StartHost();
         }
         else if (SteamLobby.Instance != null && SteamManager.Initialized)
         {
+            // 确保使用 Steam 传输协议
+            UnityEngine.Component fizzy = Mirror.NetworkManager.singleton.GetComponent("FizzySteamworks");
+            if (fizzy != null)
+            {
+                Mirror.NetworkManager.singleton.transport = fizzy as Mirror.Transport;
+                Mirror.Transport.active = fizzy as Mirror.Transport;
+            }
             SteamLobby.Instance.HostLobbyWithSettings(
                 RoomConfigContainer.roomName,
                 RoomConfigContainer.password,
@@ -219,16 +225,23 @@ public class CreateRoomConfigUI : MonoBehaviour
         else
         {
             Debug.LogWarning("Steam 未初始化，退回到本地 Mirror 局域网模式建房！");
+            Mirror.Transport kcp = Mirror.NetworkManager.singleton.GetComponent<kcp2k.KcpTransport>();
+            if (kcp == null)
+            {
+                kcp = Mirror.NetworkManager.singleton.gameObject.AddComponent<kcp2k.KcpTransport>();
+            }
+            Mirror.NetworkManager.singleton.transport = kcp;
+            Mirror.Transport.active = kcp;
             Mirror.NetworkManager.singleton.StartHost();
         }
 
         // 4. 初始化大厅 UI 状态为房主（Host）模式，并关闭大厅列表面板
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.SetupLobbyUI(true);
-            if (PokerUIManager.Instance.roomListPanel != null)
+            GamePlayUI.Instance.SetupLobbyUI(true);
+            if (GamePlayUI.Instance.roomListPanel != null)
             {
-                PokerUIManager.Instance.roomListPanel.SetActive(false);
+                GamePlayUI.Instance.roomListPanel.SetActive(false);
             }
         }
 

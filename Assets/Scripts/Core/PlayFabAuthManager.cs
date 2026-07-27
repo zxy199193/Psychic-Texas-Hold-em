@@ -121,9 +121,9 @@ public class PlayFabAuthManager : MonoBehaviour
             {
                 myChipsBalance = chipsBalance;
                 Debug.Log($"[PlayFabAuthManager] Player chips balance synchronized: {myChipsBalance} CP");
-                if (PokerUIManager.Instance != null)
+                if (GamePlayUI.Instance != null)
                 {
-                    PokerUIManager.Instance.UpdateMainMenuChipsText(myChipsBalance);
+                    GamePlayUI.Instance.UpdateMainMenuChipsText(myChipsBalance);
                 }
             }
             else

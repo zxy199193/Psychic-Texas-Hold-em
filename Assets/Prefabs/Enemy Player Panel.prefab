@@ -335,7 +335,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3535394160065459343}
   m_Layer: 5
-  m_Name: Buy-in
+  m_Name: Buy-in Mark
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1500,8 +1500,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1658031162385869143}
+  - component: {fileID: 65784256826963701}
   m_Layer: 5
-  m_Name: Player Panel
+  m_Name: Enemy Player Panel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1532,6 +1533,37 @@ RectTransform:
   m_AnchoredPosition: {x: 130, y: -30}
   m_SizeDelta: {x: 240, y: 250}
   m_Pivot: {x: 0, y: 1}
+--- !u!114 &65784256826963701
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6113791288143334419}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a3b7864f9d2ddd469f1d41f9a089afe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  seatNode: {fileID: 6113791288143334419}
+  handArea: {fileID: 1105216582859991481}
+  dealerPos: {fileID: 1362318515955693325}
+  nameText: {fileID: 2857382264413699808}
+  chipsText: {fileID: 2697094763873499234}
+  currentBetText: {fileID: 6263882479575048811}
+  energyText: {fileID: 3744104525739578271}
+  avatarImage: {fileID: 4640684427300347662}
+  rebuyNode: {fileID: 1118679075323530443}
+  rebuyText: {fileID: 6792225946705102550}
+  foldNode: {fileID: 7080442268218135221}
+  disconnectNode: {fileID: 6276549331528973258}
+  turnHighlightNode: {fileID: 4285359280965578038}
+  hostingNode: {fileID: 6234025502457051766}
+  handTypeNode: {fileID: 5924871761029116151}
+  handTypeText: {fileID: 6048958559707945515}
+  winnerNode: {fileID: 3726645382665297296}
+  trinketContainer: {fileID: 68193643802408659}
+  trinketSlots: []
 --- !u!1 &6149313889240341241
 GameObject:
   m_ObjectHideFlags: 0
@@ -1654,7 +1686,7 @@ GameObject:
   m_Component:
   - component: {fileID: 828101822421166451}
   m_Layer: 5
-  m_Name: Drop
+  m_Name: Drop Mark
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

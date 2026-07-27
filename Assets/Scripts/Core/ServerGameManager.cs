@@ -90,6 +90,17 @@ public class ServerGameManager : NetworkBehaviour
         PlayFabSettings.staticSettings.DeveloperSecretKey = "5P9JPZJGWAM4GA3MACU8YMFDSWCRTH6ZN1CTKJ9JGIK6ZER957";
         Debug.Log("[ServerGameManager] PlayFab Developer Secret Key initialized in Server/Editor mode.");
 #endif
+
+        // 从 RoomConfigContainer 同步房间配置到 SyncVar 字段
+        roomName = RoomConfigContainer.roomName;
+        maxPlayers = RoomConfigContainer.maxPlayers;
+        bigBlind = RoomConfigContainer.bigBlind;
+        buyInChips = RoomConfigContainer.bigBlind * RoomConfigContainer.buyInMultiplier;
+        maxCircles = RoomConfigContainer.maxCircles;
+        isShortDeckMode = RoomConfigContainer.shortDeck;
+        fillBots = RoomConfigContainer.fillBots;
+
+        Debug.Log($"[ServerGameManager] 房间配置已同步: Name={roomName}, MaxPlayers={maxPlayers}, BigBlind={bigBlind}, BuyIn={buyInChips}, MaxCircles={maxCircles}, ShortDeck={isShortDeckMode}, FillBots={fillBots}");
     }
 
     // 每帧监控当前说话的玩家是否突然蒸发
@@ -193,7 +204,8 @@ public class ServerGameManager : NetworkBehaviour
         // 2. 智能补位逻辑：从 AI 档案库中随机抽取并生成机器人
         if (fillBots && availableBotProfiles != null && availableBotProfiles.Count > 0)
         {
-            int botsNeeded = 6 - activePlayers.Count;
+            int targetLimit = maxPlayers > 0 ? maxPlayers : 6;
+            int botsNeeded = targetLimit - activePlayers.Count;
 
             // 复制一份名单，防止抽到重复的 AI (保证这局每个 AI 都长得不一样)
             List<AIBotProfile> pool = new List<AIBotProfile>(availableBotProfiles);
@@ -245,9 +257,9 @@ public class ServerGameManager : NetworkBehaviour
     [ClientRpc]
     private void RpcHideMainMenu()
     {
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.HideMainMenu();
+            GamePlayUI.Instance.HideMainMenu();
         }
     }
     [Server]
@@ -307,6 +319,7 @@ public class ServerGameManager : NetworkBehaviour
                 // 扣除 PlayFab 中的 buyInChips 筹码买入费
                 if (!string.IsNullOrEmpty(p.playFabId) && p.myBotBrain == null)
                 {
+#if ENABLE_PLAYFABSERVER_API
                     var request = new PlayFab.ServerModels.SubtractUserVirtualCurrencyRequest
                     {
                         PlayFabId = p.playFabId,
@@ -317,6 +330,9 @@ public class ServerGameManager : NetworkBehaviour
                         result => Debug.Log($"[PlayFab Server] Successfully deducted {buyInChips} CP for rebuy from {p.playerName}."),
                         error => Debug.LogError($"[PlayFab Server] Failed to deduct rebuy CP from {p.playerName}: {error.GenerateErrorReport()}")
                     );
+#else
+                    Debug.LogWarning($"[PlayFab Server] Server API disabled. Rebuy chips not deducted from cloud.");
+#endif
                 }
 
                 // 悄悄告诉破产的玩家
@@ -458,7 +474,7 @@ public class ServerGameManager : NetworkBehaviour
             if (p.serverHasWishBuff)
             {
                 // 【魔像起效】：如果有魔像，运行魔像特殊发牌算法
-                if (p.equippedTrinkets.Contains(11))
+                if (p.equippedTrinkets.Contains(15))
                 {
                     if (deck.TryDrawGolemCards(futureCommunityCards, out c1, out c2))
                     {
@@ -481,7 +497,7 @@ public class ServerGameManager : NetworkBehaviour
                     }
                 }
                 // 【神像起效】：如果有神像，用超级发牌器！
-                else if (p.equippedTrinkets.Contains(8))
+                else if (p.equippedTrinkets.Contains(14))
                 {
                     c1 = deck.DrawSuperWishCard();
                     c2 = deck.DrawSuperWishCard();
@@ -815,6 +831,7 @@ public class ServerGameManager : NetworkBehaviour
             PokerPlayer targetPlayer = p;
             int changeAmount = netChange;
 
+#if ENABLE_PLAYFABSERVER_API
             if (changeAmount > 0)
             {
                 var request = new PlayFab.ServerModels.AddUserVirtualCurrencyRequest
@@ -853,6 +870,9 @@ public class ServerGameManager : NetworkBehaviour
                     Debug.LogError($"[PlayFab Server] Failed to subtract CP from {targetPlayer.playerName}: {error.GenerateErrorReport()}");
                 });
             }
+#else
+            targetPlayer.startingChips = targetPlayer.chips;
+#endif
         }
     }
 
@@ -908,13 +928,13 @@ public class ServerGameManager : NetworkBehaviour
                 {
                     if (p != null)
                     {
-                        if (p.GetComponent<PokerBot>() != null || p.serverIsHosted)
+                        if (p.GetComponent<PokerBot>() != null)
                         {
-                            p.isReady = true; // 机器人 or 托管玩家秒准备！(因为是SyncVar，会自动同步给所有玩家的 UI)
+                            p.isReady = true; // 机器人秒准备！
                         }
                         else
                         {
-                            p.isReady = false; // 普通玩家重置准备状态
+                            p.isReady = false; // 普通玩家（即使在局内开启了托管的真实玩家）默认不准备，留出配置大厅技能的时间
                         }
                     }
                 }
@@ -929,13 +949,13 @@ public class ServerGameManager : NetworkBehaviour
     [ClientRpc]
     private void RpcEnterGameEnd()
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowGameEndPanel();
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.ShowGameEndPanel();
     }
 
     [ClientRpc]
     private void RpcEnterHalftime(int roundCount, int maxCirclesVal)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowHalftimePanel(roundCount, maxCirclesVal);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.ShowHalftimePanel(roundCount, maxCirclesVal);
     }
 
     [Server]
@@ -957,7 +977,7 @@ public class ServerGameManager : NetworkBehaviour
     [ClientRpc]
     private void RpcHideHalftimePanel()
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.HideHalftimePanel();
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.HideHalftimePanel();
     }
 
     // 服务器拿大喇叭宣布比赛结果
@@ -965,10 +985,10 @@ public class ServerGameManager : NetworkBehaviour
     private void RpcShowResult(string message, int waitTime)
     {
         Debug.Log(message);
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
             // 把时间透传给 UI 大管家
-            PokerUIManager.Instance.ShowResult(message, waitTime);
+            GamePlayUI.Instance.ShowResult(message, waitTime);
         }
     }
 
@@ -1010,9 +1030,9 @@ public class ServerGameManager : NetworkBehaviour
     [ClientRpc]
     private void RpcSpawnInitialCommunityCards()
     {
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.SpawnInitialCommunityCards();
+            GamePlayUI.Instance.SpawnInitialCommunityCards();
         }
     }
 
@@ -1020,18 +1040,18 @@ public class ServerGameManager : NetworkBehaviour
     [ClientRpc]
     private void RpcRevealCommunityCards(int startIndex, int count, Card[] cards)
     {
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.RevealCommunityCards(startIndex, count, cards);
+            GamePlayUI.Instance.RevealCommunityCards(startIndex, count, cards);
         }
     }
 
     [ClientRpc]
     private void RpcClearTable()
     {
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.ClearAllTable();
+            GamePlayUI.Instance.ClearAllTable();
         }
     }
     // ==========================================
@@ -1095,7 +1115,7 @@ public class ServerGameManager : NetworkBehaviour
             else
                 RpcAddGameLog($"{player.playerName} 选择跟注 {callAmount}", 2);
             Debug.Log($"{player.playerName}跟注{callAmount}");
-            // 下注音效不需要在这里写，因为你的 PokerUIManager 已经在监听 currentBet 的增加了！
+            // 下注音效不需要在这里写，因为你的 GamePlayUI 已经在监听 currentBet 的增加了！
         }
         CheckAndMove();
     }
@@ -1229,6 +1249,12 @@ public class ServerGameManager : NetworkBehaviour
                 HandlePlayerFold(player);
             }
         }
+    }
+
+    [Server]
+    public void StartHostedActionImmediately(PokerPlayer player)
+    {
+        StartCoroutine(HostedPlayerAutoActionRoutine(player));
     }
     // ==========================================
     // 智能裁判系统
@@ -1465,10 +1491,10 @@ public class ServerGameManager : NetworkBehaviour
     [ClientRpc]
     public void RpcUpdateCommunityCard(int cardIndex, Suit newSuit, Rank newRank)
     {
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
             // 强制刷新桌面上对应位置的那张公共牌的 UI
-            PokerUIManager.Instance.UpdateCommunityCardUI(cardIndex, newSuit, newRank);
+            GamePlayUI.Instance.UpdateCommunityCardUI(cardIndex, newSuit, newRank);
         }
     }
     // ==========================================
@@ -1487,18 +1513,18 @@ public class ServerGameManager : NetworkBehaviour
     [ClientRpc]
     private void RpcPlayWinChipsAnimation(uint playerNetId, int winAmount, int targetChips)
     {
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.PlayWinChipsAnimation(playerNetId, winAmount, targetChips);
+            GamePlayUI.Instance.PlayWinChipsAnimation(playerNetId, winAmount, targetChips);
         }
     }
 
     [ClientRpc]
     public void RpcAddGameLog(string message, int logType)
     {
-        if (PokerUIManager.Instance != null && PokerUIManager.Instance.effectManager != null)
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.effectManager != null)
         {
-            PokerUIManager.Instance.effectManager.AddGameLog(message, logType);
+            GamePlayUI.Instance.effectManager.AddGameLog(message, logType);
         }
     }
 
@@ -1546,7 +1572,7 @@ public class ServerGameManager : NetworkBehaviour
                              (targetType == 0 && target != null && p == target);
 
             // If the caster doesn't have the Hat (12), players with Sensing can also see it
-            bool isCasterHat = caster.equippedTrinkets.Contains(12);
+            bool isCasterHat = caster.equippedTrinkets.Contains(9);
             if (!isCasterHat && p.serverIsSensing)
             {
                 shouldSee = true;

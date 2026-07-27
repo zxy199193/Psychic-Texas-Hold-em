@@ -71,42 +71,42 @@ public class WatchTrinket : BaseTrinket
 // 5. 手镯
 public class BraceletTrinket : BaseTrinket
 {
-    public BraceletTrinket() { trinketID = 5; trinketName = "斗篷"; }
+    public BraceletTrinket() { trinketID = 7; trinketName = "斗篷"; }
     public override int ModifyResistCost(int currentCost, PokerPlayer player) { return Mathf.Max(0, currentCost - 1); }
 }
 
 // 6. 眼镜 (在 PeekSkill 中直接判断)
-public class GlassesTrinket : BaseTrinket { public GlassesTrinket() { trinketID = 6; trinketName = "镜片"; } }
+public class GlassesTrinket : BaseTrinket { public GlassesTrinket() { trinketID = 10; trinketName = "镜片"; } }
 
 // 7. 音叉
 public class TuningForkTrinket : BaseTrinket
 {
-    public TuningForkTrinket() { trinketID = 7; trinketName = "音叉"; }
+    public TuningForkTrinket() { trinketID = 13; trinketName = "音叉"; }
     public override int ModifyInterfereRate(int currentRate, PokerPlayer player) { return 60; } // 覆盖原有的 25%
 }
 
 // 8. 神像 (在 ServerGameManager 中直接判断)
-public class IdolTrinket : BaseTrinket { public IdolTrinket() { trinketID = 8; trinketName = "神像"; } }
+public class IdolTrinket : BaseTrinket { public IdolTrinket() { trinketID = 14; trinketName = "神像"; } }
 
 // 9. 天线
-public class AntennaTrinket : BaseTrinket { public AntennaTrinket() { trinketID = 9; trinketName = "天线"; } }
+public class AntennaTrinket : BaseTrinket { public AntennaTrinket() { trinketID = 8; trinketName = "天线"; } }
 
 // 10. 戒指
-public class RingTrinket : BaseTrinket { public RingTrinket() { trinketID = 10; trinketName = "戒指"; } }
+public class RingTrinket : BaseTrinket { public RingTrinket() { trinketID = 12; trinketName = "戒指"; } }
 
 // 11. 魔像
-public class GolemTrinket : BaseTrinket { public GolemTrinket() { trinketID = 11; trinketName = "魔像"; } }
+public class GolemTrinket : BaseTrinket { public GolemTrinket() { trinketID = 15; trinketName = "魔像"; } }
 
 // 12. 帽子
-public class HatTrinket : BaseTrinket { public HatTrinket() { trinketID = 12; trinketName = "帽子"; } }
+public class HatTrinket : BaseTrinket { public HatTrinket() { trinketID = 9; trinketName = "帽子"; } }
 
 // 13. 兽爪
-public class BeastClawTrinket : BaseTrinket { public BeastClawTrinket() { trinketID = 13; trinketName = "兽爪"; } }
+public class BeastClawTrinket : BaseTrinket { public BeastClawTrinket() { trinketID = 6; trinketName = "兽爪"; } }
 
 // 14. 电池
 public class BatteryTrinket : BaseTrinket
 {
-    public BatteryTrinket() { trinketID = 14; trinketName = "电池"; }
+    public BatteryTrinket() { trinketID = 5; trinketName = "磁线圈"; }
     public override int ModifyMaxEnergy(int currentMax, PokerPlayer player) { return currentMax - 6; }
     public override int ModifyEnergyRegen(int currentRegen, PokerPlayer player) { return currentRegen - 2; }
 }
@@ -114,7 +114,7 @@ public class BatteryTrinket : BaseTrinket
 // 15. 眼药
 public class EyeDropsTrinket : BaseTrinket
 {
-    public EyeDropsTrinket() { trinketID = 15; trinketName = "眼药"; }
+    public EyeDropsTrinket() { trinketID = 11; trinketName = "眼药"; }
 }
 
 // 16. 袖章
@@ -141,4 +141,4 @@ public class ArmbandTrinket : BaseTrinket
         }
         return currentCost;
     }
-}
+}

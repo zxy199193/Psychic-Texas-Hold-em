@@ -148,9 +148,16 @@ public class PokerPlayer : NetworkBehaviour
     public void CmdSetHosted(bool value)
     {
         serverIsHosted = value;
-        if (value && ServerGameManager.Instance != null && ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.Halftime)
+        if (value && ServerGameManager.Instance != null)
         {
-            isReady = true;
+            if (ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.Halftime)
+            {
+                isReady = true;
+            }
+            else if (this.isMyTurn)
+            {
+                ServerGameManager.Instance.StartHostedActionImmediately(this);
+            }
         }
     }
 
@@ -216,22 +223,7 @@ public class PokerPlayer : NetworkBehaviour
             else if (isServer)
             {
                 CmdSetRoomHost(true);
-                if (PokerUIManager.Instance != null)
-                {
-                    if (PokerUIManager.Instance.toggleFillBots != null)
-                    {
-                        CmdSetFillBots(PokerUIManager.Instance.toggleFillBots.isOn);
-                    }
-                    if (PokerUIManager.Instance.toggleShortDeck != null)
-                    {
-                        CmdSetShortDeck(PokerUIManager.Instance.toggleShortDeck.isOn);
-                    }
-                    if (PokerUIManager.Instance.dropdownMaxCircles != null)
-                    {
-                        int defaultCircles = PokerUIManager.Instance.IndexToMaxCircles(PokerUIManager.Instance.dropdownMaxCircles.value);
-                        CmdSetMaxCircles(defaultCircles);
-                    }
-                }
+
             }
         }
 
@@ -253,6 +245,7 @@ public class PokerPlayer : NetworkBehaviour
         playFabId = pfId;
         Debug.Log($"[Server] Player {playerName} mapped to PlayFab ID: {playFabId}");
 
+#if ENABLE_PLAYFABSERVER_API
         if (isServer)
         {
             var request = new PlayFab.ServerModels.GetUserInventoryRequest
@@ -290,6 +283,9 @@ public class PokerPlayer : NetworkBehaviour
                 this.startingChips = this.chips;
             });
         }
+#else
+        this.startingChips = this.chips;
+#endif
     }
 
     [Command]
@@ -322,7 +318,7 @@ public class PokerPlayer : NetworkBehaviour
     [TargetRpc]
     public void TargetReceiveHoleCards(NetworkConnectionToClient target, Card card1, Card card2, bool isSealed)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowMyHoleCards(card1, card2, isSealed);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.ShowMyHoleCards(card1, card2, isSealed);
     }
 
     [ClientRpc]
@@ -343,7 +339,7 @@ public class PokerPlayer : NetworkBehaviour
             yield return null;
         }
 
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.DrawEnemyCardBacks(this);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.DrawEnemyCardBacks(this);
     }
 
     [ClientRpc]
@@ -351,36 +347,36 @@ public class PokerPlayer : NetworkBehaviour
     {
         if (isLocalPlayer)
         {
-            if (PokerUIManager.Instance != null)
+            if (GamePlayUI.Instance != null)
             {
-                PokerUIManager.Instance.SetMyCardsBlurred(false);
+                GamePlayUI.Instance.SetMyCardsBlurred(false);
                 if (wasSealed)
                 {
-                    PokerUIManager.Instance.RevealMySealedHoleCards(c1, c2);
+                    GamePlayUI.Instance.RevealMySealedHoleCards(c1, c2);
                 }
-                PokerUIManager.Instance.ShowPlayerHandType(this, handTypeStr, isWinner);
+                GamePlayUI.Instance.ShowPlayerHandType(this, handTypeStr, isWinner);
             }
             return;
         }
 
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.FlipEnemyCards(this, c1, c2);
-            PokerUIManager.Instance.ShowPlayerHandType(this, handTypeStr, isWinner);
+            GamePlayUI.Instance.FlipEnemyCards(this, c1, c2);
+            GamePlayUI.Instance.ShowPlayerHandType(this, handTypeStr, isWinner);
         }
     }
 
     [TargetRpc]
     public void TargetTriggerResonanceBlink(NetworkConnectionToClient conn, uint targetPlayerNetId, float duration)
     {
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
             if (NetworkClient.spawned.TryGetValue(targetPlayerNetId, out NetworkIdentity identity))
             {
                 PokerPlayer target = identity.GetComponent<PokerPlayer>();
                 if (target != null)
                 {
-                    PokerUIManager.Instance.BlinkPlayerHoleCards(target, duration);
+                    GamePlayUI.Instance.BlinkPlayerHoleCards(target, duration);
                 }
             }
         }
@@ -433,39 +429,39 @@ public class PokerPlayer : NetworkBehaviour
     {
         if (skillDatabase.Count > 0) return;
 
-        skillDatabase.Add(98, new SensingSkill());
-        skillDatabase.Add(2, new PeekSkill());
-        skillDatabase.Add(3, new SwapSkill());
-        skillDatabase.Add(4, new BlurSkill());
-        skillDatabase.Add(5, new InterfereSkill());
-        skillDatabase.Add(6, new WishSkill());
-        skillDatabase.Add(7, new ExchangeSkill());
-        skillDatabase.Add(8, new ReflectWallSkill());
-        skillDatabase.Add(9, new MindControlSkill());
-        skillDatabase.Add(10, new OverdraftSkill());
-        skillDatabase.Add(11, new AssistSkill());
-        skillDatabase.Add(12, new SealSkill());
-        skillDatabase.Add(13, new ResonanceSkill());
-        skillDatabase.Add(14, new TrickRoomSkill());
-        skillDatabase.Add(15, new InspirationSkill());
+        skillDatabase.Add(2, new SensingSkill());
+        skillDatabase.Add(3, new PeekSkill());
+        skillDatabase.Add(4, new SwapSkill());
+        skillDatabase.Add(5, new BlurSkill());
+        skillDatabase.Add(6, new InterfereSkill());
+        skillDatabase.Add(7, new TrickRoomSkill());
+        skillDatabase.Add(8, new ShackleSkill());
+        skillDatabase.Add(9, new ResonanceSkill());
+        skillDatabase.Add(10, new AssistSkill());
+        skillDatabase.Add(11, new SealSkill());
+        skillDatabase.Add(12, new InspirationSkill());
+        skillDatabase.Add(13, new OverdraftSkill());
+        skillDatabase.Add(14, new ExchangeSkill());
+        skillDatabase.Add(15, new WishSkill());
         skillDatabase.Add(16, new GravityFieldSkill());
-        skillDatabase.Add(17, new ShackleSkill());
+        skillDatabase.Add(17, new ReflectWallSkill());
+        skillDatabase.Add(18, new MindControlSkill());
 
         trinketDatabase.Add(1, new RedGemTrinket());
         trinketDatabase.Add(2, new BlueGemTrinket());
         trinketDatabase.Add(3, new CrownTrinket());
         trinketDatabase.Add(4, new WatchTrinket());
-        trinketDatabase.Add(5, new BraceletTrinket());
-        trinketDatabase.Add(6, new GlassesTrinket());
-        trinketDatabase.Add(7, new TuningForkTrinket());
-        trinketDatabase.Add(8, new IdolTrinket());
-        trinketDatabase.Add(9, new AntennaTrinket());
-        trinketDatabase.Add(10, new RingTrinket());
-        trinketDatabase.Add(11, new GolemTrinket());
-        trinketDatabase.Add(12, new HatTrinket());
-        trinketDatabase.Add(13, new BeastClawTrinket());
-        trinketDatabase.Add(14, new BatteryTrinket());
-        trinketDatabase.Add(15, new EyeDropsTrinket());
+        trinketDatabase.Add(5, new BatteryTrinket());
+        trinketDatabase.Add(6, new BeastClawTrinket());
+        trinketDatabase.Add(7, new BraceletTrinket());
+        trinketDatabase.Add(8, new AntennaTrinket());
+        trinketDatabase.Add(9, new HatTrinket());
+        trinketDatabase.Add(10, new GlassesTrinket());
+        trinketDatabase.Add(11, new EyeDropsTrinket());
+        trinketDatabase.Add(12, new RingTrinket());
+        trinketDatabase.Add(13, new TuningForkTrinket());
+        trinketDatabase.Add(14, new IdolTrinket());
+        trinketDatabase.Add(15, new GolemTrinket());
         trinketDatabase.Add(16, new ArmbandTrinket());
     }
 
@@ -487,50 +483,50 @@ public class PokerPlayer : NetworkBehaviour
 
     private void OnEquippedSkillsChanged(SyncList<int>.Operation op, int itemIndex, int oldItem, int newItem)
     {
-        if (isLocalPlayer && PokerUIManager.Instance != null)
+        if (isLocalPlayer && GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.GenerateInGameSkillBar();
-            PokerUIManager.Instance.RefreshSkillButtonsState(this.energy);
+            GamePlayUI.Instance.GenerateInGameSkillBar();
+            GamePlayUI.Instance.RefreshSkillButtonsState(this.energy);
         }
     }
 
     private void OnCard0SealedChanged(bool oldVal, bool newVal)
     {
-        if (isLocalPlayer && PokerUIManager.Instance != null)
+        if (isLocalPlayer && GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.SetMyCardSealState(0, newVal);
+            GamePlayUI.Instance.SetMyCardSealState(0, newVal);
         }
     }
 
     private void OnCard1SealedChanged(bool oldVal, bool newVal)
     {
-        if (isLocalPlayer && PokerUIManager.Instance != null)
+        if (isLocalPlayer && GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.SetMyCardSealState(1, newVal);
+            GamePlayUI.Instance.SetMyCardSealState(1, newVal);
         }
     }
 
     private void OnTrickRoomFlippedChanged(bool oldVal, bool newVal)
     {
-        if (isLocalPlayer && PokerUIManager.Instance != null)
+        if (isLocalPlayer && GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.SetTrickRoomFlipped(newVal);
+            GamePlayUI.Instance.SetTrickRoomFlipped(newVal);
         }
     }
 
     private void OnShackledChanged(bool oldVal, bool newVal)
     {
-        if (isLocalPlayer && PokerUIManager.Instance != null)
+        if (isLocalPlayer && GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.RefreshSkillButtonsState(this.energy);
+            GamePlayUI.Instance.RefreshSkillButtonsState(this.energy);
         }
     }
 
     private void OnShackledSkillCountChanged(int oldVal, int newVal)
     {
-        if (isLocalPlayer && PokerUIManager.Instance != null)
+        if (isLocalPlayer && GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.RefreshSkillButtonsState(this.energy);
+            GamePlayUI.Instance.RefreshSkillButtonsState(this.energy);
         }
     }
 
@@ -539,9 +535,9 @@ public class PokerPlayer : NetworkBehaviour
     [TargetRpc]
     public void TargetCancelPeek(NetworkConnectionToClient targetConn, int targetType, int targetIndex, uint ownerNetId)
     {
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.HideSpecificCardPeek(targetType, targetIndex, ownerNetId);
+            GamePlayUI.Instance.HideSpecificCardPeek(targetType, targetIndex, ownerNetId);
         }
     }
 
@@ -616,7 +612,7 @@ public class PokerPlayer : NetworkBehaviour
         }
         if (!skillDatabase.ContainsKey(skillID)) return;
 
-        if (!equippedSkills.Contains(skillID) && skillID != 98)
+        if (!equippedSkills.Contains(skillID) && skillID != 2)
         {
             if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "非法操作：你并未装备该技能！", 0);
             return;
@@ -624,7 +620,7 @@ public class PokerPlayer : NetworkBehaviour
 
         BaseSkill skillToCast = skillDatabase[skillID];
 
-        if (skillID == 6 && this.serverHasWishBuff)
+        if (skillID == 15 && this.serverHasWishBuff)
         {
             if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "本轮已许过愿，无法重复使用！", 0);
             return;
@@ -658,7 +654,7 @@ public class PokerPlayer : NetworkBehaviour
             targetIndex = -1;
         }
 
-        if (skillID == 9 && targetPlayer != null && targetPlayer.serverIsHosted)
+        if (skillID == 18 && targetPlayer != null && targetPlayer.serverIsHosted)
         {
             if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "无法对已托管的玩家使用精神控制！", 0);
             return;
@@ -667,29 +663,29 @@ public class PokerPlayer : NetworkBehaviour
         // ==========================================
         // 【封印检测拦截】：检测目标底牌是否被封印
         // ==========================================
-        if (skillID == 12 && targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
+        if (skillID == 11 && targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
         {
             if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "该底牌已经被封印，无需重复封印！", 0);
             return;
         }
 
-        if ((skillID == 2 || skillID == 3) && targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
+        if ((skillID == 3 || skillID == 4) && targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
         {
             if (this.connectionToClient != null)
             {
-                TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 99);
+                TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 1);
             }
             return;
         }
 
-        if (skillID == 7) // 交换技能有双目标，需要额外检查目标 1 和目标 2
+        if (skillID == 14) // 交换技能有双目标，需要额外检查目标 1 和目标 2
         {
             // 检查目标 1 是否被封印
             if (targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
             {
                 if (this.connectionToClient != null)
                 {
-                    TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 99);
+                    TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 1);
                 }
                 return;
             }
@@ -704,7 +700,7 @@ public class PokerPlayer : NetworkBehaviour
             {
                 if (this.connectionToClient != null)
                 {
-                    TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 99);
+                    TargetReceiveSkillMessage(this.connectionToClient, "底牌被封印了，发动技能失败", 1);
                 }
                 return;
             }
@@ -734,7 +730,7 @@ public class PokerPlayer : NetworkBehaviour
 
     private bool IsSensingBlocked()
     {
-        return this.equippedTrinkets.Contains(12);
+        return this.equippedTrinkets.Contains(8);
     }
 
     // 【核心修复】：参数补齐了 actualCastTime
@@ -753,7 +749,7 @@ public class PokerPlayer : NetworkBehaviour
         string targetName = (target != null) ? (target == this ? "自己" : target.playerName) : "公共牌";
 
         PokerPlayer target2 = null;
-        if (skillID == 7 && this.dualTargetType == 0)
+        if (skillID == 14 && this.dualTargetType == 0)
         {
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
@@ -786,7 +782,7 @@ public class PokerPlayer : NetworkBehaviour
         if (target != this && target != null && skill.CanBeResisted)
         {
             int resistCost = target.GetResistCost(skill.energyCost);
-            if (this.equippedTrinkets.Contains(13) && isDoubleSkillMode)
+            if (this.equippedTrinkets.Contains(6) && isDoubleSkillMode)
             {
                 resistCost += 1;
             }
@@ -807,7 +803,7 @@ public class PokerPlayer : NetworkBehaviour
         if (target2 != this && target2 != null && target2 != target && skill.CanBeResisted)
         {
             int resistCost2 = target2.GetResistCost(skill.energyCost);
-            if (this.equippedTrinkets.Contains(13) && isDoubleSkillMode)
+            if (this.equippedTrinkets.Contains(6) && isDoubleSkillMode)
             {
                 resistCost2 += 1;
             }
@@ -854,7 +850,7 @@ public class PokerPlayer : NetworkBehaviour
                     {
                         ServerGameManager.Instance.LogSkillEvent(this, target, targetType, skill.skillName, 3);
                     }
-                    if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"技能[{skill.skillName}]发动失败了！", 99);
+                    if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, $"技能[{skill.skillName}]发动失败了！", 1);
                     if (!isSensingBlocked)
                     {
                         foreach (var p in ServerGameManager.Instance.activePlayers)
@@ -930,7 +926,7 @@ public class PokerPlayer : NetworkBehaviour
                 int baseMax = ServerGameManager.Instance.maxEnergy;
                 foreach (var p in ServerGameManager.Instance.activePlayers)
                 {
-                    if (p != null && p != this && p.equippedTrinkets.Contains(14))
+                    if (p != null && p != this && p.equippedTrinkets.Contains(7))
                     {
                         int pMaxE = p.GetMaxEnergy(baseMax);
                         int oldE = p.energy;
@@ -959,7 +955,7 @@ public class PokerPlayer : NetworkBehaviour
         if (IsShacklesSilenced)
         {
             if (this.connectionToClient != null)
-                TargetReceiveSkillMessage(this.connectionToClient, "你已被枷锁束缚，无法使用抵抗！", 99);
+                TargetReceiveSkillMessage(this.connectionToClient, "你已被枷锁束缚，无法使用抵抗！", 1);
             return;
         }
         if (incomingAttacker != null && incomingAttacker.isCasting)
@@ -977,7 +973,7 @@ public class PokerPlayer : NetworkBehaviour
             else
             {
                 if (this.connectionToClient != null)
-                    TargetReceiveSkillMessage(this.connectionToClient, "能量不足，无法抵抗！", 99);
+                    TargetReceiveSkillMessage(this.connectionToClient, "能量不足，无法抵抗！", 1);
             }
         }
     }
@@ -998,13 +994,13 @@ public class PokerPlayer : NetworkBehaviour
             if (this.connectionToClient != null)
             {
                 TargetStopCastingUI(this.connectionToClient);
-                TargetReceiveSkillMessage(this.connectionToClient, $"你的技能被{resister.playerName}抵挡住了！", 99);
+                TargetReceiveSkillMessage(this.connectionToClient, $"你的技能被{resister.playerName}抵挡住了！", 1);
             }
 
             if (resister.connectionToClient != null)
             {
                 TargetStopCastingUI(resister.connectionToClient);
-                resister.TargetReceiveSkillMessage(resister.connectionToClient, $"你成功抵挡住了{this.playerName}的技能！", 99);
+                resister.TargetReceiveSkillMessage(resister.connectionToClient, $"你成功抵挡住了{this.playerName}的技能！", 1);
             }
 
             bool isSensingBlocked = IsSensingBlocked();
@@ -1074,28 +1070,28 @@ public class PokerPlayer : NetworkBehaviour
     [TargetRpc]
     public void TargetStartCastingUI(NetworkConnectionToClient targetConn, string casterName, string skillName, int skillID, float duration, bool canResist, int resistCost)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowCastBar(casterName, skillName, skillID, duration, canResist, resistCost);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.ShowCastBar(casterName, skillName, skillID, duration, canResist, resistCost);
     }
 
     [TargetRpc]
     public void TargetStopCastingUI(NetworkConnectionToClient targetConn)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.HideCastBar();
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.HideCastBar();
     }
 
     [TargetRpc]
     public void TargetReceiveSkillMessage(NetworkConnectionToClient target, string message, int skillID)
     {
         Debug.Log(message);
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.SpawnTextMessage(message, skillID, 3.5f);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.SpawnTextMessage(message, skillID, 3.5f);
     }
 
     [TargetRpc]
     public void TargetAddSkillLog(NetworkConnectionToClient conn, string logMessage)
     {
-        if (PokerUIManager.Instance != null && PokerUIManager.Instance.effectManager != null)
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.effectManager != null)
         {
-            PokerUIManager.Instance.effectManager.AddGameLog(logMessage, 3);
+            GamePlayUI.Instance.effectManager.AddGameLog(logMessage, 3);
         }
     }
 
@@ -1108,7 +1104,7 @@ public class PokerPlayer : NetworkBehaviour
     [TargetRpc]
     public void TargetPeekSingleCard(NetworkConnectionToClient targetConn, int targetType, int targetIndex, uint ownerNetId, Card card, float duration)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowSpecificCardTemporarily(targetType, targetIndex, ownerNetId, card, duration);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.ShowSpecificCardTemporarily(targetType, targetIndex, ownerNetId, card, duration);
     }
 
     public void AddActivePeek(int type, int index, uint ownerNetId, float duration)
@@ -1139,13 +1135,13 @@ public class PokerPlayer : NetworkBehaviour
     [TargetRpc]
     public void TargetUpdateSingleHandCard(NetworkConnectionToClient targetConn, int targetIndex, Card newCard)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.UpdateMySingleCard(targetIndex, newCard);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.UpdateMySingleCard(targetIndex, newCard);
     }
 
     [TargetRpc]
     public void TargetApplyBlur(NetworkConnectionToClient targetConn)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.SetMyCardsBlurred(true);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.SetMyCardsBlurred(true);
     }
 
     public void StartSensingBuff()
@@ -1158,13 +1154,13 @@ public class PokerPlayer : NetworkBehaviour
     public void TargetSetSensingState(NetworkConnectionToClient conn, bool state)
     {
         localIsSensing = state;
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ToggleSensingBuffUI(state);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.ToggleSensingBuffUI(state);
     }
 
     [TargetRpc]
     public void TargetReceiveSensingLog(NetworkConnectionToClient conn, string logMsg)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.ShowSensingLog(logMsg);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.ShowSensingLog(logMsg);
     }
 
     public void ApplyMindControl()
@@ -1208,13 +1204,13 @@ public class PokerPlayer : NetworkBehaviour
     [TargetRpc]
     public void TargetHideMainMenuForLateJoiner(NetworkConnectionToClient target)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.HideMainMenu();
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.HideMainMenu();
     }
 
     [TargetRpc]
     public void TargetCatchUpCommunityCards(NetworkConnectionToClient target, int count, Card[] cards)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.RevealCommunityCards(0, count, cards);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.RevealCommunityCards(0, count, cards);
     }
 
     // ==========================================
@@ -1263,7 +1259,7 @@ public class PokerPlayer : NetworkBehaviour
         }
 
         // 3. 最后计算斗篷（ID 5）
-        if (equippedTrinkets.Contains(5))
+        if (equippedTrinkets.Contains(7))
         {
             if (trinketDatabase.TryGetValue(5, out BaseTrinket trinket))
             {
@@ -1355,7 +1351,7 @@ public class PokerPlayer : NetworkBehaviour
         if (skill == null) return 0;
         int finalCost = skill.energyCost;
 
-        if (skill.skillID == 98 && equippedTrinkets.Contains(9))
+        if (skill.skillID == 2 && equippedTrinkets.Contains(8))
         {
             return 0;
         }
@@ -1381,12 +1377,12 @@ public class PokerPlayer : NetworkBehaviour
             return GetSkillCost(skill);
         }
 
-        if (PokerUIManager.Instance != null && PokerUIManager.Instance.allSkillConfigs != null)
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.allSkillConfigs != null)
         {
-            var config = PokerUIManager.Instance.allSkillConfigs.Find(c => c.skillID == skillID);
+            var config = GamePlayUI.Instance.allSkillConfigs.Find(c => c.skillID == skillID);
             if (config != null)
             {
-                if (skillID == 98 && equippedTrinkets.Contains(9)) return 0;
+                if (skillID == 2 && equippedTrinkets.Contains(8)) return 0;
 
                 int finalCost = config.energyCost;
                 foreach (int id in equippedTrinkets)

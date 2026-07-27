@@ -42,7 +42,7 @@ public class PeekSkill : BaseSkill
 {
     public PeekSkill()
     {
-        skillID = 2;
+        skillID = 3;
         skillName = "透视";
         energyCost = 3;
         castTime = 3f;
@@ -70,7 +70,7 @@ public class PeekSkill : BaseSkill
             uint tNetId = (target1 != null) ? target1.netId : 0;
             
             float duration = 3f;
-            if (caster.equippedTrinkets.Contains(15))
+            if (caster.equippedTrinkets.Contains(11))
             {
                 duration = 60f;
             }
@@ -82,7 +82,7 @@ public class PeekSkill : BaseSkill
             // ==========================================
             // 【眼镜起效】：额外随机偷看一张全场未知的牌！
             // ==========================================
-            if (caster.equippedTrinkets.Contains(6))
+            if (caster.equippedTrinkets.Contains(12))
             {
                 List<RandomCardPoolInfo> pool = new List<RandomCardPoolInfo>();
 
@@ -136,7 +136,7 @@ public class SwapSkill : BaseSkill
 {
     public SwapSkill()
     {
-        skillID = 3;
+        skillID = 4;
         skillName = "变牌";
         energyCost = 3;
         castTime = 4f;
@@ -157,7 +157,7 @@ public class SwapSkill : BaseSkill
         }
         else if (targetType == 1 && targetIndex >= 0 && targetIndex < 5)
         {
-            if (!caster.equippedTrinkets.Contains(10))
+            if (!caster.equippedTrinkets.Contains(12))
             {
                 if (caster.connectionToClient != null)
                 {
@@ -209,10 +209,10 @@ public class BlurSkill : BaseSkill
 {
     public BlurSkill()
     {
-        skillID = 4;
+        skillID = 5;
         skillName = "模糊";
         energyCost = 2;
-        castTime = 2.0f;
+        castTime = 2f;
     }
 
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
@@ -236,10 +236,10 @@ public class InterfereSkill : BaseSkill
 {
     public InterfereSkill()
     {
-        skillID = 5;
+        skillID = 6;
         skillName = "干扰";
         energyCost = 2;
-        castTime = 2.0f;
+        castTime = 2f;
     }
 
     public override void Execute(PokerPlayer caster, PokerPlayer target1, int type1, int index1, ServerGameManager serverContext)
@@ -259,10 +259,10 @@ public class WishSkill : BaseSkill
 {
     public WishSkill()
     {
-        skillID = 6;
+        skillID = 15;
         skillName = "许愿";
         energyCost = 4;
-        castTime = 4.0f;
+        castTime = 4f;
     }
 
     public override bool IsSelfTargeted => true;
@@ -291,10 +291,10 @@ public class ExchangeSkill : BaseSkill
 {
     public ExchangeSkill()
     {
-        skillID = 7;
+        skillID = 14;
         skillName = "交换";
         energyCost = 4;
-        castTime = 5.0f;
+        castTime = 5f;
     }
 
     public override void Execute(PokerPlayer caster, PokerPlayer target1, int type1, int index1, ServerGameManager serverContext)
@@ -303,7 +303,7 @@ public class ExchangeSkill : BaseSkill
         int type2 = caster.dualTargetType;
         int index2 = caster.dualTargetIndex;
 
-        if ((type1 == 1 || type2 == 1) && !caster.equippedTrinkets.Contains(10))
+        if ((type1 == 1 || type2 == 1) && !caster.equippedTrinkets.Contains(12))
         {
             if (caster.connectionToClient != null)
             {
@@ -389,10 +389,10 @@ public class ReflectWallSkill : BaseSkill
 {
     public ReflectWallSkill()
     {
-        skillID = 8;
+        skillID = 17;
         skillName = "反射壁";
         energyCost = 7;
-        castTime = 5.0f;
+        castTime = 5f;
     }
 
     public override bool IsSelfTargeted => true;
@@ -415,10 +415,10 @@ public class MindControlSkill : BaseSkill
 {
     public MindControlSkill()
     {
-        skillID = 9;
+        skillID = 18;
         skillName = "精神控制";
         energyCost = 9;
-        castTime = 7.0f;
+        castTime = 7f;
     }
 
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
@@ -439,7 +439,7 @@ public class SensingSkill : BaseSkill
 {
     public SensingSkill()
     {
-        skillID = 98;
+        skillID = 2;
         skillName = "感应";
         energyCost = 1;
         castTime = 1f;
@@ -464,7 +464,7 @@ public class OverdraftSkill : BaseSkill
 {
     public OverdraftSkill()
     {
-        skillID = 10;
+        skillID = 13;
         skillName = "透支";
         energyCost = 0;
         castTime = 3f;
@@ -492,7 +492,7 @@ public class AssistSkill : BaseSkill
 {
     public AssistSkill()
     {
-        skillID = 11;
+        skillID = 10;
         skillName = "援助";
         energyCost = 2;
         castTime = 2f;
@@ -523,7 +523,7 @@ public class SealSkill : BaseSkill
 {
     public SealSkill()
     {
-        skillID = 12;
+        skillID = 11;
         skillName = "封印";
         energyCost = 3;
         castTime = 4f;
@@ -567,7 +567,7 @@ public class ResonanceSkill : BaseSkill
 {
     public ResonanceSkill()
     {
-        skillID = 13;
+        skillID = 9;
         skillName = "共鸣";
         energyCost = 1;
         castTime = 3f;
@@ -619,8 +619,8 @@ public class TrickRoomSkill : BaseSkill
 {
     public TrickRoomSkill()
     {
-        skillID = 14;
-        skillName = "戏法空间";
+        skillID = 7;
+        skillName = "颠倒";
         energyCost = 2;
         castTime = 2f;
     }
@@ -647,7 +647,7 @@ public class InspirationSkill : BaseSkill
 {
     public InspirationSkill()
     {
-        skillID = 15;
+        skillID = 12;
         skillName = "灵机";
         energyCost = 0;
         castTime = 2f;
@@ -713,7 +713,7 @@ public class ShackleSkill : BaseSkill
 {
     public ShackleSkill()
     {
-        skillID = 17;
+        skillID = 8;
         skillName = "枷锁";
         energyCost = 3;
         castTime = 3f;

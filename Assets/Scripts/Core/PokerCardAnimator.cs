@@ -9,7 +9,7 @@ public class PokerCardAnimator : MonoBehaviour
     public List<GameObject> dealCommunity = new List<GameObject>();
     private bool isDealScheduled = false;
 
-    private PokerUIManager UIMgr => PokerUIManager.Instance;
+    private GamePlayUI UIMgr => GamePlayUI.Instance;
 
     public void PrepareCardForFlight(GameObject cardObj, List<GameObject> targetList)
     {
@@ -71,10 +71,13 @@ public class PokerCardAnimator : MonoBehaviour
     {
         if (UIMgr.myHandArea != null) LayoutRebuilder.ForceRebuildLayoutImmediate(UIMgr.myHandArea.GetComponent<RectTransform>());
         if (UIMgr.communityArea != null) LayoutRebuilder.ForceRebuildLayoutImmediate(UIMgr.communityArea.GetComponent<RectTransform>());
-        if (UIMgr.enemyHandAreas != null)
+        if (UIMgr.enemySeatsUI != null)
         {
-            foreach (var area in UIMgr.enemyHandAreas)
-                if (area != null) LayoutRebuilder.ForceRebuildLayoutImmediate(area.GetComponent<RectTransform>());
+            foreach (var node in UIMgr.enemySeatsUI)
+            {
+                if (node != null && node.handArea != null)
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(node.handArea.GetComponent<RectTransform>());
+            }
         }
     }
 

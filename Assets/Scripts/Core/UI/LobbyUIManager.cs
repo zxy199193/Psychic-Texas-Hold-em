@@ -8,30 +8,98 @@ public class LobbyUIManager : MonoBehaviour
     [HideInInspector] public List<int> localSelectedSkills = new List<int>();
     [HideInInspector] public List<int> localSelectedTrinkets = new List<int>();
 
-    private PokerUIManager UIMgr => PokerUIManager.Instance;
+    private GamePlayUI UIMgr => GamePlayUI.Instance;
+
+    [Header("Sub UI Components")]
+    public MainMenuUI mainMenuUI;
+    public LobbyUI lobbyUI;
+    public RoomUI roomUI;
+
+    private void Awake()
+    {
+#if UNITY_SERVER
+        Debug.Log("[LobbyUIManager] Dedicated Server detected. Dynamically switching to KcpTransport...");
+        Mirror.NetworkManager netManager = FindObjectOfType<Mirror.NetworkManager>();
+        if (netManager != null)
+        {
+            Mirror.Transport kcp = netManager.GetComponent<kcp2k.KcpTransport>();
+            if (kcp == null)
+            {
+                kcp = netManager.gameObject.AddComponent<kcp2k.KcpTransport>();
+            }
+            netManager.transport = kcp;
+            Mirror.Transport.active = kcp;
+        }
+        else
+        {
+            Debug.LogError("[LobbyUIManager] NetworkManager not found in scene!");
+        }
+#endif
+    }
+
+    private void Start()
+    {
+        if (mainMenuUI != null) mainMenuUI.Initialize(this);
+        if (lobbyUI != null) lobbyUI.Initialize(this);
+        if (roomUI != null) roomUI.Initialize(this);
+
+#if UNITY_SERVER
+        Debug.Log("[LobbyUIManager] Dedicated Server: Explicitly calling StartServer()...");
+        Mirror.NetworkManager netManager = FindObjectOfType<Mirror.NetworkManager>();
+        if (netManager != null)
+        {
+            netManager.StartServer();
+        }
+        else
+        {
+            Debug.LogError("[LobbyUIManager] NetworkManager not found during Start!");
+        }
+#endif
+    }
 
     public void OnBtnCreateRoomClicked()
     {
-        if (UIMgr.createRoomConfigUI != null)
+        if (lobbyUI != null && lobbyUI.createRoomConfigUI != null)
         {
-            UIMgr.createRoomConfigUI.gameObject.SetActive(true);
+            lobbyUI.createRoomConfigUI.gameObject.SetActive(true);
         }
         else
         {
             // 如果未关联新组件，回退到原先的默认直接启动逻辑
-            bool isOffline = (UIMgr.toggleOfflineMode != null && UIMgr.toggleOfflineMode.isOn);
+            bool isOffline = (mainMenuUI != null && mainMenuUI.toggleOfflineMode != null && mainMenuUI.toggleOfflineMode.isOn);
 
             if (isOffline)
             {
                 Debug.Log("【单机测试模式】启动！不连接 Steam 大厅。");
+                Mirror.Transport kcp = Mirror.NetworkManager.singleton.GetComponent<kcp2k.KcpTransport>();
+                if (kcp == null)
+                {
+                    kcp = Mirror.NetworkManager.singleton.gameObject.AddComponent<kcp2k.KcpTransport>();
+                }
+                Mirror.NetworkManager.singleton.transport = kcp;
+                Mirror.Transport.active = kcp;
                 Mirror.NetworkManager.singleton.StartHost();
             }
             else if (SteamLobby.Instance != null && SteamManager.Initialized)
             {
+                // 确保使用 Steam 传输协议
+                UnityEngine.Component fizzy = Mirror.NetworkManager.singleton.GetComponent("FizzySteamworks");
+                if (fizzy != null)
+                {
+                    Mirror.NetworkManager.singleton.transport = fizzy as Mirror.Transport;
+                    Mirror.Transport.active = fizzy as Mirror.Transport;
+                }
                 SteamLobby.Instance.HostLobby();
             }
             else
             {
+                Mirror.Transport kcp = Mirror.NetworkManager.singleton.GetComponent<kcp2k.KcpTransport>();
+                if (kcp == null)
+                {
+                    kcp = Mirror.NetworkManager.singleton.gameObject.AddComponent<kcp2k.KcpTransport>();
+                }
+                Mirror.NetworkManager.singleton.transport = kcp;
+                Mirror.Transport.active = kcp;
                 Mirror.NetworkManager.singleton.StartHost();
             }
 
@@ -41,26 +109,38 @@ public class LobbyUIManager : MonoBehaviour
 
     public void OnBtnJoinRoomClicked()
     {
-        // 1. 打开房间列表面板
-        if (UIMgr.roomListPanel != null)
+        if (mainMenuUI != null && mainMenuUI.toggleUseDedicatedServer != null && mainMenuUI.toggleUseDedicatedServer.isOn)
         {
-            UIMgr.roomListPanel.SetActive(true);
-            if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(false);
+            if (lobbyUI != null)
+            {
+                lobbyUI.ConnectToDedicatedServer();
+            }
+            else
+            {
+                Debug.LogError("[LobbyUIManager] lobbyUI is null, cannot connect to Dedicated Server.");
+            }
+            return;
         }
 
-        // 2. 刷新房间列表 (通过 Steam 请求，或者在离线测试时显示 Fake 列表)
+        if (lobbyUI != null && lobbyUI.roomListPanel != null)
+        {
+            lobbyUI.roomListPanel.SetActive(true);
+            if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(false);
+        }
+
         if (SteamLobby.Instance != null)
         {
             SteamLobby.Instance.RequestLobbyList();
         }
     }
 
+
     public void OnBtnCloseRoomListClicked()
     {
-        if (UIMgr.roomListPanel != null)
+        if (lobbyUI != null && lobbyUI.roomListPanel != null)
         {
-            UIMgr.roomListPanel.SetActive(false);
-            if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(true);
+            lobbyUI.roomListPanel.SetActive(false);
+            if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(true);
         }
     }
 
@@ -100,12 +180,11 @@ public class LobbyUIManager : MonoBehaviour
         }
 
         // 返回大厅/房间列表 UI 并刷新列表
-        if (UIMgr.lobbyUIGroup != null) UIMgr.lobbyUIGroup.SetActive(false);
-        if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(false);
-        if (UIMgr.roomListPanel != null)
+        if (roomUI != null && roomUI.lobbyUIGroup != null) roomUI.lobbyUIGroup.SetActive(false);
+        if (lobbyUI != null && lobbyUI.roomListPanel != null)
         {
-            UIMgr.roomListPanel.SetActive(true);
-            if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(false);
+            lobbyUI.roomListPanel.SetActive(true);
+            if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(false);
             if (SteamLobby.Instance != null)
             {
                 SteamLobby.Instance.RequestLobbyList();
@@ -113,7 +192,7 @@ public class LobbyUIManager : MonoBehaviour
         }
         else
         {
-            if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(true);
+            if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(true);
         }
 
         // 重新同步一次云端筹码，刷新筹码显示
@@ -123,66 +202,75 @@ public class LobbyUIManager : MonoBehaviour
         }
         
         // 重置大厅 UI 状态
-        if (UIMgr.btnCreateRoom != null) UIMgr.btnCreateRoom.gameObject.SetActive(true);
-        if (UIMgr.btnJoinRoom != null) UIMgr.btnJoinRoom.gameObject.SetActive(true);
-        if (UIMgr.btnExitGame != null) UIMgr.btnExitGame.gameObject.SetActive(true);
-        if (UIMgr.txtPlayerCount != null) UIMgr.txtPlayerCount.gameObject.SetActive(false);
-        if (UIMgr.btnLobbyReady != null) UIMgr.btnLobbyReady.gameObject.SetActive(false);
-        if (UIMgr.btnStartGame != null) UIMgr.btnStartGame.gameObject.SetActive(false);
-        if (UIMgr.toggleFillBots != null) UIMgr.toggleFillBots.gameObject.SetActive(false);
-        if (UIMgr.toggleShortDeck != null) UIMgr.toggleShortDeck.gameObject.SetActive(false);
+        if (mainMenuUI != null)
+        {
+            if (mainMenuUI.btnJoinRoom != null) mainMenuUI.btnJoinRoom.gameObject.SetActive(true);
+            if (mainMenuUI.btnExitGame != null) mainMenuUI.btnExitGame.gameObject.SetActive(true);
+        }
+        if (roomUI != null)
+        {
+            if (roomUI.txtPlayerCount != null) roomUI.txtPlayerCount.gameObject.SetActive(false);
+            if (roomUI.btnLobbyReady != null) roomUI.btnLobbyReady.gameObject.SetActive(false);
+            if (roomUI.btnStartGame != null) roomUI.btnStartGame.gameObject.SetActive(false);
+        }
     }
 
     public void SetupLobbyUI(bool isHost)
     {
-        if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(true);
-        if (UIMgr.btnCreateRoom != null) UIMgr.btnCreateRoom.gameObject.SetActive(false);
-        if (UIMgr.btnJoinRoom != null) UIMgr.btnJoinRoom.gameObject.SetActive(false);
-        if (UIMgr.btnExitGame != null) UIMgr.btnExitGame.gameObject.SetActive(false);
-        if (UIMgr.txtPlayerCount != null) UIMgr.txtPlayerCount.gameObject.SetActive(true);
-        if (UIMgr.btnLobbyReady != null) UIMgr.btnLobbyReady.gameObject.SetActive(true);
-        if (UIMgr.lobbyUIGroup != null) UIMgr.lobbyUIGroup.SetActive(true);
-        if (UIMgr.btnStartGame != null) UIMgr.btnStartGame.gameObject.SetActive(isHost);
-        if (UIMgr.toggleFillBots != null)
+        if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(true);
+        if (mainMenuUI != null)
         {
-            UIMgr.toggleFillBots.gameObject.SetActive(true);
-            UIMgr.toggleFillBots.interactable = false;
+            if (mainMenuUI.btnJoinRoom != null) mainMenuUI.btnJoinRoom.gameObject.SetActive(false);
+            if (mainMenuUI.btnExitGame != null) mainMenuUI.btnExitGame.gameObject.SetActive(false);
         }
-        if (UIMgr.toggleShortDeck != null)
+        if (roomUI != null)
         {
-            UIMgr.toggleShortDeck.gameObject.SetActive(true);
-            UIMgr.toggleShortDeck.interactable = false;
+            if (roomUI.txtPlayerCount != null) roomUI.txtPlayerCount.gameObject.SetActive(true);
+            if (roomUI.btnLobbyReady != null) roomUI.btnLobbyReady.gameObject.SetActive(true);
+            if (roomUI.lobbyUIGroup != null) roomUI.lobbyUIGroup.SetActive(true);
+            if (roomUI.btnStartGame != null) roomUI.btnStartGame.gameObject.SetActive(isHost);
+            if (roomUI.btnHalftimeStats != null) roomUI.btnHalftimeStats.gameObject.SetActive(false);
         }
-        if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(true);
     }
 
     public void OnBtnStartGameClicked()
     {
         if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost)
         {
-            bool fillBots = ServerGameManager.Instance != null && ServerGameManager.Instance.fillBots;
-            bool isShortDeck = ServerGameManager.Instance != null && ServerGameManager.Instance.isShortDeckMode;
-            PokerPlayer.LocalPlayer.CmdStartGame(fillBots, isShortDeck);
+            if (ServerGameManager.Instance != null && ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.Halftime)
+            {
+                if (PokerPlayer.LocalPlayer.isServer)
+                {
+                    ServerGameManager.Instance.StartNextRoundFromHalftime();
+                }
+            }
+            else
+            {
+                bool fillBots = ServerGameManager.Instance != null && ServerGameManager.Instance.fillBots;
+                bool isShortDeck = ServerGameManager.Instance != null && ServerGameManager.Instance.isShortDeckMode;
+                PokerPlayer.LocalPlayer.CmdStartGame(fillBots, isShortDeck);
+            }
         }
     }
 
     public void HideMainMenu()
     {
-        if (UIMgr.mainMenuPanel != null) UIMgr.mainMenuPanel.SetActive(false);
-        if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(false);
+        if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(false);
+        if (roomUI != null && roomUI.lobbyUIGroup != null) roomUI.lobbyUIGroup.SetActive(false);
         UIMgr.GenerateInGameSkillBar();
         UIMgr.GenerateInGameTrinketUI();
     }
 
     public void InitLobbySkillSelection()
     {
-        ClearArea(UIMgr.lobbySkillContainer);
+        if (roomUI == null) return;
+        ClearArea(roomUI.lobbySkillContainer);
         UpdateSelectedCountText();
 
-        foreach (var config in UIMgr.allSkillConfigs)
+        foreach (var config in roomUI.allSkillConfigs)
         {
             if (config == null) continue;
-            GameObject go = Instantiate(UIMgr.lobbySkillItemPrefab, UIMgr.lobbySkillContainer);
+            GameObject go = Instantiate(roomUI.lobbySkillItemPrefab, roomUI.lobbySkillContainer);
             Transform iconTransform = DeepFind(go.transform, "Image Icon");
             Transform nameTransform = DeepFind(go.transform, "Text Name");
             Transform descTransform = DeepFind(go.transform, "Text Des");
@@ -235,16 +323,17 @@ public class LobbyUIManager : MonoBehaviour
 
     public void InitLobbyTrinketSelection()
     {
-        ClearArea(UIMgr.lobbyTrinketContainer);
+        if (roomUI == null) return;
+        ClearArea(roomUI.lobbyTrinketContainer);
 
-        if (UIMgr.selectedTrinketCountText != null)
-            UIMgr.selectedTrinketCountText.text = $"选择饰品 [{localSelectedTrinkets.Count}/{UIMgr.maxTrinketSelection}]";
+        if (roomUI.selectedTrinketCountText != null)
+            roomUI.selectedTrinketCountText.text = $"选择饰品 [{localSelectedTrinkets.Count}/{roomUI.maxTrinketSelection}]";
 
-        foreach (var config in UIMgr.allTrinketConfigs)
+        foreach (var config in roomUI.allTrinketConfigs)
         {
             if (config == null) continue;
 
-            GameObject go = Instantiate(UIMgr.lobbyTrinketItemPrefab, UIMgr.lobbyTrinketContainer);
+            GameObject go = Instantiate(roomUI.lobbyTrinketItemPrefab, roomUI.lobbyTrinketContainer);
             Transform iconTransform = DeepFind(go.transform, "Image Icon");
             Transform nameTransform = DeepFind(go.transform, "Text Name");
             Transform descTransform = DeepFind(go.transform, "Text Des");
@@ -294,16 +383,16 @@ public class LobbyUIManager : MonoBehaviour
                 }
                 else
                 {
-                    if (localSelectedTrinkets.Count >= UIMgr.maxTrinketSelection)
+                    if (localSelectedTrinkets.Count >= roomUI.maxTrinketSelection)
                     {
-                        Debug.LogWarning($"最多只能选 {UIMgr.maxTrinketSelection} 个饰品！");
+                        Debug.LogWarning($"最多只能选 {roomUI.maxTrinketSelection} 个饰品！");
                         return;
                     }
                     localSelectedTrinkets.Add(config.trinketID);
                 }
 
-                if (UIMgr.selectedTrinketCountText != null)
-                    UIMgr.selectedTrinketCountText.text = $"选择饰品 [{localSelectedTrinkets.Count}/{UIMgr.maxTrinketSelection}]";
+                if (roomUI.selectedTrinketCountText != null)
+                    roomUI.selectedTrinketCountText.text = $"选择饰品 [{localSelectedTrinkets.Count}/{roomUI.maxTrinketSelection}]";
                 if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdUpdateEquippedTrinkets(localSelectedTrinkets.ToArray());
                 
                 // 重新刷新整个列表的状态
@@ -314,8 +403,8 @@ public class LobbyUIManager : MonoBehaviour
 
     private void UpdateSelectedCountText()
     {
-        if (UIMgr.selectedCountText != null)
-            UIMgr.selectedCountText.text = $"选择技能 [{localSelectedSkills.Count}/3]";
+        if (roomUI != null && roomUI.selectedCountText != null)
+            roomUI.selectedCountText.text = $"选择技能 [{localSelectedSkills.Count}/3]";
     }
 
     public void ShowHalftimePanel(int roundCount, int maxCirclesVal)
@@ -339,20 +428,22 @@ public class LobbyUIManager : MonoBehaviour
         }
         if (UIMgr.inGameTrinketContainer != null) ClearArea(UIMgr.inGameTrinketContainer);
 
-        if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(true);
-        if (UIMgr.btnStartGame != null) UIMgr.btnStartGame.gameObject.SetActive(false);
-        if (UIMgr.halftimeUIGroup != null) UIMgr.halftimeUIGroup.SetActive(true);
-        if (UIMgr.lobbyUIGroup != null) UIMgr.lobbyUIGroup.SetActive(false);
-        if (UIMgr.btnHalftimeStartHost != null) UIMgr.btnHalftimeStartHost.gameObject.SetActive(false);
-        if (UIMgr.txtHalftimeRoundTitle != null)
+        bool isHost = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost;
+        SetupLobbyUI(isHost);
+        if (roomUI != null && roomUI.btnHalftimeStats != null) roomUI.btnHalftimeStats.gameObject.SetActive(true);
+        if (roomUI != null && roomUI.halftimeStatsWindow != null)
+        {
+            roomUI.halftimeStatsWindow.SetActive(false);
+        }
+        if (roomUI != null && roomUI.txtHalftimeRoundTitle != null)
         {
             if (maxCirclesVal > 0)
             {
-                UIMgr.txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}/{maxCirclesVal}圈 】";
+                roomUI.txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}/{maxCirclesVal}圈 】";
             }
             else
             {
-                UIMgr.txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}圈 】";
+                roomUI.txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}圈 】";
             }
         }
 
@@ -375,9 +466,8 @@ public class LobbyUIManager : MonoBehaviour
 
     public void HideHalftimePanel()
     {
-        if (UIMgr.skillSelectionPanel != null) UIMgr.skillSelectionPanel.SetActive(false);
-        if (UIMgr.halftimeUIGroup != null) UIMgr.halftimeUIGroup.SetActive(false);
-        if (UIMgr.halftimeStatsWindow != null) UIMgr.halftimeStatsWindow.SetActive(false);
+        HideMainMenu();
+        if (roomUI != null && roomUI.halftimeStatsWindow != null) roomUI.halftimeStatsWindow.SetActive(false);
 
         UIMgr.GenerateInGameSkillBar();
         UIMgr.GenerateInGameTrinketUI();
@@ -390,28 +480,28 @@ public class LobbyUIManager : MonoBehaviour
 
     public void OnBtnHalftimeStartClicked()
     {
-        if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdStartNextRoundFromHalftime();
-    }
-
-    private void ClearArea(Transform area)
-    {
-        if (area == null) return;
-        for (int i = area.childCount - 1; i >= 0; i--)
+        if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isServer)
         {
-            Transform child = area.GetChild(i);
-            child.SetParent(null);
-            Destroy(child.gameObject);
+            ServerGameManager.Instance.StartNextRoundFromHalftime();
         }
     }
 
-    private Transform DeepFind(Transform parent, string targetName)
+    private void ClearArea(Transform container)
     {
-        Transform result = parent.Find(targetName);
-        if (result != null) return result;
+        if (container == null) return;
+        for (int i = container.childCount - 1; i >= 0; i--)
+        {
+            Destroy(container.GetChild(i).gameObject);
+        }
+    }
+
+    private Transform DeepFind(Transform parent, string name)
+    {
+        if (parent.name == name) return parent;
         foreach (Transform child in parent)
         {
-            result = DeepFind(child, targetName);
-            if (result != null) return result;
+            Transform t = DeepFind(child, name);
+            if (t != null) return t;
         }
         return null;
     }

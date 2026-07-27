@@ -110,8 +110,26 @@ public class SteamLobby : MonoBehaviour
         if (!SteamManager.Initialized)
         {
             Debug.LogError("Steam is not initialized.");
+            
+            // 离线/局域网，使用 KcpTransport
+            Mirror.Transport kcp = NetworkManager.singleton.GetComponent<kcp2k.KcpTransport>();
+            if (kcp == null)
+            {
+                kcp = NetworkManager.singleton.gameObject.AddComponent<kcp2k.KcpTransport>();
+            }
+            NetworkManager.singleton.transport = kcp;
+            Mirror.Transport.active = kcp;
+
             NetworkManager.singleton.StartHost();
             return;
+        }
+
+        // 确保使用 Steam 传输协议
+        Component fizzy = NetworkManager.singleton.GetComponent("FizzySteamworks");
+        if (fizzy != null)
+        {
+            NetworkManager.singleton.transport = fizzy as Mirror.Transport;
+            Mirror.Transport.active = fizzy as Mirror.Transport;
         }
 
         LeaveLobby();
@@ -178,16 +196,16 @@ public class SteamLobby : MonoBehaviour
     public void RequestLobbyList()
     {
         bool isOffline = false;
-        if (PokerUIManager.Instance != null && PokerUIManager.Instance.toggleOfflineMode != null)
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.toggleOfflineMode != null)
         {
-            isOffline = PokerUIManager.Instance.toggleOfflineMode.isOn;
+            isOffline = GamePlayUI.Instance.toggleOfflineMode.isOn;
         }
 
         if (!SteamManager.Initialized || isOffline)
         {
-            if (PokerUIManager.Instance != null)
+            if (GamePlayUI.Instance != null)
             {
-                PokerUIManager.Instance.DisplayMockLobbyList();
+                GamePlayUI.Instance.DisplayMockLobbyList();
             }
             return;
         }
@@ -272,9 +290,9 @@ public class SteamLobby : MonoBehaviour
             });
         }
 
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.UpdateRoomListUI(lobbies);
+            GamePlayUI.Instance.UpdateRoomListUI(lobbies);
         }
     }
 
@@ -287,16 +305,25 @@ public class SteamLobby : MonoBehaviour
     public void JoinLobby(ulong lobbyId)
     {
         bool isOffline = false;
-        if (PokerUIManager.Instance != null && PokerUIManager.Instance.toggleOfflineMode != null)
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.toggleOfflineMode != null)
         {
-            isOffline = PokerUIManager.Instance.toggleOfflineMode.isOn;
+            isOffline = GamePlayUI.Instance.toggleOfflineMode.isOn;
         }
 
         if (!SteamManager.Initialized || isOffline)
         {
+            // 离线/局域网，使用 KcpTransport
+            Mirror.Transport kcp = NetworkManager.singleton.GetComponent<kcp2k.KcpTransport>();
+            if (kcp == null)
+            {
+                kcp = NetworkManager.singleton.gameObject.AddComponent<kcp2k.KcpTransport>();
+            }
+            NetworkManager.singleton.transport = kcp;
+            Mirror.Transport.active = kcp;
+
             Mirror.NetworkManager.singleton.networkAddress = "localhost";
             Mirror.NetworkManager.singleton.StartClient();
-            if (PokerUIManager.Instance != null) PokerUIManager.Instance.SetupLobbyUI(false);
+            if (GamePlayUI.Instance != null) GamePlayUI.Instance.SetupLobbyUI(false);
             return;
         }
 
@@ -317,12 +344,20 @@ public class SteamLobby : MonoBehaviour
 
         string hostAddress = SteamMatchmaking.GetLobbyData(lobbyId, HostAddressKey);
 
+        // 确保进入 Steam 大厅联机时使用 FizzySteamworks 传输协议
+        Component fizzy = NetworkManager.singleton.GetComponent("FizzySteamworks");
+        if (fizzy != null)
+        {
+            NetworkManager.singleton.transport = fizzy as Mirror.Transport;
+            Mirror.Transport.active = fizzy as Mirror.Transport;
+        }
+
         NetworkManager.singleton.networkAddress = hostAddress;
         NetworkManager.singleton.StartClient();
 
-        if (PokerUIManager.Instance != null)
+        if (GamePlayUI.Instance != null)
         {
-            PokerUIManager.Instance.SetupLobbyUI(false);
+            GamePlayUI.Instance.SetupLobbyUI(false);
         }
     }
 

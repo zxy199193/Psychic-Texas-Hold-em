@@ -62,16 +62,16 @@ public class CardTarget : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     // --- 鼠标交互事件：全部汇报给 UI 大管家 ---
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.OnCardHoverEnter(this);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.OnCardHoverEnter(this);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.OnCardHoverExit(this);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.OnCardHoverExit(this);
     }
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (PokerUIManager.Instance != null) PokerUIManager.Instance.OnCardClicked(this);
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.OnCardClicked(this);
     }
 }

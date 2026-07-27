@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class PokerEffectManager : MonoBehaviour
 {
-    private PokerUIManager UIMgr => PokerUIManager.Instance;
+    private GamePlayUI UIMgr => GamePlayUI.Instance;
     private Coroutine currentTooltipCoroutine;
 
     private bool IsDuplicateSkillMessage(string message)
