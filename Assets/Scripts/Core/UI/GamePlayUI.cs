@@ -138,6 +138,8 @@ public class GamePlayUI : MonoBehaviour
     public Transform gameEndStatsContainer;
     public GameObject gameEndStatsItemPrefab;
     public Button btnReturnToMainMenu;
+
+    [HideInInspector] public int lastRoundWinAmount = 0;
     public Button btnReturnToRoom;
 
     [Header("11. 圈数与轮数显示 (Lap & Round UI)")]
@@ -213,9 +215,10 @@ public class GamePlayUI : MonoBehaviour
 
 
     private List<Card> localHoleCards = new List<Card>();
-    private List<Card> localCommunityCards = new List<Card>();
+    public List<Card> localCommunityCards = new List<Card>();
     private HandEvaluator.HandRank currentHandRank = HandEvaluator.HandRank.HighCard;
     private int currentHandScore = -1;
+    private bool hasGrantedMatchEndDiamonds = false;
     #endregion
 
     #region 属性委派 (Delegated Properties)
@@ -228,6 +231,7 @@ public class GamePlayUI : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        hasGrantedMatchEndDiamonds = false;
         if (btnFold != null)
         {
             btnFold.onClick.RemoveAllListeners();
@@ -1018,6 +1022,12 @@ public class GamePlayUI : MonoBehaviour
 
             RectTransform parentRect = turnStatusText.transform.parent.GetComponent<RectTransform>();
             if (parentRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
+        }
+
+        if (PlayFabAuthManager.Instance != null)
+        {
+            bool hasBots = ServerGameManager.Instance != null && ServerGameManager.Instance.fillBots;
+            PlayFabAuthManager.Instance.RecordRoundPlayed(hasBots);
         }
 
         if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
@@ -2321,7 +2331,87 @@ public class GamePlayUI : MonoBehaviour
         {
             gameEndPanel.SetActive(true);
             RefreshGameEndStatsWindow();
+            RecordMatchEndStats();
         }
+    }
+
+    private void RecordMatchEndStats()
+    {
+        if (PlayFabAuthManager.Instance == null) return;
+        if (ServerGameManager.Instance == null || PokerPlayer.LocalPlayer == null) return;
+
+        // 1. 检查是否为无限圈数模式 (无限模式不计入统计数据和钻石奖励)
+        bool isInfinite = ServerGameManager.Instance.maxCircles <= 0;
+        if (isInfinite)
+        {
+            Debug.Log("[GamePlayUI] Match is infinite rounds. Skipping stats and diamond rewards recording.");
+            return;
+        }
+
+        // 防止重复发放钻石奖励
+        if (hasGrantedMatchEndDiamonds) return;
+        hasGrantedMatchEndDiamonds = true;
+
+        // 2. 检查是否有机器人
+        bool hasBots = ServerGameManager.Instance.fillBots;
+
+        // 3. 计算所有玩家的成绩以确定排名
+        PokerPlayer[] players = FindObjectsOfType<PokerPlayer>();
+        System.Array.Sort(players, (a, b) =>
+        {
+            int profitA = a.chips - 1000 * (a.rebuyCount + 1);
+            int profitB = b.chips - 1000 * (b.rebuyCount + 1);
+            return profitB.CompareTo(profitA); // 降序
+        });
+
+        bool isWinner = (players.Length > 0 && players[0] == PokerPlayer.LocalPlayer);
+        int myProfit = PokerPlayer.LocalPlayer.chips - 1000 * (PokerPlayer.LocalPlayer.rebuyCount + 1);
+
+        PlayFabAuthManager.Instance.RecordMatchEnd(isWinner, myProfit, hasBots);
+        Debug.Log($"[GamePlayUI] RecordMatchEndStats called. Winner: {isWinner}, Profit: {myProfit}, HasBots: {hasBots}");
+
+        // 4. 计算并向云端增发钻石奖励（仅限真人本地玩家）
+        if (PokerPlayer.LocalPlayer.steamId != 0) // 真人玩家
+        {
+            int myIndex = System.Array.IndexOf(players, PokerPlayer.LocalPlayer);
+            if (myIndex >= 0)
+            {
+                int beatHumanCount = 0;
+                for (int j = myIndex + 1; j < players.Length; j++)
+                {
+                    if (players[j] != null && players[j].steamId != 0)
+                    {
+                        beatHumanCount++;
+                    }
+                }
+
+                int basicReward = GetBasicDiamondReward(beatHumanCount);
+                int finalDiamonds = basicReward * ServerGameManager.Instance.maxCircles;
+
+                if (finalDiamonds > 0)
+                {
+                    Debug.Log($"[GamePlayUI] Granting match end diamond reward: basic={basicReward}, circles={ServerGameManager.Instance.maxCircles}, final={finalDiamonds} diamonds.");
+                    PlayFabAuthManager.Instance.GrantMatchEndDiamonds(finalDiamonds,
+                        grantedAmount => {
+                            Debug.Log($"[GamePlayUI] Successfully granted {grantedAmount} diamonds for match completion.");
+                        },
+                        errorMsg => {
+                            Debug.LogError($"[GamePlayUI] Grant match end diamonds failed: {errorMsg}");
+                        }
+                    );
+                }
+            }
+        }
+    }
+
+    private int GetBasicDiamondReward(int beatHumanCount)
+    {
+        if (beatHumanCount >= 5) return 30;
+        if (beatHumanCount == 4) return 20;
+        if (beatHumanCount == 3) return 15;
+        if (beatHumanCount == 2) return 10;
+        if (beatHumanCount == 1) return 5;
+        return 0;
     }
 
     public void RefreshGameEndStatsWindow()
@@ -2419,6 +2509,36 @@ public class GamePlayUI : MonoBehaviour
                     {
                         Texture2D tex = GetSteamAvatar(p.steamId);
                         if (tex != null) img.texture = tex;
+                    }
+                }
+            }
+
+            // 7. Diamonds Reward (真人显示钻石奖励，机器人不显示)
+            Transform diamondsTrans = DeepFind(go.transform, "Text Diamonds") ?? DeepFind(go.transform, "Diamonds") ?? DeepFind(go.transform, "DiamondReward") ?? go.transform.Find("Diamonds");
+            if (diamondsTrans != null)
+            {
+                Text t = diamondsTrans.GetComponent<Text>();
+                if (t != null)
+                {
+                    if (p.steamId != 0 && ServerGameManager.Instance != null && ServerGameManager.Instance.maxCircles > 0)
+                    {
+                        int beatHumanCount = 0;
+                        for (int j = i + 1; j < players.Length; j++)
+                        {
+                            if (players[j] != null && players[j].steamId != 0)
+                            {
+                                beatHumanCount++;
+                            }
+                        }
+                        int basicReward = GetBasicDiamondReward(beatHumanCount);
+                        int finalDiamonds = basicReward * ServerGameManager.Instance.maxCircles;
+
+                        t.text = finalDiamonds.ToString();
+                        t.gameObject.SetActive(true);
+                    }
+                    else
+                    {
+                        t.gameObject.SetActive(false);
                     }
                 }
             }
@@ -2573,6 +2693,16 @@ public class GamePlayUI : MonoBehaviour
 
     public void PlayWinChipsAnimation(uint playerNetId, int winAmount, int targetChips)
     {
+        if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.netId == playerNetId)
+        {
+            lastRoundWinAmount = winAmount;
+
+            if (PlayFabAuthManager.Instance != null)
+            {
+                bool hasBots = ServerGameManager.Instance != null && ServerGameManager.Instance.fillBots;
+                PlayFabAuthManager.Instance.RecordWinChips(winAmount, hasBots);
+            }
+        }
         StartCoroutine(WinChipsAnimationRoutine(playerNetId, winAmount, targetChips));
     }
 

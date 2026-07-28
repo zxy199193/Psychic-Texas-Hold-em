@@ -315,4 +315,56 @@ public static class HandEvaluator
 
         return 0; // 完全平局
     }
+
+    public static List<Card> GetBest5CardCombination(List<Card> playerHand, List<Card> community, bool isShortDeck = false)
+    {
+        InitThreadStaticBuffers();
+        List<Card> allCards = new List<Card>();
+        if (playerHand != null) allCards.AddRange(playerHand);
+        if (community != null) allCards.AddRange(community);
+        
+        allCards.RemoveAll(c => (int)c.rank < 2);
+
+        if (allCards.Count < 5) return allCards;
+
+        (HandRank rank, int score) best = (HandRank.HighCard, 0);
+        List<Card> bestCombo = new List<Card>();
+        bool first = true;
+        int allCardsCount = allCards.Count;
+
+        for (int i = 0; i < allCardsCount - 4; i++)
+        {
+            for (int j = i + 1; j < allCardsCount - 3; j++)
+            {
+                for (int k = j + 1; k < allCardsCount - 2; k++)
+                {
+                    for (int l = k + 1; l < allCardsCount - 1; l++)
+                    {
+                        for (int m = l + 1; m < allCardsCount; m++)
+                        {
+                            Card[] combo = new Card[5] { allCards[i], allCards[j], allCards[k], allCards[l], allCards[m] };
+                            var eval = Evaluate(combo, isShortDeck);
+                            if (first)
+                            {
+                                best = eval;
+                                bestCombo = new List<Card>(combo);
+                                first = false;
+                            }
+                            else
+                            {
+                                int currentWeight = GetRankWeight(eval.rank, isShortDeck);
+                                int bestWeight = GetRankWeight(best.rank, isShortDeck);
+                                if (currentWeight > bestWeight || (currentWeight == bestWeight && eval.score > best.score))
+                                {
+                                    best = eval;
+                                    bestCombo = new List<Card>(combo);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return bestCombo;
+    }
 }

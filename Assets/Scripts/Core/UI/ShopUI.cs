@@ -36,6 +36,7 @@ public class ShopItemData
     public int associatedId;    // 关联的技能或饰品 ID
     public int energyCost;      // 能量消耗 (仅技能展示用)
     public float castTime;      // 施法时间 (仅技能展示用)
+    public int rewardAmount = 1; // 奖励包含的物品数值/数量（如：50钻石、100筹码）
 }
 
 public class ShopUI : MonoBehaviour
@@ -303,7 +304,29 @@ public class ShopUI : MonoBehaviour
             () =>
             {
                 if (lobbyUIMgr != null) lobbyUIMgr.ShowLoading(false);
-                ShowTips($"购买 [{pendingPurchaseItem.displayName}] 成功！");
+
+                // 弹出通用奖励/购买成功获取框
+                string popupTitle = "购买成功";
+                bool showAmount = true;
+                if (pendingPurchaseItem.tabType == ShopTabType.Skills)
+                {
+                    popupTitle = "获得新技能";
+                    showAmount = false;
+                }
+                else if (pendingPurchaseItem.tabType == ShopTabType.Trinkets)
+                {
+                    popupTitle = "获得新饰品";
+                    showAmount = false;
+                }
+
+                if (lobbyUIMgr != null)
+                {
+                    var rewardList = new List<LobbyUIManager.RewardItemData> {
+                        new LobbyUIManager.RewardItemData(pendingPurchaseItem.displayName, pendingPurchaseItem.displayIcon, pendingPurchaseItem.rewardAmount, showAmount)
+                    };
+                    lobbyUIMgr.ShowRewardPopup(popupTitle, rewardList);
+                }
+
                 RefreshProducts();
             },
             errMsg =>

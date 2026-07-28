@@ -15,7 +15,19 @@ public class LobbyUIManager : MonoBehaviour
     public LobbyUI lobbyUI;
     public RoomUI roomUI;
     public ShopUI shopUI;
+    public PlayerInfoUI infoUI;
+    public AchievementUI achievementUI;
+    public LeaderboardUI leaderboardUI;
     public GameObject loadingPanel; // 全局加载遮罩物体
+
+    [Header("Universal Reward Popup Settings")]
+    public Sprite spriteDiamond;             // 钻石图标
+    public Sprite spriteChip;                // 筹码图标
+    public GameObject rewardPopupPanel;      // 奖励弹窗根节点
+    public UnityEngine.UI.Text txtRewardTitle; // 弹窗标题
+    public UnityEngine.UI.Text txtRewardSpecialDesc; // 特殊说明 Text
+    public Transform rewardItemsContainer;    // 存放奖励项的容器 Content Grid
+    public GameObject rewardItemPrefab;       // 单个奖励项的 Prefab
 
     private void Awake()
     {
@@ -45,6 +57,9 @@ public class LobbyUIManager : MonoBehaviour
         if (lobbyUI != null) lobbyUI.Initialize(this);
         if (roomUI != null) roomUI.Initialize(this);
         if (shopUI != null) shopUI.Initialize(this);
+        if (infoUI != null) infoUI.Initialize(this);
+        if (achievementUI != null) achievementUI.Initialize(this);
+        if (leaderboardUI != null) leaderboardUI.Initialize(this);
 
         PlayFabAuthManager.OnCurrencyUpdated += OnCurrencyOrInventoryUpdated;
         PlayFabAuthManager.OnLoginFailed += OnPlayFabSyncFailed;
@@ -53,6 +68,27 @@ public class LobbyUIManager : MonoBehaviour
         if (loadingPanel != null && PlayFabAuthManager.Instance != null && !PlayFabAuthManager.Instance.isLoggedIn)
         {
             loadingPanel.SetActive(true);
+        }
+
+        // 自动绑定奖励弹窗关闭确认按钮
+        if (rewardPopupPanel != null)
+        {
+            Transform confirmBtnTrans = DeepFind(rewardPopupPanel.transform, "Btn Confirm");
+            if (confirmBtnTrans == null) confirmBtnTrans = DeepFind(rewardPopupPanel.transform, "Button");
+            if (confirmBtnTrans != null)
+            {
+                var btn = confirmBtnTrans.GetComponent<UnityEngine.UI.Button>();
+                if (btn != null)
+                {
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() =>
+                    {
+                        CancelInvoke("HideRewardPopup");
+                        HideRewardPopup();
+                    });
+                }
+            }
+            rewardPopupPanel.SetActive(false); // 默认隐藏
         }
 
 #if UNITY_SERVER
@@ -117,6 +153,48 @@ public class LobbyUIManager : MonoBehaviour
                     PlayFabAuthManager.Instance.GetUserChips();
                 }
             }
+        }
+    }
+
+    public void ShowInfoPanel(bool show)
+    {
+        if (infoUI != null)
+        {
+            if (show)
+            {
+                if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(false);
+                infoUI.Show();
+            }
+            else
+            {
+                infoUI.Hide();
+                if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(true);
+            }
+        }
+    }
+
+    public void ShowAchievementPanel(bool show)
+    {
+        if (achievementUI != null)
+        {
+            if (show)
+            {
+                if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(false);
+                achievementUI.Show();
+            }
+            else
+            {
+                achievementUI.Hide();
+                if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(true);
+            }
+        }
+    }
+
+    public void ShowLeaderboardPanel(bool show)
+    {
+        if (leaderboardUI != null)
+        {
+            leaderboardUI.ShowPanel(show);
         }
     }
 
@@ -588,5 +666,87 @@ public class LobbyUIManager : MonoBehaviour
             if (t != null) return t;
         }
         return null;
+    }
+
+    [System.Serializable]
+    public struct RewardItemData
+    {
+        public string itemName;
+        public Sprite itemIcon;
+        public int amount;
+        public bool showAmount;
+
+        public RewardItemData(string name, Sprite icon, int amt, bool showAmt)
+        {
+            itemName = name;
+            itemIcon = icon;
+            amount = amt;
+            showAmount = showAmt;
+        }
+    }
+
+    public void ShowRewardPopup(string title, List<RewardItemData> items, string specialDesc = "")
+    {
+        if (rewardPopupPanel == null)
+        {
+            Debug.LogWarning($"[LobbyUIManager] rewardPopupPanel is not assigned! Title: {title}, Desc: {specialDesc}");
+            return;
+        }
+
+        // 0. 取消之前的自动隐藏延迟呼叫
+        CancelInvoke("HideRewardPopup");
+
+        // 1. 设置标题
+        if (txtRewardTitle != null) txtRewardTitle.text = title;
+
+        // 2. 设置特殊说明
+        if (txtRewardSpecialDesc != null)
+        {
+            bool hasSpecialDesc = !string.IsNullOrEmpty(specialDesc);
+            txtRewardSpecialDesc.gameObject.SetActive(hasSpecialDesc);
+            if (hasSpecialDesc) txtRewardSpecialDesc.text = specialDesc;
+        }
+
+        // 3. 清理并动态生成物品项
+        if (rewardItemsContainer != null && rewardItemPrefab != null)
+        {
+            ClearArea(rewardItemsContainer);
+
+            foreach (var item in items)
+            {
+                GameObject itemGo = Instantiate(rewardItemPrefab, rewardItemsContainer);
+                
+                Transform nameTrans = DeepFind(itemGo.transform, "Text Name");
+                Transform iconTrans = DeepFind(itemGo.transform, "Image Icon");
+                Transform amountTrans = DeepFind(itemGo.transform, "Text Amount");
+
+                if (nameTrans != null) nameTrans.GetComponent<UnityEngine.UI.Text>().text = item.itemName;
+                if (iconTrans != null && item.itemIcon != null) iconTrans.GetComponent<UnityEngine.UI.Image>().sprite = item.itemIcon;
+                
+                if (amountTrans != null)
+                {
+                    var txtAmount = amountTrans.GetComponent<UnityEngine.UI.Text>();
+                    if (txtAmount != null)
+                    {
+                        txtAmount.gameObject.SetActive(item.showAmount);
+                        if (item.showAmount) txtAmount.text = item.amount.ToString();
+                    }
+                }
+            }
+        }
+
+        // 4. 显示弹窗
+        rewardPopupPanel.SetActive(true);
+
+        // 5. 设置 2 秒后自动关闭隐藏
+        Invoke("HideRewardPopup", 2.0f);
+    }
+
+    private void HideRewardPopup()
+    {
+        if (rewardPopupPanel != null)
+        {
+            rewardPopupPanel.SetActive(false);
+        }
     }
 }

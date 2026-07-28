@@ -355,6 +355,25 @@ public class PokerPlayer : NetworkBehaviour
                     GamePlayUI.Instance.RevealMySealedHoleCards(c1, c2);
                 }
                 GamePlayUI.Instance.ShowPlayerHandType(this, handTypeStr, isWinner);
+
+                // 统计局数与输赢
+                int winAmt = GamePlayUI.Instance.lastRoundWinAmount;
+                GamePlayUI.Instance.lastRoundWinAmount = 0; // 重置
+
+                List<Card> holeCards = new List<Card> { c1, c2 };
+                List<Card> validComm = new List<Card>();
+                foreach (var card in GamePlayUI.Instance.localCommunityCards)
+                {
+                    if ((int)card.rank >= 2) validComm.Add(card);
+                }
+
+                bool isShort = ServerGameManager.Instance != null && ServerGameManager.Instance.isShortDeckMode;
+                bool hasBots = ServerGameManager.Instance != null && ServerGameManager.Instance.fillBots;
+
+                if (PlayFabAuthManager.Instance != null)
+                {
+                    PlayFabAuthManager.Instance.RecordRoundEnd(isWinner, winAmt, holeCards, validComm, isShort, hasBots);
+                }
             }
             return;
         }
@@ -1071,6 +1090,15 @@ public class PokerPlayer : NetworkBehaviour
     public void TargetStartCastingUI(NetworkConnectionToClient targetConn, string casterName, string skillName, int skillID, float duration, bool canResist, int resistCost)
     {
         if (GamePlayUI.Instance != null) GamePlayUI.Instance.ShowCastBar(casterName, skillName, skillID, duration, canResist, resistCost);
+        
+        if (casterName == "你")
+        {
+            if (PlayFabAuthManager.Instance != null)
+            {
+                bool hasBots = ServerGameManager.Instance != null && ServerGameManager.Instance.fillBots;
+                PlayFabAuthManager.Instance.RecordSkillUsed(hasBots);
+            }
+        }
     }
 
     [TargetRpc]

@@ -4,11 +4,11 @@ using UnityEngine.EventSystems;
 [RequireComponent(typeof(RectTransform))]
 public class UIButtonClickEffect : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerClickHandler
 {
-    [Header("Ëõ·Å²ÎÊı")]
-    public float scaleFactor = 0.9f;       // °´ÏÂÊ±ËõĞ¡±ÈÀı
-    public float scaleSpeed = 10f;         // Ëõ·Å¶¯»­ËÙ¶È
+    [Header("ç¼©æ”¾å‚æ•°")]
+    public float scaleFactor = 0.9f;       // æŒ‰ä¸‹æ—¶ç¼©å°æ¯”ä¾‹
+    public float scaleSpeed = 10f;         // ç¼©æ”¾åŠ¨ç”»é€Ÿåº¦
 
-    [Header("ÒôĞ§ (¿ÉÑ¡)")]
+    [Header("éŸ³æ•ˆ (å¯é€‰)")]
     public AudioClip clickSound;
     public float volume = 1f;
 
@@ -30,7 +30,7 @@ public class UIButtonClickEffect : MonoBehaviour, IPointerDownHandler, IPointerU
 
     private void Update()
     {
-        // Æ½»¬Ëõ·Å
+        // å¹³æ»‘ç¼©æ”¾
         transform.localScale = Vector3.Lerp(transform.localScale, targetScale, Time.deltaTime * scaleSpeed);
     }
 
@@ -48,7 +48,8 @@ public class UIButtonClickEffect : MonoBehaviour, IPointerDownHandler, IPointerU
     {
         if (clickSound != null)
         {
-            AudioSource.PlayClipAtPoint(clickSound, Camera.main.transform.position, volume);
+            float sfxVolume = PlayerPrefs.GetFloat("SFXVolume", 1.0f);
+            AudioSource.PlayClipAtPoint(clickSound, Camera.main.transform.position, volume * sfxVolume);
         }
     }
 }
