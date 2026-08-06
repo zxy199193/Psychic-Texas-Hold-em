@@ -261,16 +261,23 @@ public class PlayFabAuthManager : MonoBehaviour
         return result;
     }
 
+    public int GetDailyDiamondRewardAmount()
+    {
+        return IsItemUnlocked("daily_diamonds_bundle") ? 200 : 50;
+    }
+
     public bool IsSkillUnlocked(int skillId)
     {
-        // 浠锋牸涓 0 鐨勬妧鑳介粯璁よВ閿侊紙ID 1 鑷 6锛
+        if (IsItemUnlocked("all_unlock_bundle")) return true;
+        // 价格为 0 的技能默认解锁（ID 1 至 6）
         if (skillId >= 1 && skillId <= 6) return true;
         return IsItemUnlocked("skill_" + skillId);
     }
 
     public bool IsTrinketUnlocked(int trinketId)
     {
-        // 浠锋牸涓 0 鐨勯グ鍝侀粯璁よВ閿侊紙ID 1 鑷 4锛
+        if (IsItemUnlocked("all_unlock_bundle")) return true;
+        // 价格为 0 的饰品默认解锁（ID 1 至 4）
         if (trinketId >= 1 && trinketId <= 4) return true;
         return IsItemUnlocked("trinket_" + trinketId);
     }
@@ -360,8 +367,9 @@ public class PlayFabAuthManager : MonoBehaviour
 
                     if (offlineDays > 0)
                     {
-                        offlineDiamonds = offlineDays * 50;
-                        Debug.Log($"[PlayFabAuthManager] Player was offline for {offlineDays} days. Awarding {offlineDiamonds} diamonds.");
+                        int dailyAmount = GetDailyDiamondRewardAmount();
+                        offlineDiamonds = offlineDays * dailyAmount;
+                        Debug.Log($"[PlayFabAuthManager] Player was offline for {offlineDays} days. Awarding {offlineDiamonds} diamonds (Rate: {dailyAmount} DM/day).");
 
                         // 澧炲姞绂荤嚎绉鏀掔殑閽荤煶
                         var addRequest = new AddUserVirtualCurrencyRequest
@@ -431,10 +439,11 @@ public class PlayFabAuthManager : MonoBehaviour
             string todayUtcStr = timeResult.Time.ToString("yyyy-MM-dd");
 
             // 澧炲姞 50 閽荤煶
+            int dailyAmount = GetDailyDiamondRewardAmount();
             var addRequest = new AddUserVirtualCurrencyRequest
             {
                 VirtualCurrency = "DM",
-                Amount = 50
+                Amount = dailyAmount
             };
             PlayFabClientAPI.AddUserVirtualCurrency(addRequest, addResult =>
             {

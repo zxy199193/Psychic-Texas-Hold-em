@@ -83,6 +83,14 @@ public class RoomUI : MonoBehaviour
             btnStartGame.onClick.RemoveAllListeners();
             btnStartGame.onClick.AddListener(OnBtnStartGameClicked);
         }
+
+        // 【运行时重算父级】：将中场统计排行界面动态转移到 GamePlayUI Canvas 下面
+        // 这样在游戏对局中 roomPanel (lobbyUIGroup) 被设为 inactive 时，排行面板依然能够独立正常显示
+        if (halftimeStatsWindow != null && UIMgr != null)
+        {
+            halftimeStatsWindow.transform.SetParent(UIMgr.transform, false);
+            halftimeStatsWindow.transform.SetAsLastSibling();
+        }
     }
 
     private void OnBtnLobbyBackClicked()
@@ -319,6 +327,15 @@ public class RoomUI : MonoBehaviour
         }
     }
 
+    public void OpenHalftimeStatsWindow()
+    {
+        if (halftimeStatsWindow != null)
+        {
+            halftimeStatsWindow.SetActive(true);
+            RefreshHalftimeStatsWindow();
+        }
+    }
+
     public void RefreshHalftimeStatsWindow()
     {
         if (halftimeStatsContainer == null || halftimeStatsItemPrefab == null) return;
@@ -416,6 +433,13 @@ public class RoomUI : MonoBehaviour
                         if (tex != null) img.texture = tex;
                     }
                 }
+            }
+
+            // 7. 隐藏不需要的钻石奖励 Text 节点
+            Transform diamondsTrans = UIMgr.DeepFind(go.transform, "Text Diamonds") ?? UIMgr.DeepFind(go.transform, "Diamonds") ?? go.transform.Find("Text Diamonds");
+            if (diamondsTrans != null)
+            {
+                diamondsTrans.gameObject.SetActive(false);
             }
         }
     }

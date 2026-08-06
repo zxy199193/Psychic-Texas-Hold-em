@@ -321,6 +321,14 @@ public class LobbyUIManager : MonoBehaviour
         }
 
         // 返回大厅/房间列表 UI 并刷新列表
+        if (roomUI != null)
+        {
+            roomUI.ClearLobbyReadyPlayers();
+        }
+        if (GamePlayUI.Instance != null)
+        {
+            GamePlayUI.Instance.ResetAllGameplayUI();
+        }
         if (roomUI != null && roomUI.lobbyUIGroup != null) roomUI.lobbyUIGroup.SetActive(false);
         if (lobbyUI != null && lobbyUI.roomListPanel != null)
         {
@@ -366,6 +374,11 @@ public class LobbyUIManager : MonoBehaviour
         }
         if (roomUI != null)
         {
+            roomUI.ClearLobbyReadyPlayers();
+            if (GamePlayUI.Instance != null)
+            {
+                GamePlayUI.Instance.ResetAllGameplayUI();
+            }
             if (roomUI.txtPlayerCount != null) roomUI.txtPlayerCount.gameObject.SetActive(true);
             if (roomUI.btnLobbyReady != null) roomUI.btnLobbyReady.gameObject.SetActive(true);
             if (roomUI.lobbyUIGroup != null) roomUI.lobbyUIGroup.SetActive(true);

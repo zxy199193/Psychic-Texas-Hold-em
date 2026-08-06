@@ -22,6 +22,8 @@ public class EnemyPlayerUI : MonoBehaviour
     public GameObject disconnectNode;
     public GameObject turnHighlightNode;
     public GameObject hostingNode;
+    public GameObject countdownNode;
+    public Text countdownText;
 
     [Header("Game Results")]
     public GameObject handTypeNode;

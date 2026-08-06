@@ -47,6 +47,7 @@ public class ShopUI : MonoBehaviour
     public Text txtChipsBalance;
     public Text txtDiamondsBalance;
     public Transform productContainer;
+    public Transform bundleContainer; // 礼包专属 Container
 
     [Header("Tab Buttons")]
     public Button[] tabButtons; // 对应 5 个页签按钮
@@ -151,16 +152,37 @@ public class ShopUI : MonoBehaviour
 
     public void RefreshProducts()
     {
+        Debug.Log($"[ShopUI] Starting RefreshProducts. Current Tab: {currentTab}, Total Items In Database: {allShopItems.Count}");
+
         // 1. 清理原有的商品项
-        foreach (Transform child in productContainer)
+        if (productContainer != null)
         {
-            Destroy(child.gameObject);
+            foreach (Transform child in productContainer)
+            {
+                Destroy(child.gameObject);
+            }
+        }
+        if (bundleContainer != null)
+        {
+            foreach (Transform child in bundleContainer)
+            {
+                Destroy(child.gameObject);
+            }
         }
 
         // 2. 刷新顶部持有的虚拟资产余额
         UpdateCurrencyDisplay();
 
-        // 3. 动态实例化当前页签对应的商品
+        // 3. 确定当前实例化要挂载的容器
+        Transform containerToUse = productContainer;
+        if (currentTab == ShopTabType.GiftPackage && bundleContainer != null)
+        {
+            containerToUse = bundleContainer;
+        }
+        Debug.Log($"[ShopUI] Selected container for tab {currentTab}: {(containerToUse != null ? containerToUse.name : "null")}");
+
+        // 4. 动态实例化当前页签对应的商品
+        int instantiatedCount = 0;
         foreach (var data in allShopItems)
         {
             if (data.tabType != currentTab) continue;
@@ -176,9 +198,22 @@ public class ShopUI : MonoBehaviour
             else if (currentTab == ShopTabType.Skills) prefabToUse = prefabSkill;
             else if (currentTab == ShopTabType.Trinkets) prefabToUse = prefabTrinket;
 
-            if (prefabToUse == null) continue;
+            if (prefabToUse == null)
+            {
+                Debug.LogWarning($"[ShopUI] Prefab is null for item: {data.displayName} (Tab: {currentTab})");
+                continue;
+            }
 
-            GameObject go = Instantiate(prefabToUse, productContainer);
+            if (containerToUse == null)
+            {
+                Debug.LogError($"[ShopUI] Target container is null when instantiating: {data.displayName}");
+                continue;
+            }
+
+            GameObject go = Instantiate(prefabToUse, containerToUse);
+            instantiatedCount++;
+            Debug.Log($"[ShopUI] Instantiated shop item: '{data.displayName}' under container '{containerToUse.name}'");
+
             ShopItemUI itemUI = go.GetComponent<ShopItemUI>();
             if (itemUI != null)
             {
@@ -199,6 +234,42 @@ public class ShopUI : MonoBehaviour
 
                 itemUI.Setup(data, isUnlocked, TryBuyItem);
             }
+        }
+        Debug.Log($"[ShopUI] Finished instantiating {instantiatedCount} items for tab {currentTab}.");
+
+        // 5. 动态显示/隐藏不同的容器及其 ScrollRect 父级组件
+        bool showBundle = (currentTab == ShopTabType.GiftPackage);
+        SetContainerActive(bundleContainer, showBundle);
+        SetContainerActive(productContainer, !showBundle || bundleContainer == null);
+    }
+
+    private void SetContainerActive(Transform container, bool active)
+    {
+        if (container == null) return;
+
+        // 手动向上层遍历父物体寻找 ScrollRect 组件（支持已处于未激活隐藏状态的父级）
+        ScrollRect scrollRect = null;
+        Transform curr = container;
+        while (curr != null)
+        {
+            ScrollRect sr = curr.GetComponent<ScrollRect>();
+            if (sr != null)
+            {
+                scrollRect = sr;
+                break;
+            }
+            curr = curr.parent;
+        }
+
+        if (scrollRect != null)
+        {
+            scrollRect.gameObject.SetActive(active);
+            Debug.Log($"[ShopUI] Set ScrollRect '{scrollRect.name}' active state to: {active}");
+        }
+        else
+        {
+            container.gameObject.SetActive(active);
+            Debug.Log($"[ShopUI] Set container '{container.name}' active state to: {active}");
         }
     }
 
@@ -292,8 +363,6 @@ public class ShopUI : MonoBehaviour
         // 计算购买信息
         string currencyCode = (pendingPurchaseItem.costCurrency == ShopCurrencyType.FREE) ? "DM" : pendingPurchaseItem.costCurrency.ToString();
         int finalPrice = (pendingPurchaseItem.costCurrency == ShopCurrencyType.FREE) ? 0 : pendingPurchaseItem.price;
-
-        ShowTips("正在处理交易，请稍候...");
 
         if (lobbyUIMgr != null) lobbyUIMgr.ShowLoading(true);
 

@@ -55,6 +55,7 @@ public class GamePlayUI : MonoBehaviour
     public Color colorResult = Color.cyan;
     public Color colorWinnerNode = Color.red;
     public Color colorLoserNode = Color.blue;
+    public Color defaultCountdownColor = new Color(0x31 / 255f, 0x50 / 255f, 0x96 / 255f, 1f);
     public GameObject nextHandCountdownNode;
     public Text nextHandCountdownText;
 
@@ -72,6 +73,8 @@ public class GamePlayUI : MonoBehaviour
     public GameObject myHandTypeNode;
     public Text myHandTypeText;
     public GameObject myTurnHighlightNode;
+    public GameObject myCountdownNode;
+    public Text myCountdownText;
     public Transform inGameTrinketContainer;
     public GameObject inGameTrinketPrefab;
     public GameObject myWinnerNode;
@@ -141,6 +144,16 @@ public class GamePlayUI : MonoBehaviour
 
     [HideInInspector] public int lastRoundWinAmount = 0;
     public Button btnReturnToRoom;
+
+    [Header("10.5 游戏内自定义控制按钮 (In-Game Custom Controls)")]
+    public Button btnShowRanking;         // 随时打开当前收益排名按钮
+    public Button btnLeaveGame;           // 离开按钮
+    
+    [Header("离开游戏确认面板 (Leave Game Confirmation - Optional)")]
+    public GameObject leaveConfirmPanel;   // 确认面板
+    public Text txtLeaveConfirmMsg;        // 确认信息 Text
+    public Button btnLeaveConfirmYes;      // 确认-是
+    public Button btnLeaveConfirmNo;       // 确认-否
 
     [Header("11. 圈数与轮数显示 (Lap & Round UI)")]
     public Text txtGameProgress;
@@ -375,6 +388,18 @@ public class GamePlayUI : MonoBehaviour
             });
         }
 
+        if (btnShowRanking != null)
+        {
+            btnShowRanking.onClick.RemoveAllListeners();
+            btnShowRanking.onClick.AddListener(OnBtnShowRankingClicked);
+        }
+
+        if (btnLeaveGame != null)
+        {
+            btnLeaveGame.onClick.RemoveAllListeners();
+            btnLeaveGame.onClick.AddListener(OnBtnLeaveGameClicked);
+        }
+
         // 已移除旧大厅中动态更改总圈数的监听器
         currentDisplayedEnemyTrinkets = new List<int>[enemySeatsUI.Length];
         for (int i = 0; i < currentDisplayedEnemyTrinkets.Length; i++)
@@ -559,6 +584,23 @@ public class GamePlayUI : MonoBehaviour
                     myTurnHighlightNode.SetActive(p.isMyTurn);
                 }
 
+                bool showMyCountdown = p.isMyTurn && ServerGameManager.Instance != null 
+                                       && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle 
+                                       && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Showdown 
+                                       && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Halftime;
+                if (myCountdownNode != null)
+                {
+                    if (myCountdownNode.activeSelf != showMyCountdown)
+                        myCountdownNode.SetActive(showMyCountdown);
+
+                    if (showMyCountdown && myCountdownText != null)
+                    {
+                        int remaining = ServerGameManager.Instance.turnRemainingSeconds;
+                        myCountdownText.text = remaining.ToString();
+                        myCountdownText.color = (remaining <= 5) ? Color.red : defaultCountdownColor;
+                    }
+                }
+
                 bool localHosted = p.serverIsHosted;
                 if (myHostingNode != null && myHostingNode.activeSelf != localHosted)
                 {
@@ -642,6 +684,23 @@ public class GamePlayUI : MonoBehaviour
                             enemySeatsUI[enemyIndex].turnHighlightNode.SetActive(p.isMyTurn);
                     }
 
+                    if (enemySeatsUI != null && enemyIndex < enemySeatsUI.Length && enemySeatsUI[enemyIndex].countdownNode != null)
+                    {
+                        bool showEnemyCountdown = p.isMyTurn && ServerGameManager.Instance != null 
+                                                  && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle 
+                                                  && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Showdown 
+                                                  && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Halftime;
+                        if (enemySeatsUI[enemyIndex].countdownNode.activeSelf != showEnemyCountdown)
+                            enemySeatsUI[enemyIndex].countdownNode.SetActive(showEnemyCountdown);
+
+                        if (showEnemyCountdown && enemySeatsUI[enemyIndex].countdownText != null)
+                        {
+                            int remaining = ServerGameManager.Instance.turnRemainingSeconds;
+                            enemySeatsUI[enemyIndex].countdownText.text = remaining.ToString();
+                            enemySeatsUI[enemyIndex].countdownText.color = (remaining <= 5) ? Color.red : defaultCountdownColor;
+                        }
+                    }
+
                     if (enemySeatsUI != null && enemyIndex < enemySeatsUI.Length && enemySeatsUI[enemyIndex].hostingNode != null)
                     {
                         if (enemySeatsUI[enemyIndex].hostingNode.activeSelf != p.serverIsHosted)
@@ -676,15 +735,35 @@ public class GamePlayUI : MonoBehaviour
                             {
                                 enemySeatsUI[i].turnHighlightNode.SetActive(false);
                             }
+                            if (enemySeatsUI != null && i < enemySeatsUI.Length && enemySeatsUI[i].countdownNode != null)
+                            {
+                                enemySeatsUI[i].countdownNode.SetActive(false);
+                            }
                         }
                     }
 
-                    if (!seatOccupied[i] && enemySeatsUI != null && i < enemySeatsUI.Length && enemySeatsUI[i].hostingNode != null)
+                    if (!seatOccupied[i] && enemySeatsUI != null && i < enemySeatsUI.Length)
                     {
-                        enemySeatsUI[i].hostingNode.SetActive(false);
+                        if (enemySeatsUI[i].hostingNode != null) enemySeatsUI[i].hostingNode.SetActive(false);
+                        if (enemySeatsUI[i].countdownNode != null) enemySeatsUI[i].countdownNode.SetActive(false);
                     }
                 }
             }
+        }
+
+        bool isGameActive = ServerGameManager.Instance != null 
+                            && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Idle 
+                            && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Showdown 
+                            && ServerGameManager.Instance.currentPhase != ServerGameManager.GamePhase.Halftime;
+        int remainingSec = ServerGameManager.Instance != null ? ServerGameManager.Instance.turnRemainingSeconds : 0;
+
+        if (isGameActive && remainingSec <= 5 && remainingSec > 0)
+        {
+            if (AudioManager.Instance != null) AudioManager.Instance.StartCountdownSound();
+        }
+        else
+        {
+            if (AudioManager.Instance != null) AudioManager.Instance.StopCountdownSound();
         }
 
         bool localHasAntenna = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.equippedTrinkets.Contains(8);
@@ -1086,6 +1165,56 @@ public class GamePlayUI : MonoBehaviour
         {
             effectManager.ClearGameLog();
         }
+    }
+
+    public void ResetAllGameplayUI()
+    {
+        ClearAllTable();
+        
+        // Hide and clear all enemy seats
+        if (enemySeatsUI != null)
+        {
+            foreach (var seat in enemySeatsUI)
+            {
+                if (seat != null)
+                {
+                    if (seat.seatNode != null) seat.seatNode.SetActive(false);
+                    if (seat.disconnectNode != null) seat.disconnectNode.SetActive(false);
+                    if (seat.foldNode != null) seat.foldNode.SetActive(false);
+                    if (seat.rebuyNode != null) seat.rebuyNode.SetActive(false);
+                    if (seat.turnHighlightNode != null) seat.turnHighlightNode.SetActive(false);
+                    if (seat.hostingNode != null) seat.hostingNode.SetActive(false);
+                    if (seat.winnerNode != null) seat.winnerNode.SetActive(false);
+                    if (seat.handTypeNode != null) seat.handTypeNode.SetActive(false);
+                    if (seat.nameText != null) seat.nameText.text = "";
+                    if (seat.chipsText != null) seat.chipsText.text = "";
+                    if (seat.currentBetText != null) seat.currentBetText.text = "";
+                }
+            }
+        }
+        
+        // Hide local player overlays
+        if (myFoldNode != null) myFoldNode.SetActive(false);
+        if (myWinnerNode != null) myWinnerNode.SetActive(false);
+        if (myHandTypeNode != null) myHandTypeNode.SetActive(false);
+        if (myTurnHighlightNode != null) myTurnHighlightNode.SetActive(false);
+        if (myHostingNode != null) myHostingNode.SetActive(false);
+        if (myRebuyNode != null) myRebuyNode.SetActive(false);
+        
+        // Stop and clean up Shockwave effects
+        if (shockwave != null)
+        {
+            shockwave.StopLoopingShockwave();
+            for (int i = shockwave.transform.childCount - 1; i >= 0; i--)
+            {
+                Destroy(shockwave.transform.GetChild(i).gameObject);
+            }
+        }
+
+        // Reset cached variables
+        cachedAllPlayers = new PokerPlayer[0];
+        visualChipsDict.Clear();
+        activeWinAnimations.Clear();
     }
 
     public void OnBtnToggleLogClicked()
@@ -2981,6 +3110,54 @@ public class GamePlayUI : MonoBehaviour
             {
                 cv.ShowBack();
             }
+        }
+    }
+
+    public void OnBtnShowRankingClicked()
+    {
+        if (lobbyUIManager != null && lobbyUIManager.roomUI != null)
+        {
+            lobbyUIManager.roomUI.OpenHalftimeStatsWindow();
+        }
+    }
+
+    public void OnBtnLeaveGameClicked()
+    {
+        bool isHost = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost;
+        string msg = isHost 
+            ? "警告：您是房主，离开游戏将解散房间，其他玩家将被迫返回大厅。确定离开吗？" 
+            : "确定要离开当前游戏并返回大厅吗？（如果您在牌局中，离开将被视为弃牌）";
+
+        if (leaveConfirmPanel != null)
+        {
+            if (txtLeaveConfirmMsg != null) txtLeaveConfirmMsg.text = msg;
+            
+            btnLeaveConfirmYes.onClick.RemoveAllListeners();
+            btnLeaveConfirmYes.onClick.AddListener(() =>
+            {
+                leaveConfirmPanel.SetActive(false);
+                ExecuteLeaveGame();
+            });
+
+            btnLeaveConfirmNo.onClick.RemoveAllListeners();
+            btnLeaveConfirmNo.onClick.AddListener(() =>
+            {
+                leaveConfirmPanel.SetActive(false);
+            });
+
+            leaveConfirmPanel.SetActive(true);
+        }
+        else
+        {
+            ExecuteLeaveGame();
+        }
+    }
+
+    private void ExecuteLeaveGame()
+    {
+        if (lobbyUIManager != null)
+        {
+            lobbyUIManager.OnBtnLobbyBackClicked();
         }
     }
 }

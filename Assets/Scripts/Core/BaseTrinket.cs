@@ -142,3 +142,52 @@ public class ArmbandTrinket : BaseTrinket
         return currentCost;
     }
 }
+
+// 17. 香薰
+public class IncenseTrinket : BaseTrinket
+{
+    public IncenseTrinket()
+    {
+        trinketID = 17;
+        trinketName = "香薰";
+    }
+}
+
+// 18. 魔棒
+public class MagicWandTrinket : BaseTrinket
+{
+    public MagicWandTrinket()
+    {
+        trinketID = 18;
+        trinketName = "魔棒";
+    }
+
+    public override int ModifySkillCost(int currentCost, BaseSkill skill, PokerPlayer player)
+    {
+        if (player != null && player.serverInspirationDiscountActive && skill != null && skill.skillID == player.serverInspirationSkillID)
+        {
+            return Mathf.Max(0, currentCost - 2);
+        }
+        return currentCost;
+    }
+}
+
+// 19. 可乐
+public class ColaTrinket : BaseTrinket
+{
+    public ColaTrinket()
+    {
+        trinketID = 19;
+        trinketName = "可乐";
+    }
+}
+
+// 20. 酒
+public class WineTrinket : BaseTrinket
+{
+    public WineTrinket()
+    {
+        trinketID = 20;
+        trinketName = "酒";
+    }
+}

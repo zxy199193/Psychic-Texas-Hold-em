@@ -15,9 +15,11 @@ public class ServerGameManager : NetworkBehaviour
     [SyncVar] public GamePhase currentPhase = GamePhase.Idle;
 
     [SyncVar] public bool serverIsGravityFieldActive = false;
+    [SyncVar] public bool serverIsMagicRoomActive = false;
 
     [Header("下注与回合管理 (同步变量)")]
     public readonly SyncList<int> syncPotAmounts = new SyncList<int>(); // 全网同步的各池金额（[0]是主池，[1]是边池1...）
+    public readonly SyncList<int> syncMagicRoomOffsets = new SyncList<int>(); // 戏法空间全网技能能耗扭曲偏差列表
     
     [SyncVar] public int totalSeatCount = 0; // 当前局分配好的总座位数
 
@@ -31,6 +33,12 @@ public class ServerGameManager : NetworkBehaviour
     [SyncVar] public int highestBet = 0;    // 当前这轮最高的下注额
     [SyncVar] public int currentMinRaise = 10;
     [SyncVar] public int currentPlayerIndex = 0; // 当前轮到谁说话了
+
+    [Header("回合倒计时配置")]
+    public float turnTimeLimit = 30f; // 回合思考时间限制 (Inspector 可配置)
+    [SyncVar] public int turnRemainingSeconds = 0; // 同步给所有客户端的倒计时剩余秒数
+    private float currentTurnTimer = 0f;
+    private bool isTurnTimerActive = false;
 
     [Header("能量系统配置")]
     public int initialEnergy = 3;    // 初始能量
@@ -91,6 +99,33 @@ public class ServerGameManager : NetworkBehaviour
         Debug.Log("[ServerGameManager] PlayFab Developer Secret Key initialized in Server/Editor mode.");
 #endif
 
+        // 【重置阶段与状态】：在不重新加载场景的前提下，每次启动 Host/Server 都必须回归初始净土状态
+        hasGameStarted = false;
+        isFirstHand = true;
+        currentPhase = GamePhase.Idle;
+        serverIsGravityFieldActive = false;
+        totalSeatCount = 0;
+        highestBet = 0;
+        currentMinRaise = 10;
+        currentPlayerIndex = 0;
+        dealerIndex = 0;
+        currentRoundCount = 1;
+        handsPlayedThisRound = 0;
+        maxCircles = 0;
+        isShortDeckMode = false;
+
+        if (syncPotAmounts != null) syncPotAmounts.Clear();
+        if (serverPots != null) serverPots.Clear();
+        if (serverCommunityCards != null) serverCommunityCards.Clear();
+        if (futureCommunityCards != null) System.Array.Clear(futureCommunityCards, 0, futureCommunityCards.Length);
+        if (activePlayers != null) activePlayers.Clear();
+        if (disconnectedPlayersChips != null) disconnectedPlayersChips.Clear();
+        if (tempSurvivors != null) tempSurvivors.Clear();
+        if (tempUltimateWinners != null) tempUltimateWinners.Clear();
+        if (tempEligible != null) tempEligible.Clear();
+        if (tempWinners != null) tempWinners.Clear();
+        if (tempBettors != null) tempBettors.Clear();
+
         // 从 RoomConfigContainer 同步房间配置到 SyncVar 字段
         roomName = RoomConfigContainer.roomName;
         maxPlayers = RoomConfigContainer.maxPlayers;
@@ -103,18 +138,48 @@ public class ServerGameManager : NetworkBehaviour
         Debug.Log($"[ServerGameManager] 房间配置已同步: Name={roomName}, MaxPlayers={maxPlayers}, BigBlind={bigBlind}, BuyIn={buyInChips}, MaxCircles={maxCircles}, ShortDeck={isShortDeckMode}, FillBots={fillBots}");
     }
 
-    // 每帧监控当前说话的玩家是否突然蒸发
+    // 每帧监控当前说话的玩家掉线与回合倒计时超时
     [ServerCallback]
     private void Update()
     {
-        if (hasGameStarted && currentPhase != GamePhase.Idle && currentPhase != GamePhase.Showdown)
+        if (hasGameStarted && currentPhase != GamePhase.Idle && currentPhase != GamePhase.Showdown && currentPhase != GamePhase.Halftime)
         {
             if (activePlayers.Count > 0 && currentPlayerIndex >= 0 && currentPlayerIndex < activePlayers.Count)
             {
-                if (activePlayers[currentPlayerIndex] == null)
+                PokerPlayer p = activePlayers[currentPlayerIndex];
+                if (p == null)
                 {
                     Debug.LogWarning("当前说话的玩家已掉线，系统自动跳过！");
+                    isTurnTimerActive = false;
                     CheckAndMove(); // 触发检测，底层的判空逻辑会把它当做已弃牌处理
+                }
+                else if (isTurnTimerActive && p.isMyTurn)
+                {
+                    currentTurnTimer -= Time.deltaTime;
+                    int remaining = Mathf.Max(0, Mathf.CeilToInt(currentTurnTimer));
+                    if (remaining != turnRemainingSeconds)
+                    {
+                        turnRemainingSeconds = remaining;
+                    }
+
+                    if (currentTurnTimer <= 0f)
+                    {
+                        currentTurnTimer = 0f;
+                        turnRemainingSeconds = 0;
+                        isTurnTimerActive = false;
+                        Debug.Log($"[ServerGameManager] 玩家 [{p.playerName}] 操作超时（{turnTimeLimit}秒）！");
+
+                        if (p.currentBet == highestBet)
+                        {
+                            Debug.Log($"[ServerGameManager] 超时自动 Check: {p.playerName}");
+                            HandlePlayerCall(p);
+                        }
+                        else
+                        {
+                            Debug.Log($"[ServerGameManager] 超时自动 Fold: {p.playerName}");
+                            HandlePlayerFold(p);
+                        }
+                    }
                 }
             }
         }
@@ -291,6 +356,8 @@ public class ServerGameManager : NetworkBehaviour
         syncPotAmounts.Add(0);           // UI 同步主池
         highestBet = 0;
         currentMinRaise = bigBlind; // 每一轮开始，最小加注幅度重置为大盲
+        serverIsMagicRoomActive = false;
+        syncMagicRoomOffsets.Clear();
 
         if (activePlayers.Count == 0) return;
 
@@ -411,7 +478,8 @@ public class ServerGameManager : NetworkBehaviour
 
             if (p.overdraftPending)
             {
-                p.overdraftTurnsRemaining = 3;
+                int banTurns = p.equippedTrinkets.Contains(19) ? 2 : 3;
+                p.overdraftTurnsRemaining = banTurns;
                 p.overdraftPending = false;
             }
             else if (p.overdraftTurnsRemaining > 0)
@@ -443,6 +511,9 @@ public class ServerGameManager : NetworkBehaviour
             p.interferenceRate = 0;
             p.serverHasReflectWall = false;
             p.serverIsMindControlled = false;
+            p.serverSluggishMultiplier = 1f;
+            p.serverInspirationDiscountActive = false;
+            p.serverInspirationSkillID = -1;
             p.serverActivePeeks.Clear();
             p.serverCard0Sealed = false;
             p.serverCard1Sealed = false;
@@ -1162,6 +1233,19 @@ public class ServerGameManager : NetworkBehaviour
         }
 
         player.hasActed = true;
+
+        // 【酒饰品】：每次加注后恢复1点能量
+        if (player.equippedTrinkets.Contains(20))
+        {
+            int pMaxE = player.GetMaxEnergy(maxEnergy);
+            int oldE = player.energy;
+            player.energy = Mathf.Clamp(player.energy + 1, 0, pMaxE);
+            if (player.energy > oldE)
+            {
+                Debug.Log($"[酒饰品] 玩家 [{player.playerName}] 加注后能量恢复 1 点 (当前: {player.energy}/{pMaxE})");
+            }
+        }
+
         if (player.isAllIn)
             RpcAddGameLog($"{player.playerName} 选择All in，加注至 {highestBet}", 2);
         else
@@ -1201,9 +1285,18 @@ public class ServerGameManager : NetworkBehaviour
     private void GiveTurnTo(int index)
     {
         // 防越界保护，比如 -1 的时候直接跳过
-        if (index < 0 || index >= activePlayers.Count) return;
+        if (index < 0 || index >= activePlayers.Count)
+        {
+            isTurnTimerActive = false;
+            currentTurnTimer = 0f;
+            turnRemainingSeconds = 0;
+            return;
+        }
 
         currentPlayerIndex = index;
+        currentTurnTimer = turnTimeLimit;
+        turnRemainingSeconds = Mathf.Max(0, Mathf.CeilToInt(currentTurnTimer));
+        isTurnTimerActive = true;
 
         // 遍历所有人，只有序号对应的人才能拿到话筒
         for (int i = 0; i < activePlayers.Count; i++)
@@ -1296,6 +1389,7 @@ public class ServerGameManager : NetworkBehaviour
     [Server]
     private void CheckAndMove()
     {
+        isTurnTimerActive = false;
         if (activePlayers[currentPlayerIndex] != null)
         {
             activePlayers[currentPlayerIndex].isMyTurn = false;

@@ -89,6 +89,9 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar(hook = nameof(OnShackledChanged))] public bool serverIsShackled = false;
     [SyncVar(hook = nameof(OnShackledSkillCountChanged))] public int serverShackledSkillCount = 0;
     [SyncVar] public bool serverArmbandActive = false;
+    [SyncVar] public float serverSluggishMultiplier = 1f;
+    [SyncVar] public bool serverInspirationDiscountActive = false;
+    [SyncVar] public int serverInspirationSkillID = -1;
     [SyncVar] public string playFabId = "";
     [HideInInspector] public int startingChips = 0;
 
@@ -465,6 +468,8 @@ public class PokerPlayer : NetworkBehaviour
         skillDatabase.Add(16, new GravityFieldSkill());
         skillDatabase.Add(17, new ReflectWallSkill());
         skillDatabase.Add(18, new MindControlSkill());
+        skillDatabase.Add(19, new SluggishSkill());
+        skillDatabase.Add(20, new MagicRoomSkill());
 
         trinketDatabase.Add(1, new RedGemTrinket());
         trinketDatabase.Add(2, new BlueGemTrinket());
@@ -482,6 +487,10 @@ public class PokerPlayer : NetworkBehaviour
         trinketDatabase.Add(14, new IdolTrinket());
         trinketDatabase.Add(15, new GolemTrinket());
         trinketDatabase.Add(16, new ArmbandTrinket());
+        trinketDatabase.Add(17, new IncenseTrinket());
+        trinketDatabase.Add(18, new MagicWandTrinket());
+        trinketDatabase.Add(19, new ColaTrinket());
+        trinketDatabase.Add(20, new WineTrinket());
     }
 
     public override void OnStartServer()
@@ -737,6 +746,13 @@ public class PokerPlayer : NetworkBehaviour
 
         this.energy -= actualEnergyCost;
         currentCastingEnergyCost = actualEnergyCost;
+
+        if (serverInspirationDiscountActive && skillID == serverInspirationSkillID)
+        {
+            serverInspirationDiscountActive = false;
+            serverInspirationSkillID = -1;
+        }
+
         if (serverIsShackled)
         {
             serverShackledSkillCount++;
@@ -1301,6 +1317,15 @@ public class PokerPlayer : NetworkBehaviour
             finalValue += 2;
         }
 
+        // 5. 戏法空间扭曲效果
+        if (ServerGameManager.Instance != null && ServerGameManager.Instance.serverIsMagicRoomActive)
+        {
+            if (ServerGameManager.Instance.syncMagicRoomOffsets.Count > 0)
+            {
+                finalValue += ServerGameManager.Instance.syncMagicRoomOffsets[0];
+            }
+        }
+
         return Mathf.Max(0, finalValue);
     }
 
@@ -1309,6 +1334,12 @@ public class PokerPlayer : NetworkBehaviour
         float finalValue = baseCastTime;
         foreach (int id in equippedTrinkets)
             if (trinketDatabase.TryGetValue(id, out BaseTrinket trinket)) finalValue = trinket.ModifyCastTime(finalValue, this);
+
+        if (serverSluggishMultiplier > 1f)
+        {
+            finalValue *= serverSluggishMultiplier;
+        }
+
         return finalValue;
     }
 
@@ -1395,7 +1426,17 @@ public class PokerPlayer : NetworkBehaviour
         {
             finalCost += 2;
         }
-        return finalCost;
+
+        // 5. 戏法空间扭曲效果
+        if (ServerGameManager.Instance != null && ServerGameManager.Instance.serverIsMagicRoomActive)
+        {
+            if (skill.skillID < ServerGameManager.Instance.syncMagicRoomOffsets.Count)
+            {
+                finalCost += ServerGameManager.Instance.syncMagicRoomOffsets[skill.skillID];
+            }
+        }
+
+        return Mathf.Max(0, finalCost);
     }
 
     public int GetSkillCost(int skillID)

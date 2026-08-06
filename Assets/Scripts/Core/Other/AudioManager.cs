@@ -30,6 +30,8 @@ public class AudioManager : MonoBehaviour
 
     [Header("系统提示音效")]
     public AudioClip yourTurnClip;
+    public AudioClip countdownClip;     // 倒计时警示音效 (<=5秒循环播放)
+    public AudioSource countdownSource; // 倒计时循环音轨
 
     private void Awake()
     {
@@ -140,6 +142,43 @@ public class AudioManager : MonoBehaviour
     }
 
     // ==========================================
+    // 循环音效控制 (专为倒计时设计)
+    // ==========================================
+
+    public void StartCountdownSound()
+    {
+        if (countdownClip == null)
+        {
+            countdownClip = Resources.Load<AudioClip>("Audio/Countdown");
+            if (countdownClip == null) countdownClip = Resources.Load<AudioClip>("Countdown");
+        }
+
+        if (countdownSource == null && sfxSource != null)
+        {
+            countdownSource = gameObject.AddComponent<AudioSource>();
+            countdownSource.volume = sfxSource.volume;
+        }
+
+        if (countdownClip != null && countdownSource != null)
+        {
+            countdownSource.clip = countdownClip;
+            countdownSource.loop = true;
+            if (!countdownSource.isPlaying)
+            {
+                countdownSource.Play();
+            }
+        }
+    }
+
+    public void StopCountdownSound()
+    {
+        if (countdownSource != null && countdownSource.isPlaying)
+        {
+            countdownSource.Stop();
+        }
+    }
+
+    // ==========================================
     // 音量与保存设置 (Volume Settings)
     // ==========================================
     public void SetBGMVolume(float vol)
@@ -161,6 +200,10 @@ public class AudioManager : MonoBehaviour
         if (loopingSource != null)
         {
             loopingSource.volume = vol;
+        }
+        if (countdownSource != null)
+        {
+            countdownSource.volume = vol;
         }
         PlayerPrefs.SetFloat("SFXVolume", vol);
         PlayerPrefs.Save();

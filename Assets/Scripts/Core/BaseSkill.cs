@@ -480,9 +480,10 @@ public class OverdraftSkill : BaseSkill
         caster.energy = maxE;
         caster.overdraftPending = true;
 
+        int banTurns = caster.equippedTrinkets.Contains(19) ? 2 : 3;
         if (caster.connectionToClient != null)
         {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "透支成功！能量已恢复至最大，从下一局开始的3局中将无法施放或抵抗技能！", this.skillID);
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"透支成功！能量已恢复至最大，从下一局开始的{banTurns}局中将无法施放或抵抗技能！", this.skillID);
         }
     }
 }
@@ -662,7 +663,7 @@ public class InspirationSkill : BaseSkill
         List<int> candidates = new List<int>();
         foreach (int key in caster.skillDatabase.Keys)
         {
-            if (key != 15 && key != 98 && !caster.equippedSkills.Contains(key))
+            if (key != this.skillID && key != 98 && !caster.equippedSkills.Contains(key))
             {
                 candidates.Add(key);
             }
@@ -671,15 +672,21 @@ public class InspirationSkill : BaseSkill
         if (candidates.Count > 0)
         {
             int randomSkill = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-            int index = caster.equippedSkills.IndexOf(15);
+            int index = caster.equippedSkills.IndexOf(this.skillID);
             if (index != -1)
             {
                 caster.equippedSkills[index] = randomSkill;
 
+                if (caster.equippedTrinkets.Contains(18)) // 魔棒饰品
+                {
+                    caster.serverInspirationDiscountActive = true;
+                    caster.serverInspirationSkillID = randomSkill;
+                }
+
                 if (caster.connectionToClient != null)
                 {
                     string newSkillName = caster.skillDatabase[randomSkill].skillName;
-                    caster.TargetReceiveSkillMessage(caster.connectionToClient, $"【灵机】一动！技能变成了【{newSkillName}】！", 15);
+                    caster.TargetReceiveSkillMessage(caster.connectionToClient, $"【灵机】一动！技能变成了【{newSkillName}】！", this.skillID);
                 }
             }
         }
@@ -744,6 +751,79 @@ public class ShackleSkill : BaseSkill
         if (caster.connectionToClient != null)
         {
             caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功对 [{target.playerName}] 施加了枷锁！", this.skillID);
+        }
+    }
+}
+
+public class SluggishSkill : BaseSkill
+{
+    public SluggishSkill()
+    {
+        skillID = 19;
+        skillName = "迟钝";
+        energyCost = 2;
+        castTime = 3f;
+    }
+
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
+    {
+        if (target == null) return;
+
+        float mult = 2f;
+        if (caster.equippedTrinkets.Contains(17)) // 香薰饰品
+        {
+            mult = 3f;
+        }
+
+        target.serverSluggishMultiplier *= mult;
+
+        if (serverContext != null)
+        {
+            serverContext.RpcAddGameLog($"[{caster.playerName}] 对 [{target.playerName}] 使用了 [迟钝]！【{target.playerName}】本局内所有技能的发动时间变为原先的 {target.serverSluggishMultiplier} 倍！", 3);
+        }
+        if (target.connectionToClient != null)
+        {
+            target.TargetReceiveSkillMessage(target.connectionToClient, $"你中了【迟钝】效果！本局技能施法时间变为 {target.serverSluggishMultiplier} 倍！", this.skillID);
+        }
+        if (caster.connectionToClient != null)
+        {
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功对 [{target.playerName}] 施加【迟钝】！", this.skillID);
+        }
+    }
+}
+
+public class MagicRoomSkill : BaseSkill
+{
+    public MagicRoomSkill()
+    {
+        skillID = 20;
+        skillName = "戏法空间";
+        energyCost = 5;
+        castTime = 4f;
+    }
+
+    public override bool IsSelfTargeted => true;
+    public override bool CanBeResisted => false;
+    public override bool CanBeReflected => false;
+
+    public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
+    {
+        if (serverContext == null) return;
+
+        serverContext.serverIsMagicRoomActive = true;
+        serverContext.syncMagicRoomOffsets.Clear();
+
+        // 索引 0 作为抵抗技能的偏差，索引 1~30 作为对应 skillID 的偏差
+        for (int i = 0; i < 35; i++)
+        {
+            int offset = UnityEngine.Random.Range(-2, 3); // -2, -1, 0, 1, 2
+            serverContext.syncMagicRoomOffsets.Add(offset);
+        }
+
+        serverContext.RpcAddGameLog($"【戏法空间】被 [{caster.playerName}] 启动了！这局游戏全场玩家所有技能与抵抗的能量消耗发生扭曲 (-2~+2)！", 3);
+        if (caster != null && caster.connectionToClient != null)
+        {
+            caster.TargetReceiveSkillMessage(caster.connectionToClient, "戏法空间展开！全场技能能耗发生扭曲！", this.skillID);
         }
     }
 }
