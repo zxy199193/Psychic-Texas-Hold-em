@@ -31,11 +31,8 @@ public class ShopItemData
     public int price;
     public string priceDisplayString; // 用以显示法币价格（例如 "$4.99" 或 "$1.99"）
 
-    [Header("Skill/Trinket Unique Settings")]
     public bool isUniqueUnlock; // 是否为一次性解锁（已拥有后不可重复购买）
     public int associatedId;    // 关联的技能或饰品 ID
-    public int energyCost;      // 能量消耗 (仅技能展示用)
-    public float castTime;      // 施法时间 (仅技能展示用)
     public int rewardAmount = 1; // 奖励包含的物品数值/数量（如：50钻石、100筹码）
 }
 
@@ -287,34 +284,27 @@ public class ShopUI : MonoBehaviour
 
     private void ResolveProductDetails(ShopItemData data)
     {
+        var db = GameConfigDatabaseSO.Instance;
         if (data.tabType == ShopTabType.Skills)
         {
             data.isUniqueUnlock = true;
-            if (GamePlayUI.Instance != null && GamePlayUI.Instance.allSkillConfigs != null)
+            var skillSO = db != null ? db.GetSkill(data.associatedId) : null;
+            if (skillSO != null)
             {
-                var skill = GamePlayUI.Instance.allSkillConfigs.Find(s => s.skillID == data.associatedId);
-                if (skill != null)
-                {
-                    if (string.IsNullOrEmpty(data.displayName)) data.displayName = skill.skillName;
-                    if (string.IsNullOrEmpty(data.displayDescription)) data.displayDescription = skill.description;
-                    if (data.displayIcon == null) data.displayIcon = skill.icon;
-                    data.energyCost = skill.energyCost;
-                    data.castTime = skill.castTime;
-                }
+                data.displayName = skillSO.skillName;
+                data.displayDescription = skillSO.description;
+                if (skillSO.skillIcon != null) data.displayIcon = skillSO.skillIcon;
             }
         }
         else if (data.tabType == ShopTabType.Trinkets)
         {
             data.isUniqueUnlock = true;
-            if (lobbyUIMgr != null && lobbyUIMgr.roomUI != null && lobbyUIMgr.roomUI.allTrinketConfigs != null)
+            var trinketSO = db != null ? db.GetTrinket(data.associatedId) : null;
+            if (trinketSO != null)
             {
-                var trinket = lobbyUIMgr.roomUI.allTrinketConfigs.Find(t => t.trinketID == data.associatedId);
-                if (trinket != null)
-                {
-                    if (string.IsNullOrEmpty(data.displayName)) data.displayName = trinket.trinketName;
-                    if (string.IsNullOrEmpty(data.displayDescription)) data.displayDescription = trinket.description;
-                    if (data.displayIcon == null) data.displayIcon = trinket.icon;
-                }
+                data.displayName = trinketSO.trinketName;
+                data.displayDescription = trinketSO.description;
+                if (trinketSO.trinketIcon != null) data.displayIcon = trinketSO.trinketIcon;
             }
         }
     }

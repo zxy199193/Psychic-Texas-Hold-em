@@ -37,8 +37,15 @@ public class RoomUI : MonoBehaviour
     public GameObject lobbyTrinketItemPrefab;
     public Text selectedCountText;
     public Text selectedTrinketCountText;
-    public List<SkillConfig> allSkillConfigs = new List<SkillConfig>();
-    public List<TrinketConfig> allTrinketConfigs = new List<TrinketConfig>();
+    [Header("Selected Items Icon Preview")]
+    public Transform selectedSkillsIconContainer;
+    public GameObject selectedSkillIconPrefab;
+    public Transform selectedTrinketsIconContainer;
+    public GameObject selectedTrinketIconPrefab;
+    public int maxSkillSelection = 3;
+
+    [HideInInspector] public List<SkillConfig> allSkillConfigs = new List<SkillConfig>();
+    [HideInInspector] public List<TrinketConfig> allTrinketConfigs = new List<TrinketConfig>();
     public int maxTrinketSelection = 1;
 
     private GamePlayUI UIMgr => GamePlayUI.Instance;
@@ -50,6 +57,18 @@ public class RoomUI : MonoBehaviour
     public void Initialize(LobbyUIManager lobbyUIMgr)
     {
         this.lobbyUIMgr = lobbyUIMgr;
+        PopulateConfigsFromDatabase();
+
+        if (selectedSkillsIconContainer == null && UIMgr != null)
+        {
+            Transform t = UIMgr.DeepFind(transform, "Selected Skills Container") ?? UIMgr.DeepFind(transform, "SelectedSkillContainer") ?? UIMgr.DeepFind(transform, "SkillSelectedContainer");
+            if (t != null) selectedSkillsIconContainer = t;
+        }
+        if (selectedTrinketsIconContainer == null && UIMgr != null)
+        {
+            Transform t = UIMgr.DeepFind(transform, "Selected Trinkets Container") ?? UIMgr.DeepFind(transform, "SelectedTrinketContainer") ?? UIMgr.DeepFind(transform, "TrinketSelectedContainer");
+            if (t != null) selectedTrinketsIconContainer = t;
+        }
 
         if (btnLobbyBack != null)
         {
@@ -136,8 +155,8 @@ public class RoomUI : MonoBehaviour
             if (p.isRoomHost) hostPlayer = p;
         }
 
-        if (txtPlayerCount != null) txtPlayerCount.text = $"【 当前人数：{pCount}/6 】";
-        if (txtLobbyReadyCount != null) txtLobbyReadyCount.text = $"准备完成: {readyCount}/{pCount}";
+        if (txtPlayerCount != null) txtPlayerCount.gameObject.SetActive(false);
+        if (txtLobbyReadyCount != null) txtLobbyReadyCount.text = $"{readyCount}/{pCount}";
 
         // 刷新准备界面各房间参数显示
         if (ServerGameManager.Instance != null)
@@ -145,22 +164,39 @@ public class RoomUI : MonoBehaviour
             if (txtLobbyRoomName != null)
             {
                 string rName = ServerGameManager.Instance.roomName;
-                txtLobbyRoomName.text = string.IsNullOrEmpty(rName) ? "局域网房间" : rName;
+                string finalName = string.IsNullOrEmpty(rName) ? "局域网房间" : rName;
+
+                // 确保挂有 ContentSizeFitter，使文字根据内容自动适应宽度，防止与 HorizontalLayoutGroup 中的后方节点重叠挤压
+                UnityEngine.UI.ContentSizeFitter csf = txtLobbyRoomName.GetComponent<UnityEngine.UI.ContentSizeFitter>();
+                if (csf == null)
+                {
+                    csf = txtLobbyRoomName.gameObject.AddComponent<UnityEngine.UI.ContentSizeFitter>();
+                }
+                csf.horizontalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
+
+                GamePlayUI.SetTextAndRebuildLayout(txtLobbyRoomName, finalName);
             }
-            if (txtLobbyMaxPlayers != null) txtLobbyMaxPlayers.text = ServerGameManager.Instance.maxPlayers.ToString();
-            if (txtLobbyMaxCircles != null) txtLobbyMaxCircles.text = ServerGameManager.Instance.maxCircles.ToString();
-            if (txtLobbyBigBlind != null) txtLobbyBigBlind.text = ServerGameManager.Instance.bigBlind.ToString();
+            if (txtLobbyMaxPlayers != null) GamePlayUI.SetTextAndRebuildLayout(txtLobbyMaxPlayers, ServerGameManager.Instance.maxPlayers.ToString());
+            if (txtLobbyMaxCircles != null) GamePlayUI.SetTextAndRebuildLayout(txtLobbyMaxCircles, ServerGameManager.Instance.maxCircles.ToString());
+            if (txtLobbyBigBlind != null) GamePlayUI.SetTextAndRebuildLayout(txtLobbyBigBlind, ServerGameManager.Instance.bigBlind.ToString());
             
             if (txtLobbyBuyIn != null)
             {
                 int bb = ServerGameManager.Instance.bigBlind;
                 int buyIn = ServerGameManager.Instance.buyInChips;
                 int multiplier = bb > 0 ? (buyIn / bb) : 100;
-                txtLobbyBuyIn.text = multiplier + "BB";
+                GamePlayUI.SetTextAndRebuildLayout(txtLobbyBuyIn, multiplier + "BB");
             }
 
             if (goLobbyShortDeckBadge != null) goLobbyShortDeckBadge.SetActive(ServerGameManager.Instance.isShortDeckMode);
             if (goLobbyFillBotsBadge != null) goLobbyFillBotsBadge.SetActive(ServerGameManager.Instance.fillBots);
+
+            // 再次强制刷新父级 HorizontalLayoutGroup 布局
+            if (txtLobbyRoomName != null && txtLobbyRoomName.transform.parent != null)
+            {
+                Canvas.ForceUpdateCanvases();
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(txtLobbyRoomName.transform.parent.GetComponent<RectTransform>());
+            }
         }
 
         // ==========================================
@@ -272,10 +308,10 @@ public class RoomUI : MonoBehaviour
                 Transform readyTrans = UIMgr.DeepFind(go.transform, "Image Ready") ?? UIMgr.DeepFind(go.transform, "Image Ready Mark") ?? UIMgr.DeepFind(go.transform, "Ready Mark") ?? UIMgr.DeepFind(go.transform, "Image Selection Marker");
                 GameObject readyMark = readyTrans != null ? readyTrans.gameObject : null;
 
-                // 更新玩家名称
+                // 更新玩家名称（长名称自动截断并显示省略号...）
                 if (nameText != null)
                 {
-                    nameText.text = p.playerName;
+                    GamePlayUI.SetTextWithEllipsis(nameText, p.playerName);
                 }
 
                 // 更新头像图片
@@ -378,7 +414,7 @@ public class RoomUI : MonoBehaviour
             if (nameTrans != null)
             {
                 Text t = nameTrans.GetComponent<Text>();
-                if (t != null) t.text = p.playerName;
+                if (t != null) GamePlayUI.SetTextWithEllipsis(t, p.playerName);
             }
 
             // 3. Chips
@@ -440,6 +476,39 @@ public class RoomUI : MonoBehaviour
             if (diamondsTrans != null)
             {
                 diamondsTrans.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    public void PopulateConfigsFromDatabase()
+    {
+        var db = GameConfigDatabaseSO.Instance;
+        if (db != null)
+        {
+            if (db.allSkillConfigs != null && db.allSkillConfigs.Count > 0)
+            {
+                allSkillConfigs.Clear();
+                var sortedSkills = new List<SkillConfigSO>(db.allSkillConfigs);
+                sortedSkills.RemoveAll(s => s == null);
+                sortedSkills.Sort((a, b) => a.skillID.CompareTo(b.skillID));
+
+                foreach (var s in sortedSkills)
+                {
+                    allSkillConfigs.Add(new SkillConfig(s));
+                }
+            }
+
+            if (db.allTrinketConfigs != null && db.allTrinketConfigs.Count > 0)
+            {
+                allTrinketConfigs.Clear();
+                var sortedTrinkets = new List<TrinketConfigSO>(db.allTrinketConfigs);
+                sortedTrinkets.RemoveAll(t => t == null);
+                sortedTrinkets.Sort((a, b) => a.trinketID.CompareTo(b.trinketID));
+
+                foreach (var t in sortedTrinkets)
+                {
+                    allTrinketConfigs.Add(new TrinketConfig(t));
+                }
             }
         }
     }

@@ -41,9 +41,13 @@ public class ShopItemUI : MonoBehaviour
             }
         }
 
-        // 技能特有信息填充
-        if (txtEnergyCost != null) txtEnergyCost.text = data.energyCost.ToString();
-        if (txtCastTime != null) txtCastTime.text = data.castTime.ToString("F0");
+        // 技能特有信息填充 (从 SO 资产读取)
+        if (data.tabType == ShopTabType.Skills)
+        {
+            var skillSO = GameConfigDatabaseSO.Instance != null ? GameConfigDatabaseSO.Instance.GetSkill(data.associatedId) : null;
+            if (txtEnergyCost != null) txtEnergyCost.text = skillSO != null ? skillSO.energyCost.ToString() : "0";
+            if (txtCastTime != null) txtCastTime.text = skillSO != null ? (skillSO.castTime > 0 ? $"{skillSO.castTime:F0}" : "0") : "0";
+        }
 
         // 购买按钮交互与点击事件处理
         if (btnBuy != null)

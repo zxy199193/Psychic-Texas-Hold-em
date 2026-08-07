@@ -15,6 +15,27 @@ public class SkillConfig
     public float castTime;
     public string description;
     public bool requiresTargeting;
+    public SkillConfigSO configSO;
+
+    public SkillConfig() { }
+
+    public SkillConfig(SkillConfigSO so)
+    {
+        if (so == null) return;
+        this.configSO = so;
+        this.skillID = so.skillID;
+        this.skillName = so.skillName;
+        this.icon = so.skillIcon;
+        this.energyCost = so.energyCost;
+        this.castTime = so.castTime;
+        this.description = so.description;
+        this.requiresTargeting = !isSelfTargetedSkill(so.skillID);
+    }
+
+    private bool isSelfTargetedSkill(int id)
+    {
+        return id == 1 || id == 2 || id == 9 || id == 12 || id == 13 || id == 15 || id == 16 || id == 17 || id == 20;
+    }
 }
 
 [System.Serializable]
@@ -24,6 +45,19 @@ public class TrinketConfig
     public string trinketName;
     public Sprite icon;
     public string description;
+    public TrinketConfigSO configSO;
+
+    public TrinketConfig() { }
+
+    public TrinketConfig(TrinketConfigSO so)
+    {
+        if (so == null) return;
+        this.configSO = so;
+        this.trinketID = so.trinketID;
+        this.trinketName = so.trinketName;
+        this.icon = so.trinketIcon;
+        this.description = so.description;
+    }
 }
 
 
@@ -2109,6 +2143,9 @@ public class GamePlayUI : MonoBehaviour
         List<int> skillsToRender = new List<int>(PokerPlayer.LocalPlayer.equippedSkills);
         foreach (int equippedID in skillsToRender)
         {
+            // 抵抗(1)与感应(2)为 HUD 固定 UI 按钮 (btnResistSkill / btnSensingSkill)，无需在动态技能栏中重复生成
+            if (equippedID == 1 || equippedID == 2) continue;
+
             SkillConfig config = allSkillConfigs.Find(c => c.skillID == equippedID);
             if (config == null) continue;
 
@@ -2130,7 +2167,7 @@ public class GamePlayUI : MonoBehaviour
             SafeSetText(nameBtnTransform, config.skillName);
             SafeSetText(nameTipTransform, config.skillName);
             SafeSetText(descTransform, config.description);
-            SafeSetText(costTransform, config.energyCost.ToString());
+            SafeSetText(costTransform, (config.skillID == 1 || config.energyCost < 0) ? "X" : config.energyCost.ToString());
             SafeSetText(timeTransform, config.castTime > 0 ? $"{config.castTime}" : "0");
 
             GameObject tooltipObj = tooltipTransform != null ? tooltipTransform.gameObject : null;
@@ -2585,7 +2622,7 @@ public class GamePlayUI : MonoBehaviour
             if (nameTrans != null)
             {
                 Text t = nameTrans.GetComponent<Text>();
-                if (t != null) t.text = p.playerName;
+                if (t != null) SetTextWithEllipsis(t, p.playerName);
             }
 
             // 3. Chips
@@ -2706,12 +2743,13 @@ public class GamePlayUI : MonoBehaviour
         if (txt != null) txt.text = content;
     }
 
-    private void SetTextAndRebuildLayout(Text textComp, string newText)
+    public static void SetTextAndRebuildLayout(Text textComp, string newText)
     {
         if (textComp == null) return;
         if (textComp.text != newText)
         {
             textComp.text = newText;
+            Canvas.ForceUpdateCanvases();
             Transform current = textComp.transform.parent;
             while (current != null)
             {
@@ -2720,6 +2758,54 @@ public class GamePlayUI : MonoBehaviour
                     LayoutRebuilder.ForceRebuildLayoutImmediate(current.GetComponent<RectTransform>());
                 }
                 current = current.parent;
+            }
+        }
+    }
+
+    public static void SetTextWithEllipsis(Text textComp, string value, float customWidth = 0f)
+    {
+        if (textComp == null) return;
+        if (string.IsNullOrEmpty(value))
+        {
+            textComp.text = "";
+            return;
+        }
+
+        // 1. 设置合适且不会被自动折行的 overflow 属性
+        textComp.horizontalOverflow = HorizontalWrapMode.Overflow;
+
+        // 2. 计算可用的最大渲染宽度
+        float maxWidth = customWidth;
+        if (maxWidth <= 0f && textComp.rectTransform != null)
+        {
+            maxWidth = textComp.rectTransform.rect.width;
+            if (maxWidth <= 0f) maxWidth = textComp.rectTransform.sizeDelta.x;
+            if (maxWidth <= 0f && textComp.transform.parent is RectTransform parentRect)
+            {
+                maxWidth = parentRect.rect.width;
+                if (maxWidth <= 0f) maxWidth = parentRect.sizeDelta.x;
+            }
+        }
+
+        // 3. 赋初始全文本
+        textComp.text = value;
+
+        // 4. 如果没有超出最大宽度，或者宽度无效，则无需裁剪
+        if (maxWidth <= 0f || textComp.preferredWidth <= maxWidth)
+        {
+            return;
+        }
+
+        // 5. 逐字裁切并在末尾加上省略号 "..."
+        int len = value.Length;
+        while (len > 0)
+        {
+            len--;
+            string candidate = value.Substring(0, len) + "...";
+            textComp.text = candidate;
+            if (textComp.preferredWidth <= maxWidth)
+            {
+                break;
             }
         }
     }

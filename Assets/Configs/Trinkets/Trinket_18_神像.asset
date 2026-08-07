@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d30bdb55fc223934fa2041d41aca8e2c, type: 3}
+  m_Name: "Trinket_18_\u795E\u50CF"
+  m_EditorClassIdentifier: 
+  trinketID: 18
+  trinketName: "\u795E\u50CF"
+  trinketIcon: {fileID: 21300000, guid: a32cc73c643c43e43a9560b8b1b69299, type: 3}
+  description: "[\u8BB8\u613F]\u83B7\u5F97\u7684\u724C\u5FC5\u5B9A\u662FQKA\uFF08\u548C\u9B54\u50CF\u4E92\u65A5\uFF09"
+  trinketType: 14
+  param1Value: 0
+  param2Value: 0

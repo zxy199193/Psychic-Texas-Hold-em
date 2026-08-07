@@ -301,8 +301,10 @@ public class ServerGameManager : NetworkBehaviour
 
                     botPlayer.equippedSkills.Clear();
                     botPlayer.equippedSkills.AddRange(profile.equippedSkills);
+                    if (!botPlayer.equippedSkills.Contains(1)) botPlayer.equippedSkills.Add(1);
+                    if (!botPlayer.equippedSkills.Contains(2)) botPlayer.equippedSkills.Add(2);
                     botPlayer.originalSkills.Clear();
-                    botPlayer.originalSkills.AddRange(profile.equippedSkills);
+                    botPlayer.originalSkills.AddRange(botPlayer.equippedSkills);
 
                     botPlayer.equippedTrinkets.Clear();
                     botPlayer.equippedTrinkets.AddRange(profile.equippedTrinkets);

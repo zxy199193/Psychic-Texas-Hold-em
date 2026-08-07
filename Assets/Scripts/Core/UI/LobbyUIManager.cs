@@ -379,11 +379,17 @@ public class LobbyUIManager : MonoBehaviour
             {
                 GamePlayUI.Instance.ResetAllGameplayUI();
             }
-            if (roomUI.txtPlayerCount != null) roomUI.txtPlayerCount.gameObject.SetActive(true);
+            if (roomUI.txtPlayerCount != null) roomUI.txtPlayerCount.gameObject.SetActive(false);
             if (roomUI.btnLobbyReady != null) roomUI.btnLobbyReady.gameObject.SetActive(true);
             if (roomUI.lobbyUIGroup != null) roomUI.lobbyUIGroup.SetActive(true);
             if (roomUI.btnStartGame != null) roomUI.btnStartGame.gameObject.SetActive(isHost);
             if (roomUI.btnHalftimeStats != null) roomUI.btnHalftimeStats.gameObject.SetActive(false);
+
+            if (roomUI.txtLobbyRoomName != null && roomUI.txtLobbyRoomName.transform.parent != null)
+            {
+                Canvas.ForceUpdateCanvases();
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(roomUI.txtLobbyRoomName.transform.parent.GetComponent<RectTransform>());
+            }
         }
 
         // 重新同步并刷新大厅的技能与饰品锁状态
@@ -422,6 +428,11 @@ public class LobbyUIManager : MonoBehaviour
     public void InitLobbySkillSelection()
     {
         if (roomUI == null) return;
+
+        // 固有技能：抵抗(1)与感应(2)默认自动选中
+        if (!localSelectedSkills.Contains(1)) localSelectedSkills.Add(1);
+        if (!localSelectedSkills.Contains(2)) localSelectedSkills.Add(2);
+
         ClearArea(roomUI.lobbySkillContainer);
         UpdateSelectedCountText();
 
@@ -454,16 +465,30 @@ public class LobbyUIManager : MonoBehaviour
             iconImg.sprite = config.icon;
             selectedMarker.SetActive(localSelectedSkills.Contains(config.skillID));
 
+            Transform inherentTransform = DeepFind(go.transform, "Inherent") ?? DeepFind(go.transform, "Image Inherent") ?? go.transform.Find("Inherent");
+            if (inherentTransform != null)
+            {
+                bool isInherent = (config.skillID == 1 || config.skillID == 2);
+                inherentTransform.gameObject.SetActive(isInherent);
+            }
+
             if (nameTransform != null) nameTransform.GetComponent<UnityEngine.UI.Text>().text = config.skillName;
             if (descTransform != null) descTransform.GetComponent<UnityEngine.UI.Text>().text = config.description;
             if (timeTransform != null) timeTransform.GetComponent<UnityEngine.UI.Text>().text = config.castTime > 0 ? $"{config.castTime}" : "0";
-            if (costTransform != null) costTransform.GetComponent<UnityEngine.UI.Text>().text = $"{config.energyCost}";
+            if (costTransform != null) costTransform.GetComponent<UnityEngine.UI.Text>().text = (config.skillID == 1 || config.energyCost < 0) ? "X" : $"{config.energyCost}";
 
             btn.onClick.AddListener(() =>
             {
                 if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isReady)
                 {
                     Debug.LogWarning("你已准备！请先取消准备再修改配置。");
+                    return;
+                }
+
+                // 抵抗(1)与感应(2)为固有技能，自动选中且不可移除
+                if (config.skillID == 1 || config.skillID == 2)
+                {
+                    Debug.LogWarning($"{config.skillName}为固有技能，默认已选择且不可移除！");
                     return;
                 }
 
@@ -474,9 +499,10 @@ public class LobbyUIManager : MonoBehaviour
                 }
                 else
                 {
-                    if (localSelectedSkills.Count >= 3)
+                    int maxSkills = roomUI != null ? roomUI.maxSkillSelection : 3;
+                    if (localSelectedSkills.Count >= maxSkills)
                     {
-                        Debug.LogWarning("最多只能选 3 个技能！");
+                        Debug.LogWarning($"最多只能选 {maxSkills} 个技能！");
                         return;
                     }
                     localSelectedSkills.Add(config.skillID);
@@ -493,8 +519,7 @@ public class LobbyUIManager : MonoBehaviour
         if (roomUI == null) return;
         ClearArea(roomUI.lobbyTrinketContainer);
 
-        if (roomUI.selectedTrinketCountText != null)
-            roomUI.selectedTrinketCountText.text = $"选择饰品 [{localSelectedTrinkets.Count}/{roomUI.maxTrinketSelection}]";
+        UpdateSelectedTrinketCountText();
 
         foreach (var config in roomUI.allTrinketConfigs)
         {
@@ -566,8 +591,7 @@ public class LobbyUIManager : MonoBehaviour
                     localSelectedTrinkets.Add(config.trinketID);
                 }
 
-                if (roomUI.selectedTrinketCountText != null)
-                    roomUI.selectedTrinketCountText.text = $"选择饰品 [{localSelectedTrinkets.Count}/{roomUI.maxTrinketSelection}]";
+                UpdateSelectedTrinketCountText();
                 if (PokerPlayer.LocalPlayer != null) PokerPlayer.LocalPlayer.CmdUpdateEquippedTrinkets(localSelectedTrinkets.ToArray());
                 
                 // 重新刷新整个列表的状态
@@ -578,8 +602,85 @@ public class LobbyUIManager : MonoBehaviour
 
     private void UpdateSelectedCountText()
     {
+        int maxSkills = roomUI != null ? roomUI.maxSkillSelection : 3;
         if (roomUI != null && roomUI.selectedCountText != null)
-            roomUI.selectedCountText.text = $"选择技能 [{localSelectedSkills.Count}/3]";
+            roomUI.selectedCountText.text = $"已选技能 [{localSelectedSkills.Count}/{maxSkills}]";
+
+        RefreshSelectedSkillIconsPreview();
+    }
+
+    private void UpdateSelectedTrinketCountText()
+    {
+        if (roomUI != null && roomUI.selectedTrinketCountText != null)
+            roomUI.selectedTrinketCountText.text = $"已选道具 [{localSelectedTrinkets.Count}/{roomUI.maxTrinketSelection}]";
+
+        RefreshSelectedTrinketIconsPreview();
+    }
+
+    public void RefreshSelectedSkillIconsPreview()
+    {
+        if (roomUI == null || roomUI.selectedSkillsIconContainer == null) return;
+
+        ClearArea(roomUI.selectedSkillsIconContainer);
+
+        foreach (int skillID in localSelectedSkills)
+        {
+            SkillConfig config = roomUI.allSkillConfigs.Find(c => c.skillID == skillID);
+            if (config == null || config.icon == null) continue;
+
+            GameObject itemGo = null;
+            if (roomUI.selectedSkillIconPrefab != null)
+            {
+                itemGo = Instantiate(roomUI.selectedSkillIconPrefab, roomUI.selectedSkillsIconContainer);
+            }
+            else
+            {
+                itemGo = new GameObject($"SkillIcon_{skillID}", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+                itemGo.transform.SetParent(roomUI.selectedSkillsIconContainer, false);
+                RectTransform rt = itemGo.GetComponent<RectTransform>();
+                rt.sizeDelta = new Vector2(60f, 60f);
+            }
+
+            Transform iconTrans = DeepFind(itemGo.transform, "Image Icon");
+            UnityEngine.UI.Image img = iconTrans != null ? iconTrans.GetComponent<UnityEngine.UI.Image>() : itemGo.GetComponentInChildren<UnityEngine.UI.Image>();
+            if (img != null)
+            {
+                img.sprite = config.icon;
+            }
+        }
+    }
+
+    public void RefreshSelectedTrinketIconsPreview()
+    {
+        if (roomUI == null || roomUI.selectedTrinketsIconContainer == null) return;
+
+        ClearArea(roomUI.selectedTrinketsIconContainer);
+
+        foreach (int trinketID in localSelectedTrinkets)
+        {
+            TrinketConfig config = roomUI.allTrinketConfigs.Find(c => c.trinketID == trinketID);
+            if (config == null || config.icon == null) continue;
+
+            GameObject itemGo = null;
+            if (roomUI.selectedTrinketIconPrefab != null)
+            {
+                itemGo = Instantiate(roomUI.selectedTrinketIconPrefab, roomUI.selectedTrinketsIconContainer);
+            }
+            else
+            {
+                itemGo = new GameObject($"TrinketIcon_{trinketID}", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+                itemGo.transform.SetParent(roomUI.selectedTrinketsIconContainer, false);
+                RectTransform rt = itemGo.GetComponent<RectTransform>();
+                rt.sizeDelta = new Vector2(60f, 60f);
+            }
+
+            Transform iconTrans = DeepFind(itemGo.transform, "Image Icon");
+            UnityEngine.UI.Image img = iconTrans != null ? iconTrans.GetComponent<UnityEngine.UI.Image>() : itemGo.GetComponentInChildren<UnityEngine.UI.Image>();
+            if (img != null)
+            {
+                img.sprite = config.icon;
+            }
+        }
     }
 
     public void ShowHalftimePanel(int roundCount, int maxCirclesVal)

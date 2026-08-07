@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 121ff7a0062dd5e41aa0eb72a63afaa6, type: 3}
+  m_Name: "Skill_18_\u620F\u6CD5\u7A7A\u95F4"
+  m_EditorClassIdentifier: 
+  skillID: 18
+  skillName: "\u620F\u6CD5\u7A7A\u95F4"
+  skillIcon: {fileID: 21300000, guid: d053db4f09cebf74d83c6be679af7f73, type: 3}
+  description: "\u8FD9\u5C40\u6E38\u620F\u573A\u4E0A\u6240\u6709\u73A9\u5BB6\u6240\u6709\u6280\u80FD\u7684\u80FD\u91CF\u6D88\u8017\u968F\u673A\u589E\u52A0\u6216\u964D\u4F4E0-2\u70B9"
+  energyCost: 5
+  castTime: 4
+  skillType: 20
+  param1Value: 0
+  param2Value: 0

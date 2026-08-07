@@ -9,6 +9,19 @@ public abstract class BaseSkill
     public int energyCost;
     public float castTime;
 
+    public SkillConfigSO Config => GameConfigDatabaseSO.Instance != null ? GameConfigDatabaseSO.Instance.GetSkill(skillID) : null;
+
+    public virtual void ApplyConfig()
+    {
+        var config = Config;
+        if (config != null)
+        {
+            this.skillName = config.skillName;
+            this.energyCost = config.energyCost;
+            this.castTime = config.castTime;
+        }
+    }
+
     public virtual bool CanBeResisted => true;
     public virtual bool CanBeReflected => true;
     public virtual bool IsSelfTargeted => false;

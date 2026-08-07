@@ -491,6 +491,16 @@ public class PokerPlayer : NetworkBehaviour
         trinketDatabase.Add(18, new MagicWandTrinket());
         trinketDatabase.Add(19, new ColaTrinket());
         trinketDatabase.Add(20, new WineTrinket());
+
+        foreach (var kvp in skillDatabase)
+        {
+            kvp.Value?.ApplyConfig();
+        }
+
+        foreach (var kvp in trinketDatabase)
+        {
+            kvp.Value?.ApplyConfig();
+        }
     }
 
     public override void OnStartServer()

@@ -8,6 +8,17 @@ public abstract class BaseTrinket
     public int trinketID;
     public string trinketName;
 
+    public TrinketConfigSO Config => GameConfigDatabaseSO.Instance != null ? GameConfigDatabaseSO.Instance.GetTrinket(trinketID) : null;
+
+    public virtual void ApplyConfig()
+    {
+        var config = Config;
+        if (config != null)
+        {
+            this.trinketName = config.trinketName;
+        }
+    }
+
     // 属性修饰器：传入原始值，返回被饰品修改后的值
     public virtual int ModifyMaxEnergy(int currentMax, PokerPlayer player) { return currentMax; }
     public virtual int ModifyEnergyRegen(int currentRegen, PokerPlayer player) { return currentRegen; }
