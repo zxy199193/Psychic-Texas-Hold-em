@@ -174,6 +174,16 @@ public class PlayerInfoUI : MonoBehaviour
         PopulateTrinkets();
     }
 
+    private void OnEnable()
+    {
+        LocalizationManager.OnLanguageChanged += RefreshUI;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.OnLanguageChanged -= RefreshUI;
+    }
+
     private void PopulateSkills()
     {
         if (skillsContainer == null || skillInfoPrefab == null || lobbyUIMgr == null || lobbyUIMgr.roomUI == null) return;
@@ -185,8 +195,13 @@ public class PlayerInfoUI : MonoBehaviour
         }
 
         // 插入内置基础技能：抵抗 和 感应（永久解锁且常驻）
-        CreateDefaultSkillItem("抵抗", GamePlayUI.Instance != null ? GamePlayUI.Instance.iconResist : null, -1, 0f, "其他玩家向你发动技能时进行提示，发动完成之前消耗同等能量使其发动失败", true);
-        CreateDefaultSkillItem("感应", GamePlayUI.Instance != null ? GamePlayUI.Instance.iconSensing : null, 1, 1f, "发动后这局游戏可以查看其他玩家的能量，且当其他玩家发动技能时进行提示", true);
+        string resistName = LocalizationManager.GetText("SKILL_NAME_1", "抵抗");
+        string resistDesc = LocalizationManager.GetText("SKILL_DESC_1", "其他玩家向你发动技能时进行提示，发动完成之前消耗同等能量使其发动失败");
+        string sensingName = LocalizationManager.GetText("SKILL_NAME_2", "感应");
+        string sensingDesc = LocalizationManager.GetText("SKILL_DESC_2", "发动后这局游戏可以查看其他玩家的能量，且当其他玩家发动技能时进行提示");
+
+        CreateDefaultSkillItem(resistName, GamePlayUI.Instance != null ? GamePlayUI.Instance.iconResist : null, -1, 0f, resistDesc, true);
+        CreateDefaultSkillItem(sensingName, GamePlayUI.Instance != null ? GamePlayUI.Instance.iconSensing : null, 1, 1f, sensingDesc, true);
 
         foreach (var config in lobbyUIMgr.roomUI.allSkillConfigs)
         {
@@ -201,7 +216,7 @@ public class PlayerInfoUI : MonoBehaviour
                 {
                     isUnlocked = PlayFabAuthManager.Instance.IsSkillUnlocked(config.skillID);
                 }
-                itemUI.Setup(config.skillName, config.icon, config.energyCost, config.castTime, config.description, isUnlocked);
+                itemUI.Setup(config.GetLocalizedName(), config.icon, config.energyCost, config.castTime, config.GetLocalizedDescription(), isUnlocked);
             }
         }
     }
@@ -239,7 +254,7 @@ public class PlayerInfoUI : MonoBehaviour
                 {
                     isUnlocked = PlayFabAuthManager.Instance.IsTrinketUnlocked(config.trinketID);
                 }
-                itemUI.Setup(config.trinketName, config.icon, config.description, isUnlocked);
+                itemUI.Setup(config.GetLocalizedName(), config.icon, config.GetLocalizedDescription(), isUnlocked);
             }
         }
     }

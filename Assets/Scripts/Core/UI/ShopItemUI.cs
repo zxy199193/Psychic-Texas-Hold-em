@@ -23,17 +23,43 @@ public class ShopItemUI : MonoBehaviour
         this.itemData = data;
         this.onBuyClick = onBuyCallback;
 
+        string finalName = data.displayName;
+        string finalDesc = data.displayDescription;
+
+        // 如果是技能/饰品，优先从本地化 SO 读取最新多语言文本
+        if (data.tabType == ShopTabType.Skills && GameConfigDatabaseSO.Instance != null)
+        {
+            var skillSO = GameConfigDatabaseSO.Instance.GetSkill(data.associatedId);
+            if (skillSO != null)
+            {
+                finalName = skillSO.GetLocalizedName();
+                finalDesc = skillSO.GetLocalizedDescription();
+            }
+        }
+        else if (data.tabType == ShopTabType.Trinkets && GameConfigDatabaseSO.Instance != null)
+        {
+            var trinketSO = GameConfigDatabaseSO.Instance.GetTrinket(data.associatedId);
+            if (trinketSO != null)
+            {
+                finalName = trinketSO.GetLocalizedName();
+                finalDesc = trinketSO.GetLocalizedDescription();
+            }
+        }
+
         // 填充基本名称、图标与说明
-        if (txtName != null) txtName.text = data.displayName;
-        if (txtDescription != null) txtDescription.text = data.displayDescription;
+        if (txtName != null) txtName.text = finalName;
+        if (txtDescription != null) txtDescription.text = finalDesc;
         if (imgIcon != null) imgIcon.sprite = data.displayIcon;
+
+        string freeStr = LocalizationManager.GetText("UI_SHOP_FREE", "免费");
+        string ownedStr = LocalizationManager.GetText("UI_SHOP_OWNED", "已拥有");
 
         // 填充价格
         if (txtPrice != null)
         {
             if (data.costCurrency == ShopCurrencyType.FREE)
             {
-                txtPrice.text = "免费";
+                txtPrice.text = freeStr;
             }
             else
             {
@@ -58,7 +84,7 @@ public class ShopItemUI : MonoBehaviour
             {
                 btnBuy.interactable = false;
                 Text btnText = btnBuy.GetComponentInChildren<Text>();
-                if (btnText != null) btnText.text = "已拥有";
+                if (btnText != null) btnText.text = ownedStr;
             }
             else
             {
@@ -71,7 +97,7 @@ public class ShopItemUI : MonoBehaviour
                 {
                     if (data.costCurrency == ShopCurrencyType.FREE)
                     {
-                        btnText.text = !string.IsNullOrEmpty(data.priceDisplayString) ? data.priceDisplayString : "免费";
+                        btnText.text = !string.IsNullOrEmpty(data.priceDisplayString) ? data.priceDisplayString : freeStr;
                     }
                     else
                     {

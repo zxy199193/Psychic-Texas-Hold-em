@@ -1,0 +1,2738 @@
+{
+    "languages": [
+        "zh_CN",
+        "en_US"
+    ],
+    "items": [
+        {
+            "key": "UI_MAIN_START",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "开始游戏"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "GAME LOBBY"
+                }
+            ]
+        },
+        {
+            "key": "UI_MAIN_SHOP",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "商店"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "SHOP"
+                }
+            ]
+        },
+        {
+            "key": "UI_MAIN_INFO",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "信息"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "INFO"
+                }
+            ]
+        },
+        {
+            "key": "UI_MAIN_ACHIEVEMENT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "成就"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "ACHIEVEMENT"
+                }
+            ]
+        },
+        {
+            "key": "UI_MAIN_FREE_DIAMOND",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "每日奖励"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "GIFT"
+                }
+            ]
+        },
+        {
+            "key": "UI_MAIN_LEADERBOARD",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "排行榜"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "RANK"
+                }
+            ]
+        },
+        {
+            "key": "UI_MAIN_LOADING",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "加载中"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Loading..."
+                }
+            ]
+        },
+        {
+            "key": "UI_SETTINGS_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "设置"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "SETTINGS"
+                }
+            ]
+        },
+        {
+            "key": "UI_SETTINGS_BGM",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "BGM"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "BGM"
+                }
+            ]
+        },
+        {
+            "key": "UI_SETTINGS_SFX",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "音效"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "SFX"
+                }
+            ]
+        },
+        {
+            "key": "UI_SETTINGS_FULLSCREEN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "全屏显示"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Fullscreen"
+                }
+            ]
+        },
+        {
+            "key": "UI_SETTINGS_LANGUAGE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "语言"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Language"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "大厅"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "LOBBY"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_RETURN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "返回"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "RETURN"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_CREATE_ROOM",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "创建房间"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "CREATE ROOM"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_JOIN_ROOM",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "加入房间"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "JOIN ROOM"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_ROOM_NAME",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "房间名称"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Room Name"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_ROOM_PASSWORD",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "房间密码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Password"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_ROOM_PASSWORD_NOTICE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "(4位数字）"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "(4 Numbers)"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_PLAYERS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "人数"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Players"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_ROUNDS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "圈数"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Rounds"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_BIG_BLIND",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "大盲注"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Big Blind"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_BUY_IN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "买入"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Buy-In"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_SHORT_DECK",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "短牌模式"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Short Deck"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_ROBOT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "机器人"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Robot"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_CONFIRM",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "确认"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "CONFIRM"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_PASSWORD_VERIFY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "请输入房间密码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Please input room password"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_PASSWORD_WRONG",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "密码错误"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Incorrect password"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_PASSWORD_CONFRIM",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "确认"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "CONFIRM"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_READY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "准备"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Ready"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_CANCEL_READY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "取消准备"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cancel Ready"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_START_GAME",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "开始游戏"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Start Game"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_LEAVE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "离开房间"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Leave Room"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_SELECT_SKILL",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Select Skills"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_SELECT_TRINKET",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择饰品"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Select Trinkets"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_SKILL_COUNT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "已选技能: {0}/3"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Selected Skills: {0}/3"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_TRINKET_COUNT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "已选饰品: {0}/1"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Selected Trinket: {0}/1"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_POT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "底池: {0}"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Pot: {0}"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_MY_CHIPS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "我的筹码: {0}"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Chips: {0}"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_MY_ENERGY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量: {0}"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Energy: {0}"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_FOLD",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "弃牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Fold"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_CHECK",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "看牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Check"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_CALL",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "跟注"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Call"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_RAISE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "加注"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Raise"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_ALL_IN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "全下"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "All In"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_RESIST",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "抵抗"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Resist"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SENSING",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "感应"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Sensing"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_HALFTIME_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "中场休息"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Half-time Break"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_HALFTIME_DESC",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "中场休息阶段，请调整您的技能与饰品配置。"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Half-time break. Adjust your skills and trinkets."
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_NEXT_HAND",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "下一局倒计时: {0}s"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Next Hand in: {0}s"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "商店"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "SHOP"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_RETURN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "返回"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "RETURN"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_TAB_BUNDLES",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "礼包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "BUNDLES"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_TAB_DIAMONDS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "DIAMONDS"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_TAB_CHIPS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "CHIPS"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_TAB_SKILLS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "SKILLS"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_TAB_TRINKETS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "道具"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "ITEMS"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_BUY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "购买"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Buy"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_OWNED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "已拥有"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Owned"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_FREE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "免费领取"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Claim Free"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_CONFIRM_BUY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "确认花费 {0} 购买 {1} 吗？"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Confirm purchasing {1} for {0}?"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_BUY_SUCCESS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "购买成功！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Purchase successful!"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_CURRENCY_NOT_ENOUGH",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "余额不足，无法购买！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Insufficient balance!"
+                }
+            ]
+        },
+        {
+            "key": "UI_ACHV_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "成就系统"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Achievements"
+                }
+            ]
+        },
+        {
+            "key": "UI_ACHV_CLAIM",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "领取奖励"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Claim"
+                }
+            ]
+        },
+        {
+            "key": "UI_ACHV_CLAIMED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "已领取"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Claimed"
+                }
+            ]
+        },
+        {
+            "key": "UI_ACHV_PROGRESS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "进度: {0}/{1}"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Progress: {0}/{1}"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "抵抗"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Resist"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "其他玩家向你发动技能时进行提示，发动完成之前消耗同等能量使其发动失败"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Notifies when an opponent targets you with a skill. Spend equal energy before cast completes to negate it."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "感应"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Sensing"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "发动后这局游戏可以查看其他玩家的能量，且当其他玩家发动技能时进行提示"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Reveals all players' energy levels and alerts you whenever any player casts a skill for the rest of this hand."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "透视"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Peek"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择一张对手底牌或公牌发动，这张牌显示3秒"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Reveals an opponent's hole card or community card for 3 seconds."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "变牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Swap"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择场上玩家一张底牌发动，将这张牌替换为剩余牌库中的某张牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Replaces one hole card of any player with a random card from the remaining deck."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "模糊"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Blur"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择一名玩家发动，该玩家这局游戏无法看清手牌和公牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Target player's hole cards and community cards become blurred for the rest of this hand."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "干扰"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Interfere"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择一名玩家发动，该玩家这局游戏发动技能有35%概率失败，可叠加"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Target player has a 35% chance of skill casting failure for this hand. Stacks with multiple casts."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "颠倒"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Upside Down"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择一名玩家发动，该玩家这局游戏画面颠倒"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Target player's view becomes inverted upside down for this hand."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "枷锁"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Shackle"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择一名玩家发动，该玩家这局游戏只能再使用3次技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Target player can only cast skills up to 3 more times this hand."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_9",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "共鸣"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Resonance"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_9",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "如果场上其他玩家有和你同类的牌型，这些牌会进行闪烁"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Highlights matching poker hand components if opponents hold similar card combinations."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_10",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "援助"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Assist"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_10",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择一名玩家发动，恢复其3点能量"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Restores 3 energy points to the target player."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_11",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "封印"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Seal"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_11",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择场上玩家一张底牌发动，将这张牌遮挡，且免疫[透视]、[变牌]、[交换]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Shields a hole card from view and makes it immune to Peek, Swap, and Exchange."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_12",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "灵机"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Inspiration"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_12",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "发动后这局游戏该技能会随机变成其他任意技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Randomly transforms this skill into any other skill for the rest of this hand."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_13",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "透支"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Overdraft"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_13",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量恢复至最大，但接下来三局无法使用任何技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Instantly restores energy to maximum, but disables all skill casting for the next 3 hands."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_14",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "交换"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Exchange"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_14",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择场上任意2张牌发动，将这两张牌进行调换"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Swaps any two cards currently in play."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_15",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "许愿"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Wish"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_15",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "发动后下一局游戏的2张底牌必定是JQKA"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Guarantees both hole cards in the next hand will be among J, Q, K, A."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_16",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "重力场"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Gravity Field"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_16",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "这局游戏场上能量最高的玩家所有技能能量消耗+2"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Increases skill energy cost by 2 for the player with the highest current energy."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_17",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "反射壁"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Reflect Wall"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_17",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "发动后这局游戏受到其他玩家的技能时，技能会被反射给其他任意一名玩家"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Reflects any incoming offensive skill to a random other player for this hand."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_18",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "精神控制"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Mind Control"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_18",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择一名玩家发动，该玩家这局游戏无法弃牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Prevents target player from folding for the rest of this hand."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_19",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "迟钝"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Sluggish"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_19",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "选择一名玩家发动，该玩家这局游戏所有技能的发动时间x2"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Doubles all skill casting times for the target player for this hand."
+                }
+            ]
+        },
+        {
+            "key": "SKILL_NAME_20",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "戏法空间"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Trick Room"
+                }
+            ]
+        },
+        {
+            "key": "SKILL_DESC_20",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "这局游戏场上所有玩家所有技能的能量消耗随机增加或降低0-2点"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Randomly alters energy cost of all skills for all players by -2 to +2 for this hand."
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "项链"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Necklace"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量上限+5"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Max energy +5"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "烟斗"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Pipe"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量恢复+1"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Energy recovery +1"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "奖牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Medal"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量恢复-1，获胜则下轮游戏能量上限+3，并恢复全部能量"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Energy recovery -1. If won, max energy +3 and fully restores energy next hand."
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "怀表"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Pocket Watch"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "所有技能发动时间-70%"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Skill casting time -70%"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "磁线圈"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Magnetic Coil"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量上限-6，能量恢复-2，每当其他玩家成功发动技能，恢复1点能量"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Max energy -6, energy recovery -2. Restores 1 energy whenever any opponent successfully casts a skill."
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "兽爪"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Beast Claw"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "如果只选择了2个技能，对方抵抗这两个技能需要额外消耗1点能量"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "If equipping only 2 skills, opponents need 1 extra energy to resist them."
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "斗篷"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cloak"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[抵抗]能量消耗-1"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Resist skill energy cost -1"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "天线"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Antenna"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[感应]不消耗能量且显示玩家饰品"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Sensing costs 0 energy and reveals opponent trinkets"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_9",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "帽子"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Hat"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_9",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "发动技能时不会被[感应]效果感知"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Skill casting will not trigger Sensing alerts"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_10",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "镜片"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Monocle"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_10",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[透视]将会额外随机显示场上一张牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Peek reveals 1 additional random card in play"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_11",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "眼镜"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Glasses"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_11",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[透视]显示时间提升至60秒"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Peek duration increased to 60 seconds"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_12",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "戒指"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Ring"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_12",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[变牌]和[交换]可以对公牌使用"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Swap and Exchange can now target community cards"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_13",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "音叉"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Tuning Fork"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_13",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[干扰]的技能效果+25%"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Interfere failure chance increased by 25%"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_14",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "神像"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Idol"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_14",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[许愿]获得的牌必定是QKA（和魔像互斥）"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Wish cards are guaranteed to be Q, K, or A (Exclusive with Golem)"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_15",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "魔像"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Golem"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_15",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[许愿]获得的牌必定能凑成三条，但该局无法加注（和神像互斥）"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Wish cards guarantee Three of a Kind, but cannot raise this hand (Exclusive with Idol)"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_16",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "袖章"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Armband"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_16",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "当玩家为场上亏损最高时，所有技能能量消耗-2（最低为1）"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "When you have the largest chip loss at the table, all skill costs -2 (min 1)."
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_17",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "香薰"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Incense"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_17",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[迟钝]的技能效果改为x3"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Sluggish casting time multiplier increased to 3x"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_18",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "仙女棒"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Magic Wand"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_18",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "第一次使用[灵机]变化的技能时能量消耗-2"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "First cast of the skill transformed by Inspiration costs -2 energy"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_19",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "可乐"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cola"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_19",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[透支]的技能禁用时间减为2局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Overdraft skill lockout reduced to 2 hands"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_NAME_20",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "酒"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Wine"
+                }
+            ]
+        },
+        {
+            "key": "TRINKET_DESC_20",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "每次加注恢复1点能量"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Restores 1 energy point every time you raise"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "久经沙场1"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Battle-Hardened I"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "进行1场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Play 1 hand of poker"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "久经沙场2"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Battle-Hardened II"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "进行10场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Play 10 hands of poker"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "久经沙场3"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Battle-Hardened III"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "进行30场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Play 30 hands of poker"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "久经沙场4"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Battle-Hardened IV"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "进行100场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Play 100 hands of poker"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "久经沙场5"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Battle-Hardened V"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "进行300场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Play 300 hands of poker"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "久经沙场6"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Battle-Hardened VI"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "进行500场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Play 500 hands of poker"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "超能大师1"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Psychic Master I"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "使用1次技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cast a skill 1 time"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "超能大师2"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Psychic Master II"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "使用10次技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cast skills 10 times"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_9",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "超能大师3"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Psychic Master III"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_9",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "使用30次技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cast skills 30 times"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_10",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "超能大师4"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Psychic Master IV"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_10",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "使用100次技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cast skills 100 times"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_11",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "超能大师5"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Psychic Master V"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_11",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "使用300次技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cast skills 300 times"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_12",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "超能大师6"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Psychic Master VI"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_12",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "使用500次技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cast skills 500 times"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_13",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "攀登高峰1"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "High Roller I"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_13",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "累计赢得100筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win 100 chips in total"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_14",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "攀登高峰2"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "High Roller II"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_14",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "累计赢得500筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win 500 chips in total"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_15",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "攀登高峰3"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "High Roller III"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_15",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "累计赢得2000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win 2000 chips in total"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_16",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "攀登高峰4"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "High Roller IV"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_16",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "累计赢得5000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win 5000 chips in total"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_17",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "攀登高峰5"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "High Roller V"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_17",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "累计赢得10000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win 10000 chips in total"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_18",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "攀登高峰6"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "High Roller VI"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_18",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "累计赢得30000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win 30000 chips in total"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_19",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "一击必杀1"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Showdown Winner I"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_19",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "以“两对”牌型赢得一场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win a hand with Two Pair"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_20",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "一击必杀2"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Showdown Winner II"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_20",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "以“三条”牌型赢得一场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win a hand with Three of a Kind"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_21",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "一击必杀3"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Showdown Winner III"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_21",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "以“顺子”牌型赢得一场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win a hand with Straight"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_22",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "一击必杀4"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Showdown Winner IV"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_22",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "以“葫芦”牌型赢得一场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win a hand with Full House"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_23",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "一击必杀5"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Showdown Winner V"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_23",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "以“同花”牌型赢得一场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win a hand with Flush"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_24",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "一击必杀6"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Showdown Winner VI"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_24",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "以“四条”牌型赢得一场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win a hand with Four of a Kind"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_TITLE_25",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "一击必杀7"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Showdown Winner VII"
+                }
+            ]
+        },
+        {
+            "key": "ACHV_DESC_25",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "以“同花顺”牌型赢得一场牌局"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Win a hand with Straight Flush"
+                }
+            ]
+        },
+        {
+            "key": "TIP_NOT_ENOUGH_ENERGY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量不足，无法发动技能！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Not enough energy to cast skill!"
+                }
+            ]
+        },
+        {
+            "key": "TIP_SKILL_SILENCED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "已被沉默或封印，无法发动技能！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Silenced or sealed! Cannot cast skills."
+                }
+            ]
+        },
+        {
+            "key": "TIP_SKILL_CAST_SUCCESS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "成功发动了技能【{0}】！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Successfully cast [{0}]!"
+                }
+            ]
+        },
+        {
+            "key": "TIP_TARGET_IMMUNE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "目标处于免疫状态，技能发动失败！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Target is immune! Skill failed."
+                }
+            ]
+        },
+        {
+            "key": "TIP_RESIST_SUCCESS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "成功抵抗了对手的技能！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Successfully resisted opponent's skill!"
+                }
+            ]
+        },
+        {
+            "key": "TIP_NOT_ENOUGH_CHIPS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "筹码不足！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Not enough chips!"
+                }
+            ]
+        },
+        {
+            "key": "TIP_ROOM_FULL",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "房间人数已满！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "The room is full!"
+                }
+            ]
+        },
+        {
+            "key": "TIP_ROOM_JOIN_FAILED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "加入房间失败，请重试！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Failed to join room. Please try again!"
+                }
+            ]
+        },
+        {
+            "key": "TIP_LEAVE_ROOM_CONFIRM",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "确定要离开当前房间吗？"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Are you sure you want to leave the room?"
+                }
+            ]
+        },
+        {
+            "key": "TIP_LOGIN_FAILED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "登录失败，请检查网络设置！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Login failed. Please check network connection!"
+                }
+            ]
+        },
+        {
+            "key": "TIP_CLAIM_SUCCESS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "恭喜领取奖励：{0} 钻石！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Successfully claimed reward: {0} Diamonds!"
+                }
+            ]
+        },
+        {
+            "key": "TIP_CLAIM_ALREADY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "该成就奖励已领取过！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Reward already claimed for this achievement!"
+                }
+            ]
+        },
+        {
+            "key": "TIP_CLAIM_NOT_MET",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "该成就尚未达成，请继续加油！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Achievement requirements not yet met!"
+                }
+            ]
+        }
+    ]
+}

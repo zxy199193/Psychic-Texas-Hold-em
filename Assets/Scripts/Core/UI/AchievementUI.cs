@@ -23,6 +23,16 @@ public class AchievementUI : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        LocalizationManager.OnLanguageChanged += RefreshList;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.OnLanguageChanged -= RefreshList;
+    }
+
     public void Show()
     {
         if (achievementPanel != null) achievementPanel.SetActive(true);

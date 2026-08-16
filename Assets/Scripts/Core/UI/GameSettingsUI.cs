@@ -14,6 +14,9 @@ public class GameSettingsUI : MonoBehaviour
     [Header("全屏切换开关")]
     public Toggle tgFullscreen;
 
+    [Header("多语言切换下拉菜单")]
+    public Dropdown drpLanguage;
+
     [Header("关闭按钮")]
     public Button btnClose;
 
@@ -31,6 +34,10 @@ public class GameSettingsUI : MonoBehaviour
         if (tgFullscreen != null)
         {
             tgFullscreen.onValueChanged.AddListener(OnFullscreenToggleChanged);
+        }
+        if (drpLanguage != null)
+        {
+            drpLanguage.onValueChanged.AddListener(OnLanguageDropdownChanged);
         }
         if (btnClose != null)
         {
@@ -62,6 +69,31 @@ public class GameSettingsUI : MonoBehaviour
         {
             tgFullscreen.isOn = Screen.fullScreen;
         }
+
+        if (drpLanguage != null)
+        {
+            // 初始化语言下拉框选项
+            drpLanguage.ClearOptions();
+            var options = new System.Collections.Generic.List<string> { "简体中文", "English" };
+            drpLanguage.AddOptions(options);
+
+            string curLang = LocalizationManager.CurrentLanguage;
+            if (curLang == LocalizationManager.LANG_EN_US)
+            {
+                drpLanguage.value = 1;
+            }
+            else
+            {
+                drpLanguage.value = 0;
+            }
+            drpLanguage.RefreshShownValue();
+        }
+    }
+
+    private void OnLanguageDropdownChanged(int index)
+    {
+        string targetLang = (index == 1) ? LocalizationManager.LANG_EN_US : LocalizationManager.LANG_ZH_CN;
+        LocalizationManager.SetLanguage(targetLang);
     }
 
     private void OnBGMVolumeChanged(float val)

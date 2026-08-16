@@ -709,13 +709,15 @@ public class PlayFabAuthManager : MonoBehaviour
     public string GetAchievementTitle(int id)
     {
         var config = allAchievements.Find(x => x.id == id);
-        return config != null ? config.title : "";
+        string defaultTitle = config != null ? config.title : "";
+        return LocalizationManager.GetText($"ACHV_TITLE_{id}", defaultTitle);
     }
 
     public string GetAchievementDescription(int id)
     {
         var config = allAchievements.Find(x => x.id == id);
-        return config != null ? config.description : "";
+        string defaultDesc = config != null ? config.description : "";
+        return LocalizationManager.GetText($"ACHV_DESC_{id}", defaultDesc);
     }
 
     public int GetAchievementReward(int id)

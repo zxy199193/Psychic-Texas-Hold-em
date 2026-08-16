@@ -37,4 +37,14 @@ public class TrinketConfigSO : ScriptableObject
     public TrinketType trinketType;
     public float param1Value;
     public float param2Value;
+
+    public string GetLocalizedName()
+    {
+        return LocalizationManager.GetText($"TRINKET_NAME_{trinketID}", trinketName);
+    }
+
+    public string GetLocalizedDescription()
+    {
+        return LocalizationManager.GetText($"TRINKET_DESC_{trinketID}", description);
+    }
 }

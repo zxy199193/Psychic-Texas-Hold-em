@@ -40,21 +40,24 @@ public class AchievementItemUI : MonoBehaviour
         {
             btnClaim.onClick.RemoveAllListeners();
 
+            string strClaimed = LocalizationManager.GetText("UI_ACHV_CLAIMED", "已领取");
+            string strClaim = LocalizationManager.GetText("UI_ACHV_CLAIM", "领取奖励");
+
             if (isClaimed)
             {
                 btnClaim.interactable = false;
-                if (txtBtnLabel != null) txtBtnLabel.text = "已领取";
+                if (txtBtnLabel != null) txtBtnLabel.text = strClaimed;
             }
             else if (progress >= target)
             {
                 btnClaim.interactable = true;
-                if (txtBtnLabel != null) txtBtnLabel.text = "领取奖励";
+                if (txtBtnLabel != null) txtBtnLabel.text = strClaim;
                 btnClaim.onClick.AddListener(OnClaimClicked);
             }
             else
             {
                 btnClaim.interactable = false;
-                if (txtBtnLabel != null) txtBtnLabel.text = "领取奖励";
+                if (txtBtnLabel != null) txtBtnLabel.text = strClaim;
             }
         }
     }

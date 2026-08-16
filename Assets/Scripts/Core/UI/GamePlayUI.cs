@@ -32,6 +32,16 @@ public class SkillConfig
         this.requiresTargeting = !isSelfTargetedSkill(so.skillID);
     }
 
+    public string GetLocalizedName()
+    {
+        return LocalizationManager.GetText($"SKILL_NAME_{skillID}", skillName);
+    }
+
+    public string GetLocalizedDescription()
+    {
+        return LocalizationManager.GetText($"SKILL_DESC_{skillID}", description);
+    }
+
     private bool isSelfTargetedSkill(int id)
     {
         return id == 1 || id == 2 || id == 9 || id == 12 || id == 13 || id == 15 || id == 16 || id == 17 || id == 20;
@@ -57,6 +67,16 @@ public class TrinketConfig
         this.trinketName = so.trinketName;
         this.icon = so.trinketIcon;
         this.description = so.description;
+    }
+
+    public string GetLocalizedName()
+    {
+        return LocalizationManager.GetText($"TRINKET_NAME_{trinketID}", trinketName);
+    }
+
+    public string GetLocalizedDescription()
+    {
+        return LocalizationManager.GetText($"TRINKET_DESC_{trinketID}", description);
     }
 }
 
@@ -2164,9 +2184,9 @@ public class GamePlayUI : MonoBehaviour
                 if (iconImg != null) iconImg.sprite = config.icon;
             }
 
-            SafeSetText(nameBtnTransform, config.skillName);
-            SafeSetText(nameTipTransform, config.skillName);
-            SafeSetText(descTransform, config.description);
+            SafeSetText(nameBtnTransform, config.GetLocalizedName());
+            SafeSetText(nameTipTransform, config.GetLocalizedName());
+            SafeSetText(descTransform, config.GetLocalizedDescription());
             SafeSetText(costTransform, (config.skillID == 1 || config.energyCost < 0) ? "X" : config.energyCost.ToString());
             SafeSetText(timeTransform, config.castTime > 0 ? $"{config.castTime}" : "0");
 
@@ -2211,8 +2231,8 @@ public class GamePlayUI : MonoBehaviour
                 tooltipObj.SetActive(false);
             }
 
-            SafeSetText(nameTransform, config.trinketName);
-            SafeSetText(descTransform, config.description);
+            SafeSetText(nameTransform, config.GetLocalizedName());
+            SafeSetText(descTransform, config.GetLocalizedDescription());
 
             if (tooltipObj != null)
             {

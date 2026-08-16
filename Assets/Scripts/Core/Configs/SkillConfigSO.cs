@@ -39,4 +39,14 @@ public class SkillConfigSO : ScriptableObject
     public SkillType skillType;
     public float param1Value;
     public float param2Value;
+
+    public string GetLocalizedName()
+    {
+        return LocalizationManager.GetText($"SKILL_NAME_{skillID}", skillName);
+    }
+
+    public string GetLocalizedDescription()
+    {
+        return LocalizationManager.GetText($"SKILL_DESC_{skillID}", description);
+    }
 }

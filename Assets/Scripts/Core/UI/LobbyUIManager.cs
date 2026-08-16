@@ -63,6 +63,7 @@ public class LobbyUIManager : MonoBehaviour
 
         PlayFabAuthManager.OnCurrencyUpdated += OnCurrencyOrInventoryUpdated;
         PlayFabAuthManager.OnLoginFailed += OnPlayFabSyncFailed;
+        LocalizationManager.OnLanguageChanged += OnLanguageChanged;
 
         // 如果当前还未登录，则启动时显示 Loading 遮罩
         if (loadingPanel != null && PlayFabAuthManager.Instance != null && !PlayFabAuthManager.Instance.isLoggedIn)
@@ -109,6 +110,15 @@ public class LobbyUIManager : MonoBehaviour
     {
         PlayFabAuthManager.OnCurrencyUpdated -= OnCurrencyOrInventoryUpdated;
         PlayFabAuthManager.OnLoginFailed -= OnPlayFabSyncFailed;
+        LocalizationManager.OnLanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        InitLobbySkillSelection();
+        InitLobbyTrinketSelection();
+        UpdateSelectedCountText();
+        UpdateSelectedTrinketCountText();
     }
 
     private void OnCurrencyOrInventoryUpdated()
@@ -472,8 +482,8 @@ public class LobbyUIManager : MonoBehaviour
                 inherentTransform.gameObject.SetActive(isInherent);
             }
 
-            if (nameTransform != null) nameTransform.GetComponent<UnityEngine.UI.Text>().text = config.skillName;
-            if (descTransform != null) descTransform.GetComponent<UnityEngine.UI.Text>().text = config.description;
+            if (nameTransform != null) nameTransform.GetComponent<UnityEngine.UI.Text>().text = config.GetLocalizedName();
+            if (descTransform != null) descTransform.GetComponent<UnityEngine.UI.Text>().text = config.GetLocalizedDescription();
             if (timeTransform != null) timeTransform.GetComponent<UnityEngine.UI.Text>().text = config.castTime > 0 ? $"{config.castTime}" : "0";
             if (costTransform != null) costTransform.GetComponent<UnityEngine.UI.Text>().text = (config.skillID == 1 || config.energyCost < 0) ? "X" : $"{config.energyCost}";
 
@@ -488,7 +498,7 @@ public class LobbyUIManager : MonoBehaviour
                 // 抵抗(1)与感应(2)为固有技能，自动选中且不可移除
                 if (config.skillID == 1 || config.skillID == 2)
                 {
-                    Debug.LogWarning($"{config.skillName}为固有技能，默认已选择且不可移除！");
+                    Debug.LogWarning($"{config.GetLocalizedName()}为固有技能，默认已选择且不可移除！");
                     return;
                 }
 
@@ -546,8 +556,8 @@ public class LobbyUIManager : MonoBehaviour
 
             markerTransform.gameObject.SetActive(localSelectedTrinkets.Contains(config.trinketID));
 
-            UIMgr.SafeSetText(nameTransform, config.trinketName);
-            UIMgr.SafeSetText(descTransform, config.description);
+            UIMgr.SafeSetText(nameTransform, config.GetLocalizedName());
+            UIMgr.SafeSetText(descTransform, config.GetLocalizedDescription());
 
             // 【魔像与神像互斥】：选择其中一个后，另一个置灰不可点击
             bool isMutualExclusive = false;
@@ -604,7 +614,7 @@ public class LobbyUIManager : MonoBehaviour
     {
         int maxSkills = roomUI != null ? roomUI.maxSkillSelection : 3;
         if (roomUI != null && roomUI.selectedCountText != null)
-            roomUI.selectedCountText.text = $"已选技能 [{localSelectedSkills.Count}/{maxSkills}]";
+            roomUI.selectedCountText.text = LocalizationManager.GetFormattedText("UI_LOBBY_SKILL_COUNT", localSelectedSkills.Count);
 
         RefreshSelectedSkillIconsPreview();
     }
@@ -612,7 +622,7 @@ public class LobbyUIManager : MonoBehaviour
     private void UpdateSelectedTrinketCountText()
     {
         if (roomUI != null && roomUI.selectedTrinketCountText != null)
-            roomUI.selectedTrinketCountText.text = $"已选道具 [{localSelectedTrinkets.Count}/{roomUI.maxTrinketSelection}]";
+            roomUI.selectedTrinketCountText.text = LocalizationManager.GetFormattedText("UI_LOBBY_TRINKET_COUNT", localSelectedTrinkets.Count);
 
         RefreshSelectedTrinketIconsPreview();
     }
