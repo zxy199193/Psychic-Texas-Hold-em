@@ -23,10 +23,71 @@ public class LocalizationKeyValue
     public string val;
 }
 
+[Serializable]
+public class LanguageFontItem
+{
+    [Tooltip("语言代码，例如 zh_CN、en_US 等")]
+    public string languageCode;
+
+    [Tooltip("该语言对应的专用字体（若为空则自动使用全局默认备用字体）")]
+    public Font font;
+
+    [Tooltip("该语言对应的行间距 LineSpacing（<= 0 表示不覆盖，使用 UI 原生行间距）")]
+    public float lineSpacing = 1.0f;
+}
+
+[CreateAssetMenu(fileName = "LocalizationFontSettings", menuName = "Localization/Font Settings")]
+public class LocalizationFontSettingsSO : ScriptableObject
+{
+    [Header("全局默认备用字体（未指定语种专属字体时自动使用）")]
+    public Font defaultFallbackFont;
+
+    [Tooltip("全局默认行间距（<= 0 表示使用 UI 原生行间距）")]
+    public float defaultFallbackLineSpacing = 1.0f;
+
+    [Header("各语言专属字体与行间距列表")]
+    public List<LanguageFontItem> languageFonts = new List<LanguageFontItem>();
+
+    /// <summary>
+    /// 根据语言代码获取对应的字体配置（未指定则返回全局默认备用字体）
+    /// </summary>
+    public Font GetFont(string langCode)
+    {
+        if (!string.IsNullOrEmpty(langCode) && languageFonts != null)
+        {
+            var item = languageFonts.Find(x => string.Equals(x.languageCode, langCode, StringComparison.OrdinalIgnoreCase));
+            if (item != null && item.font != null)
+            {
+                return item.font;
+            }
+        }
+
+        return defaultFallbackFont;
+    }
+
+    /// <summary>
+    /// 根据语言代码获取对应的行间距配置（未指定则返回全局默认或备用行间距）
+    /// </summary>
+    public float GetLineSpacing(string langCode, float fallbackDefault = 1.0f)
+    {
+        if (!string.IsNullOrEmpty(langCode) && languageFonts != null)
+        {
+            var item = languageFonts.Find(x => string.Equals(x.languageCode, langCode, StringComparison.OrdinalIgnoreCase));
+            if (item != null && item.lineSpacing > 0f)
+            {
+                return item.lineSpacing;
+            }
+        }
+
+        return defaultFallbackLineSpacing > 0f ? defaultFallbackLineSpacing : fallbackDefault;
+    }
+}
+
 public class LocalizationManager : MonoBehaviour
 {
     private const string PrefKey = "APP_LANGUAGE";
     private const string ResourcePath = "Localization/localization_data";
+    private const string FontSettingsResourcePath = "Localization/LocalizationFontSettings";
 
     public const string LANG_ZH_CN = "zh_CN";
     public const string LANG_EN_US = "en_US";
@@ -48,6 +109,9 @@ public class LocalizationManager : MonoBehaviour
 
     private static string currentLanguage = LANG_ZH_CN;
     public static string CurrentLanguage => currentLanguage;
+
+    private static LocalizationFontSettingsSO fontSettings;
+    public static LocalizationFontSettingsSO FontSettings => fontSettings;
 
     private static readonly List<string> supportedLanguages = new List<string>();
     public static IReadOnlyList<string> SupportedLanguages => supportedLanguages;
@@ -71,6 +135,7 @@ public class LocalizationManager : MonoBehaviour
         }
 
         LoadLocalizationData();
+        LoadFontSettings();
         InitCurrentLanguage();
         isInitialized = true;
     }
@@ -92,7 +157,36 @@ public class LocalizationManager : MonoBehaviour
     public static void ReloadData()
     {
         LoadLocalizationData();
+        LoadFontSettings();
         OnLanguageChanged?.Invoke();
+    }
+
+    private static void LoadFontSettings()
+    {
+        // 1. 优先从 GameConfigDatabase 获取
+        if (GameConfigDatabaseSO.Instance != null && GameConfigDatabaseSO.Instance.fontSettingsAsset != null)
+        {
+            fontSettings = GameConfigDatabaseSO.Instance.fontSettingsAsset;
+            Debug.Log("[LocalizationManager] 🔤 成功从 GameConfigDatabase 加载多语言字体配置资产！");
+            return;
+        }
+
+#if UNITY_EDITOR
+        // 2. 编辑器模式下直接从 Configs 路径加载
+        fontSettings = UnityEditor.AssetDatabase.LoadAssetAtPath<LocalizationFontSettingsSO>("Assets/Configs/Localization/LocalizationFontSettings.asset");
+        if (fontSettings != null)
+        {
+            Debug.Log("[LocalizationManager] 🔤 成功从 Assets/Configs/Localization/ 加载多语言字体配置资产！");
+            return;
+        }
+#endif
+
+        // 3. 兜底尝试 Resources
+        fontSettings = Resources.Load<LocalizationFontSettingsSO>(FontSettingsResourcePath);
+        if (fontSettings != null)
+        {
+            Debug.Log("[LocalizationManager] 🔤 成功从 Resources 加载多语言字体配置资产！");
+        }
     }
 
     private static void LoadLocalizationData()
@@ -100,10 +194,31 @@ public class LocalizationManager : MonoBehaviour
         localizationDict.Clear();
         supportedLanguages.Clear();
 
-        TextAsset jsonAsset = Resources.Load<TextAsset>(ResourcePath);
+        TextAsset jsonAsset = null;
+
+        // 1. 优先从 GameConfigDatabase 获取
+        if (GameConfigDatabaseSO.Instance != null && GameConfigDatabaseSO.Instance.localizationJsonAsset != null)
+        {
+            jsonAsset = GameConfigDatabaseSO.Instance.localizationJsonAsset;
+        }
+
+#if UNITY_EDITOR
+        // 2. 编辑器模式下直接从 Configs 路径加载
         if (jsonAsset == null)
         {
-            Debug.LogWarning($"[LocalizationManager] ⚠️ 无法在 Resources/{ResourcePath} 找到多语言数据文件，将使用默认回退！");
+            jsonAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Configs/Localization/localization_data.json");
+        }
+#endif
+
+        // 3. 兜底尝试 Resources
+        if (jsonAsset == null)
+        {
+            jsonAsset = Resources.Load<TextAsset>(ResourcePath);
+        }
+
+        if (jsonAsset == null)
+        {
+            Debug.LogWarning("[LocalizationManager] ⚠️ 未找到多语言 JSON 数据文件，将使用默认回退！");
             return;
         }
 
@@ -292,5 +407,129 @@ public class LocalizationManager : MonoBehaviour
         if (string.IsNullOrEmpty(key)) return false;
         if (!isInitialized) EnsureInitialized();
         return localizationDict.ContainsKey(key);
+    }
+
+    /// <summary>
+    /// 获取当前语言对应的配置字体（未配置时返回全局默认备用字体或 null）
+    /// </summary>
+    public static Font GetCurrentLanguageFont()
+    {
+        return GetFontForLanguage(currentLanguage);
+    }
+
+    /// <summary>
+    /// 根据语言代码获取对应的字体配置（未配置专属字体时返回全局默认备用字体）
+    /// </summary>
+    public static Font GetFontForLanguage(string langCode)
+    {
+        if (!isInitialized) EnsureInitialized();
+
+        if (fontSettings != null)
+        {
+            return fontSettings.GetFont(langCode);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 获取当前语言对应的行间距倍率（未配置专属行间距时返回全局默认或传入的 fallback）
+    /// </summary>
+    public static float GetCurrentLanguageLineSpacing(float fallbackDefault = 1.0f)
+    {
+        return GetLineSpacingForLanguage(currentLanguage, fallbackDefault);
+    }
+
+    /// <summary>
+    /// 根据语言代码获取对应的行间距倍率
+    /// </summary>
+    public static float GetLineSpacingForLanguage(string langCode, float fallbackDefault = 1.0f)
+    {
+        if (!isInitialized) EnsureInitialized();
+
+        if (fontSettings != null)
+        {
+            return fontSettings.GetLineSpacing(langCode, fallbackDefault);
+        }
+        return fallbackDefault;
+    }
+
+    /// <summary>
+    /// 为指定的 Text 组件应用当前语言的字体与行间距配置
+    /// </summary>
+    public static void ApplyLanguageFontAndSpacing(UnityEngine.UI.Text targetText, float originalSpacing = 1.0f)
+    {
+        if (targetText == null) return;
+        Font f = GetCurrentLanguageFont();
+        if (f != null)
+        {
+            targetText.font = f;
+        }
+        targetText.lineSpacing = GetCurrentLanguageLineSpacing(originalSpacing);
+    }
+
+    /// <summary>
+    /// 为指定的 Text 组件应用当前语言的字体配置
+    /// </summary>
+    public static void ApplyLanguageFont(UnityEngine.UI.Text targetText)
+    {
+        if (targetText == null) return;
+        Font f = GetCurrentLanguageFont();
+        if (f != null)
+        {
+            targetText.font = f;
+        }
+    }
+}
+
+/// <summary>
+/// UI 布局自动重建与刷新工具类，用于解决多语言切换后字符长度变化导致的首次打开界面 Layout 错位问题
+/// </summary>
+public static class UILayoutUtils
+{
+    /// <summary>
+    /// 自底向上递归强制重建指定节点及其所有子节点的 LayoutGroup 与 ContentSizeFitter
+    /// </summary>
+    public static void ForceRebuildAllLayoutsImmediate(Transform root)
+    {
+        if (root == null) return;
+
+        // 1. 先强制更新 Canvas 脏数据
+        Canvas.ForceUpdateCanvases();
+
+        // 2. 收集所有包含布局组件的 RectTransform 并自底向上重建
+        var layouts = root.GetComponentsInChildren<UnityEngine.UI.LayoutGroup>(true);
+        for (int i = layouts.Length - 1; i >= 0; i--)
+        {
+            if (layouts[i] != null && layouts[i].gameObject.activeInHierarchy)
+            {
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(layouts[i].GetComponent<RectTransform>());
+            }
+        }
+
+        var fitters = root.GetComponentsInChildren<UnityEngine.UI.ContentSizeFitter>(true);
+        for (int i = fitters.Length - 1; i >= 0; i--)
+        {
+            if (fitters[i] != null && fitters[i].gameObject.activeInHierarchy)
+            {
+                UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(fitters[i].GetComponent<RectTransform>());
+            }
+        }
+
+        // 3. 最后重建根节点自身
+        RectTransform rootRect = root as RectTransform;
+        if (rootRect != null && root.gameObject.activeInHierarchy)
+        {
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(rootRect);
+        }
+    }
+
+    /// <summary>
+    /// 协程延时至帧末再次强制重建，确保动态文本生成 Mesh 后 100% 正确对齐
+    /// </summary>
+    public static System.Collections.IEnumerator RebuildLayoutAtEndOfFrame(Transform root)
+    {
+        if (root == null) yield break;
+        yield return new WaitForEndOfFrame();
+        ForceRebuildAllLayoutsImmediate(root);
     }
 }

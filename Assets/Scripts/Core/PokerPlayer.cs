@@ -457,40 +457,40 @@ public class PokerPlayer : NetworkBehaviour
         skillDatabase.Add(5, new BlurSkill());
         skillDatabase.Add(6, new InterfereSkill());
         skillDatabase.Add(7, new TrickRoomSkill());
-        skillDatabase.Add(8, new ShackleSkill());
-        skillDatabase.Add(9, new ResonanceSkill());
-        skillDatabase.Add(10, new AssistSkill());
-        skillDatabase.Add(11, new SealSkill());
-        skillDatabase.Add(12, new InspirationSkill());
-        skillDatabase.Add(13, new OverdraftSkill());
-        skillDatabase.Add(14, new ExchangeSkill());
-        skillDatabase.Add(15, new WishSkill());
-        skillDatabase.Add(16, new GravityFieldSkill());
-        skillDatabase.Add(17, new ReflectWallSkill());
-        skillDatabase.Add(18, new MindControlSkill());
-        skillDatabase.Add(19, new SluggishSkill());
-        skillDatabase.Add(20, new MagicRoomSkill());
+        skillDatabase.Add(8, new SluggishSkill());
+        skillDatabase.Add(9, new ShackleSkill());
+        skillDatabase.Add(10, new ResonanceSkill());
+        skillDatabase.Add(11, new AssistSkill());
+        skillDatabase.Add(12, new SealSkill());
+        skillDatabase.Add(13, new InspirationSkill());
+        skillDatabase.Add(14, new OverdraftSkill());
+        skillDatabase.Add(15, new ExchangeSkill());
+        skillDatabase.Add(16, new WishSkill());
+        skillDatabase.Add(17, new GravityFieldSkill());
+        skillDatabase.Add(18, new MagicRoomSkill());
+        skillDatabase.Add(19, new ReflectWallSkill());
+        skillDatabase.Add(20, new MindControlSkill());
 
-        trinketDatabase.Add(1, new RedGemTrinket());
-        trinketDatabase.Add(2, new BlueGemTrinket());
-        trinketDatabase.Add(3, new CrownTrinket());
+        trinketDatabase.Add(1, new NecklaceTrinket());
+        trinketDatabase.Add(2, new PipeTrinket());
+        trinketDatabase.Add(3, new MedalTrinket());
         trinketDatabase.Add(4, new WatchTrinket());
-        trinketDatabase.Add(5, new BatteryTrinket());
-        trinketDatabase.Add(6, new BeastClawTrinket());
-        trinketDatabase.Add(7, new BraceletTrinket());
-        trinketDatabase.Add(8, new AntennaTrinket());
-        trinketDatabase.Add(9, new HatTrinket());
-        trinketDatabase.Add(10, new GlassesTrinket());
-        trinketDatabase.Add(11, new EyeDropsTrinket());
-        trinketDatabase.Add(12, new RingTrinket());
-        trinketDatabase.Add(13, new TuningForkTrinket());
-        trinketDatabase.Add(14, new IdolTrinket());
-        trinketDatabase.Add(15, new GolemTrinket());
-        trinketDatabase.Add(16, new ArmbandTrinket());
-        trinketDatabase.Add(17, new IncenseTrinket());
-        trinketDatabase.Add(18, new MagicWandTrinket());
-        trinketDatabase.Add(19, new ColaTrinket());
-        trinketDatabase.Add(20, new WineTrinket());
+        trinketDatabase.Add(5, new BeerTrinket());
+        trinketDatabase.Add(6, new MagneticCoilTrinket());
+        trinketDatabase.Add(7, new BeastClawTrinket());
+        trinketDatabase.Add(8, new CloakTrinket());
+        trinketDatabase.Add(9, new AntennaTrinket());
+        trinketDatabase.Add(10, new HatTrinket());
+        trinketDatabase.Add(11, new GlassTrinket());
+        trinketDatabase.Add(12, new EyeDropsTrinket());
+        trinketDatabase.Add(13, new RingTrinket());
+        trinketDatabase.Add(14, new TuningForkTrinket());
+        trinketDatabase.Add(15, new IncenseTrinket());
+        trinketDatabase.Add(16, new MagicWandTrinket());
+        trinketDatabase.Add(17, new ColaTrinket());
+        trinketDatabase.Add(18, new StatueTrinket());
+        trinketDatabase.Add(19, new GolemTrinket());
+        trinketDatabase.Add(20, new ArmbandTrinket());
 
         foreach (var kvp in skillDatabase)
         {
@@ -658,7 +658,7 @@ public class PokerPlayer : NetworkBehaviour
 
         BaseSkill skillToCast = skillDatabase[skillID];
 
-        if (skillID == 15 && this.serverHasWishBuff)
+        if (skillID == 16 && this.serverHasWishBuff)
         {
             if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "本轮已许过愿，无法重复使用！", 0);
             return;
@@ -692,7 +692,7 @@ public class PokerPlayer : NetworkBehaviour
             targetIndex = -1;
         }
 
-        if (skillID == 18 && targetPlayer != null && targetPlayer.serverIsHosted)
+        if (skillID == 20 && targetPlayer != null && targetPlayer.serverIsHosted)
         {
             if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "无法对已托管的玩家使用精神控制！", 0);
             return;
@@ -701,7 +701,7 @@ public class PokerPlayer : NetworkBehaviour
         // ==========================================
         // 【封印检测拦截】：检测目标底牌是否被封印
         // ==========================================
-        if (skillID == 11 && targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
+        if (skillID == 12 && targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
         {
             if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "该底牌已经被封印，无需重复封印！", 0);
             return;
@@ -716,7 +716,7 @@ public class PokerPlayer : NetworkBehaviour
             return;
         }
 
-        if (skillID == 14) // 交换技能有双目标，需要额外检查目标 1 和目标 2
+        if (skillID == 15) // 交换技能有双目标，需要额外检查目标 1 和目标 2
         {
             // 检查目标 1 是否被封印
             if (targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
@@ -775,7 +775,8 @@ public class PokerPlayer : NetworkBehaviour
 
     private bool IsSensingBlocked()
     {
-        return this.equippedTrinkets.Contains(8);
+        // 饰品10【帽子】：发动技能时不会被[感应]效果感知
+        return this.equippedTrinkets.Contains(10);
     }
 
     // 【核心修复】：参数补齐了 actualCastTime
@@ -794,7 +795,7 @@ public class PokerPlayer : NetworkBehaviour
         string targetName = (target != null) ? (target == this ? "自己" : target.playerName) : "公共牌";
 
         PokerPlayer target2 = null;
-        if (skillID == 14 && this.dualTargetType == 0)
+        if (skillID == 15 && this.dualTargetType == 0)
         {
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
@@ -820,14 +821,14 @@ public class PokerPlayer : NetworkBehaviour
         int activeSkillCount = 0;
         foreach (int id in this.equippedSkills)
         {
-            if (id != 98) activeSkillCount++;
+            if (id != 2) activeSkillCount++;
         }
         bool isDoubleSkillMode = (activeSkillCount == 2);
 
         if (target != this && target != null && skill.CanBeResisted)
         {
             int resistCost = target.GetResistCost(skill.energyCost);
-            if (this.equippedTrinkets.Contains(6) && isDoubleSkillMode)
+            if (this.equippedTrinkets.Contains(7) && isDoubleSkillMode)
             {
                 resistCost += 1;
             }
@@ -848,7 +849,7 @@ public class PokerPlayer : NetworkBehaviour
         if (target2 != this && target2 != null && target2 != target && skill.CanBeResisted)
         {
             int resistCost2 = target2.GetResistCost(skill.energyCost);
-            if (this.equippedTrinkets.Contains(6) && isDoubleSkillMode)
+            if (this.equippedTrinkets.Contains(7) && isDoubleSkillMode)
             {
                 resistCost2 += 1;
             }
@@ -1291,19 +1292,19 @@ public class PokerPlayer : NetworkBehaviour
     {
         int finalValue = baseCost;
 
-        // 1. 先计算袖章（ID 16）
-        if (equippedTrinkets.Contains(16))
+        // 1. 先计算袖章（ID 20）
+        if (equippedTrinkets.Contains(20))
         {
-            if (trinketDatabase.TryGetValue(16, out BaseTrinket trinket))
+            if (trinketDatabase.TryGetValue(20, out BaseTrinket trinket))
             {
                 finalValue = trinket.ModifyResistCost(finalValue, this);
             }
         }
 
-        // 2. 再计算除了袖章（ID 16）和斗篷（ID 5）之外的其它饰品
+        // 2. 再计算除了袖章（ID 20）和斗篷（ID 8）之外的其它饰品
         foreach (int id in equippedTrinkets)
         {
-            if (id != 16 && id != 5)
+            if (id != 20 && id != 8)
             {
                 if (trinketDatabase.TryGetValue(id, out BaseTrinket trinket))
                 {
@@ -1312,10 +1313,10 @@ public class PokerPlayer : NetworkBehaviour
             }
         }
 
-        // 3. 最后计算斗篷（ID 5）
-        if (equippedTrinkets.Contains(7))
+        // 3. 最后计算斗篷（ID 8）
+        if (equippedTrinkets.Contains(8))
         {
-            if (trinketDatabase.TryGetValue(5, out BaseTrinket trinket))
+            if (trinketDatabase.TryGetValue(8, out BaseTrinket trinket))
             {
                 finalValue = trinket.ModifyResistCost(finalValue, this);
             }
@@ -1420,7 +1421,7 @@ public class PokerPlayer : NetworkBehaviour
         if (skill == null) return 0;
         int finalCost = skill.energyCost;
 
-        if (skill.skillID == 2 && equippedTrinkets.Contains(8))
+        if (skill.skillID == 2 && equippedTrinkets.Contains(9))
         {
             return 0;
         }
@@ -1461,7 +1462,7 @@ public class PokerPlayer : NetworkBehaviour
             var config = GamePlayUI.Instance.allSkillConfigs.Find(c => c.skillID == skillID);
             if (config != null)
             {
-                if (skillID == 2 && equippedTrinkets.Contains(8)) return 0;
+                if (skillID == 2 && equippedTrinkets.Contains(9)) return 0;
 
                 int finalCost = config.energyCost;
                 foreach (int id in equippedTrinkets)

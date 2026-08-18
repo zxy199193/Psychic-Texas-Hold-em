@@ -122,8 +122,13 @@ public class ShopUI : MonoBehaviour
 
     public void OpenShop()
     {
-        if (shopPanel != null) shopPanel.SetActive(true);
-        SwitchTab(ShopTabType.GiftPackage); // 默认打开第一个礼包页签
+        if (shopPanel != null)
+        {
+            shopPanel.SetActive(true);
+            SwitchTab(ShopTabType.GiftPackage); // 默认打开第一个礼包页签
+            UILayoutUtils.ForceRebuildAllLayoutsImmediate(shopPanel.transform);
+            StartCoroutine(UILayoutUtils.RebuildLayoutAtEndOfFrame(shopPanel.transform));
+        }
     }
 
     public void CloseShop()
@@ -238,6 +243,12 @@ public class ShopUI : MonoBehaviour
         bool showBundle = (currentTab == ShopTabType.GiftPackage);
         SetContainerActive(bundleContainer, showBundle);
         SetContainerActive(productContainer, !showBundle || bundleContainer == null);
+
+        if (shopPanel != null && shopPanel.activeInHierarchy)
+        {
+            UILayoutUtils.ForceRebuildAllLayoutsImmediate(shopPanel.transform);
+            StartCoroutine(UILayoutUtils.RebuildLayoutAtEndOfFrame(shopPanel.transform));
+        }
     }
 
     private void SetContainerActive(Transform container, bool active)

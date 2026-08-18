@@ -496,10 +496,9 @@ public class GamePlayUI : MonoBehaviour
 
                 if (curHand > progressTotalSeats) curHand = progressTotalSeats;
 
-                string circleStr = (maxC > 0) ? $"第{curRound}/{maxC}圈" : $"第{curRound}圈";
-                string handStr = $"第{curHand}/{progressTotalSeats}轮";
-
-                txtGameProgress.text = $"{circleStr}   {handStr}";
+                string progressFormat = LocalizationManager.GetText("UI_GAME_ROUND_HAND", "第{0}/{1}圈 第{2}/{3}轮");
+                string maxCStr = (maxC > 0) ? maxC.ToString() : "∞";
+                txtGameProgress.text = string.Format(progressFormat, curRound, maxCStr, curHand, progressTotalSeats);
             }
             else
             {
@@ -820,7 +819,7 @@ public class GamePlayUI : MonoBehaviour
             if (AudioManager.Instance != null) AudioManager.Instance.StopCountdownSound();
         }
 
-        bool localHasAntenna = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.equippedTrinkets.Contains(8);
+        bool localHasAntenna = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.equippedTrinkets.Contains(9);
         bool localIsSensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
         if (cachedEnemyTrinketContainers == null)
         {
@@ -941,16 +940,19 @@ public class GamePlayUI : MonoBehaviour
                         int callAmount = highest - PokerPlayer.LocalPlayer.currentBet;
                         if (callAmount <= 0)
                         {
-                            SetTextAndRebuildLayout(txtCallBtnText, "过牌");
+                            string checkStr = LocalizationManager.GetText("UI_GAME_CHECK", "过牌");
+                            SetTextAndRebuildLayout(txtCallBtnText, checkStr);
                         }
                         else
                         {
-                            SetTextAndRebuildLayout(txtCallBtnText, $"跟注 {callAmount}");
+                            string callFormat = LocalizationManager.GetText("UI_GAME_CALL", "跟注 {0}");
+                            SetTextAndRebuildLayout(txtCallBtnText, string.Format(callFormat, callAmount));
                         }
                     }
                     else
                     {
-                        SetTextAndRebuildLayout(txtCallBtnText, "跟注/过牌");
+                        string checkStr = LocalizationManager.GetText("UI_GAME_CHECK", "过牌");
+                        SetTextAndRebuildLayout(txtCallBtnText, checkStr);
                     }
                 }
             }
@@ -1671,11 +1673,11 @@ public class GamePlayUI : MonoBehaviour
                     SafeSetText(costTransform, cost.ToString());
                 }
 
-                bool isSkillDisabled = isSilenced || (skillID == 13 && isOverdraftPending);
+                bool isSkillDisabled = isSilenced || (skillID == 14 && isOverdraftPending);
                 if (PokerPlayer.LocalPlayer != null)
                 {
-                    if (skillID == 15 && PokerPlayer.LocalPlayer.serverHasWishBuff) isSkillDisabled = true;
-                    if (skillID == 11 && PokerPlayer.LocalPlayer.serverNextHandSealed) isSkillDisabled = true;
+                    if (skillID == 16 && PokerPlayer.LocalPlayer.serverHasWishBuff) isSkillDisabled = true;
+                    if (skillID == 12 && PokerPlayer.LocalPlayer.serverNextHandSealed) isSkillDisabled = true;
                 }
                 kvp.Key.interactable = !isSkillDisabled && (currentEnergy >= cost);
             }
@@ -1905,7 +1907,8 @@ public class GamePlayUI : MonoBehaviour
             if (c.targetType == 0) return true;
             if (c.targetType == 1 && !c.isRevealed)
             {
-                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.equippedTrinkets.Contains(12)) return true;
+                // 饰品13【戒指】：变牌和交换可对公牌使用
+                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.equippedTrinkets.Contains(13)) return true;
             }
         }
         else if (skillID == 5) // 模糊
@@ -1916,15 +1919,36 @@ public class GamePlayUI : MonoBehaviour
         {
             if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
         }
-        else if (skillID == 14) // 交换
+        else if (skillID == 7) // 颠倒
+        {
+            if (c.targetType == 0) return true;
+        }
+        else if (skillID == 8) // 迟钝
+        {
+            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
+        }
+        else if (skillID == 9) // 枷锁
+        {
+            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
+        }
+        else if (skillID == 11) // 援助
+        {
+            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
+        }
+        else if (skillID == 12) // 封印
+        {
+            if (c.targetType == 0) return true;
+        }
+        else if (skillID == 15) // 交换
         {
             if (c.targetType == 0) return true;
             if (c.targetType == 1 && !c.isRevealed)
             {
-                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.equippedTrinkets.Contains(12)) return true;
+                // 饰品13【戒指】：变牌和交换可对公牌使用
+                if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.equippedTrinkets.Contains(13)) return true;
             }
         }
-        else if (skillID == 18) // 精神控制
+        else if (skillID == 20) // 精神控制
         {
             if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId)
             {
@@ -1942,22 +1966,6 @@ public class GamePlayUI : MonoBehaviour
                 return true;
             }
         }
-        else if (skillID == 10) // 援助
-        {
-            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
-        }
-        else if (skillID == 11) // 封印
-        {
-            if (c.targetType == 0) return true;
-        }
-        else if (skillID == 7) // 颠倒
-        {
-            if (c.targetType == 0) return true;
-        }
-        else if (skillID == 8) // 枷锁
-        {
-            if (c.targetType == 0 && c.ownerNetId != PokerPlayer.LocalPlayer.netId) return true;
-        }
         return false;
     }
 
@@ -1965,16 +1973,16 @@ public class GamePlayUI : MonoBehaviour
     {
         if (!isTargeting || !IsValidTarget(c, targetingSkillID)) return;
 
-        if (targetingSkillID == 14 && firstSelectedCard != null) // Exchange (dual-target)
+        if (targetingSkillID == 15 && firstSelectedCard != null) // Exchange (dual-target)
         {
             CardTarget[] allCards = FindObjectsOfType<CardTarget>();
             foreach (var card in allCards)
             {
-                if (card != firstSelectedCard && IsValidTarget(card, 14))
+                if (card != firstSelectedCard && IsValidTarget(card, 15))
                     card.SetHighlight(true);
             }
         }
-        else if (targetingSkillID == 5 || targetingSkillID == 6 || targetingSkillID == 7 || targetingSkillID == 8 || targetingSkillID == 10 || targetingSkillID == 18) // Player-targeted skills
+        else if (targetingSkillID == 5 || targetingSkillID == 6 || targetingSkillID == 7 || targetingSkillID == 8 || targetingSkillID == 9 || targetingSkillID == 11 || targetingSkillID == 20) // Player-targeted skills
         {
             CardTarget[] allCards = FindObjectsOfType<CardTarget>();
             foreach (var card in allCards)
@@ -2000,7 +2008,7 @@ public class GamePlayUI : MonoBehaviour
     {
         if (!isTargeting || !IsValidTarget(c, targetingSkillID)) return;
 
-        if (targetingSkillID == 14)
+        if (targetingSkillID == 15) // 交换技能
         {
             if (firstSelectedCard == null)
             {
@@ -2020,7 +2028,7 @@ public class GamePlayUI : MonoBehaviour
                 }
 
                 PokerPlayer.LocalPlayer.CmdCastDualTargetSkill(
-                    14,
+                    15,
                     firstSelectedCard.ownerNetId, firstSelectedCard.targetType, firstSelectedCard.targetIndex,
                     c.ownerNetId, c.targetType, c.targetIndex
                 );
@@ -2877,7 +2885,8 @@ public class GamePlayUI : MonoBehaviour
         {
             if (isCurrentlyBlurred || PokerPlayer.LocalPlayer.serverHoleCardsSealed || PokerPlayer.LocalPlayer.serverCard0Sealed || PokerPlayer.LocalPlayer.serverCard1Sealed)
             {
-                SetTextAndRebuildLayout(maxHandTypeText, "当前牌型：???");
+                string unknownHandTip = LocalizationManager.GetText("UI_GAME_CURRENT_HAND_UNKNOWN", "当前牌型：???");
+                SetTextAndRebuildLayout(maxHandTypeText, unknownHandTip);
                 currentHandScore = -1; // 重置以便解除模糊后能重新更新
                 if (!maxHandTypePanel.activeSelf)
                 {
@@ -2905,7 +2914,8 @@ public class GamePlayUI : MonoBehaviour
                 currentHandScore = bestHand.score;
 
                 string handName = ServerGameManager.Instance.GetProfessionalHandName(bestHand.rank.ToString(), bestHand.score);
-                SetTextAndRebuildLayout(maxHandTypeText, $"当前牌型：{handName}");
+                string format = LocalizationManager.GetText("UI_GAME_CURRENT_HAND", "当前牌型：{0}");
+                SetTextAndRebuildLayout(maxHandTypeText, string.Format(format, handName));
 
                 if (!maxHandTypePanel.activeSelf)
                 {

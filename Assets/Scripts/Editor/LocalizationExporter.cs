@@ -9,8 +9,10 @@ using UnityEngine;
 public class LocalizationExporter
 {
     private const string CsvPath = "Assets/Configs/Localization/Localization.csv";
-    private const string OutputDir = "Assets/Resources/Localization";
-    private const string OutputJsonPath = "Assets/Resources/Localization/localization_data.json";
+    private const string OutputDir = "Assets/Configs/Localization";
+    private const string OutputJsonPath = "Assets/Configs/Localization/localization_data.json";
+
+    private const string FontSettingsAssetPath = "Assets/Configs/Localization/LocalizationFontSettings.asset";
 
     static LocalizationExporter()
     {
@@ -20,7 +22,74 @@ public class LocalizationExporter
             {
                 ExportLocalization();
             }
+            EnsureFontSettingsAsset();
         };
+    }
+
+    [MenuItem("Tools/Localization/Create or Select Font Settings Asset")]
+    public static void CreateOrSelectFontSettings()
+    {
+        LocalizationFontSettingsSO asset = EnsureFontSettingsAsset();
+        if (asset != null)
+        {
+            Selection.activeObject = asset;
+            EditorGUIUtility.PingObject(asset);
+            Debug.Log($"<color=green>[LocalizationExporter] 🔤 已选中多语言字体配置资产: {FontSettingsAssetPath}</color>");
+        }
+    }
+
+    public static LocalizationFontSettingsSO EnsureFontSettingsAsset()
+    {
+        if (!Directory.Exists(OutputDir))
+        {
+            Directory.CreateDirectory(OutputDir);
+        }
+
+        LocalizationFontSettingsSO asset = AssetDatabase.LoadAssetAtPath<LocalizationFontSettingsSO>(FontSettingsAssetPath);
+        if (asset == null)
+        {
+            asset = ScriptableObject.CreateInstance<LocalizationFontSettingsSO>();
+            
+            // 自动配置中文与英文初始项
+            asset.languageFonts.Add(new LanguageFontItem { languageCode = LocalizationManager.LANG_ZH_CN });
+            asset.languageFonts.Add(new LanguageFontItem { languageCode = LocalizationManager.LANG_EN_US });
+
+            AssetDatabase.CreateAsset(asset, FontSettingsAssetPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log($"<color=green>[LocalizationExporter] 🔤 成功自动创建多语言字体配置资产: {FontSettingsAssetPath}</color>");
+        }
+
+        LinkToGameConfigDatabase(asset, null);
+        return asset;
+    }
+
+    private static void LinkToGameConfigDatabase(LocalizationFontSettingsSO fontAsset, TextAsset jsonAsset)
+    {
+        string[] guids = AssetDatabase.FindAssets("t:GameConfigDatabaseSO");
+        if (guids.Length > 0)
+        {
+            string dbPath = AssetDatabase.GUIDToAssetPath(guids[0]);
+            GameConfigDatabaseSO db = AssetDatabase.LoadAssetAtPath<GameConfigDatabaseSO>(dbPath);
+            if (db != null)
+            {
+                bool dirty = false;
+                if (fontAsset != null && db.fontSettingsAsset != fontAsset)
+                {
+                    db.fontSettingsAsset = fontAsset;
+                    dirty = true;
+                }
+                if (jsonAsset != null && db.localizationJsonAsset != jsonAsset)
+                {
+                    db.localizationJsonAsset = jsonAsset;
+                    dirty = true;
+                }
+                if (dirty)
+                {
+                    EditorUtility.SetDirty(db);
+                }
+            }
+        }
     }
 
     [MenuItem("Tools/Localization/Export Localization Table")]
@@ -32,8 +101,23 @@ public class LocalizationExporter
             return;
         }
 
-        // 智能自适应编码读取（支持 Excel 默认的 GBK/ANSI、UTF-8、UTF-8 BOM 等）
-        byte[] fileBytes = File.ReadAllBytes(CsvPath);
+        // 智能自适应编码读取（支持在 Excel/WPS 打开状态下以 FileShare.ReadWrite 共享读取，支持 GBK/ANSI、UTF-8、UTF-8 BOM 等）
+        byte[] fileBytes;
+        try
+        {
+            using (FileStream fs = new FileStream(CsvPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (MemoryStream ms = new MemoryStream())
+            {
+                fs.CopyTo(ms);
+                fileBytes = ms.ToArray();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[LocalizationExporter] ❌ 读取 CSV 失败: {ex.Message}");
+            return;
+        }
+
         string csvContent = ReadTextWithAutoEncoding(fileBytes, out string detectedEncodingName);
         Debug.Log($"[LocalizationExporter] 📄 读取 CSV 文件成功，识别到的编码: [{detectedEncodingName}]");
 
@@ -91,7 +175,7 @@ public class LocalizationExporter
             for (int i = 0; i < languageCodes.Count; i++)
             {
                 int colIdx = languageColIndices[i];
-                string val = (colIdx < row.Count) ? row[colIdx].Trim() : "";
+                string val = (colIdx < row.Count) ? row[colIdx] : "";
 
                 if (string.IsNullOrEmpty(val))
                 {
@@ -116,11 +200,14 @@ public class LocalizationExporter
         }
 
         string json = JsonUtility.ToJson(exportData, true);
-        // 输出给 Unity Resources 始终使用标准 UTF8 无 BOM
         File.WriteAllText(OutputJsonPath, json, new UTF8Encoding(false));
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
+
+        TextAsset jsonAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(OutputJsonPath);
+        LocalizationFontSettingsSO fontAsset = EnsureFontSettingsAsset();
+        LinkToGameConfigDatabase(fontAsset, jsonAsset);
 
         if (Application.isPlaying)
         {

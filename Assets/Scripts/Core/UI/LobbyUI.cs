@@ -70,7 +70,12 @@ public class LobbyUI : MonoBehaviour
 
                 // 填充新版房间信息字段
                 if (item.txtRoomName != null) item.txtRoomName.text = data.hostName;
-                if (item.txtRoomPassword != null) item.txtRoomPassword.text = data.hasPassword ? "需要密码" : "无";
+                if (item.txtRoomPassword != null)
+                {
+                    item.txtRoomPassword.text = data.hasPassword 
+                        ? LocalizationManager.GetText("UI_LOBBY_ROOM_PASSWORD_REQ", "需要密码") 
+                        : LocalizationManager.GetText("UI_LOBBY_ROOM_PASSWORD_NULL", "无密码");
+                }
                 if (item.txtMaxPlayers != null) item.txtMaxPlayers.text = data.maxPlayers.ToString();
                 if (item.txtMaxCircles != null) item.txtMaxCircles.text = data.maxCircles.ToString();
                 if (item.txtBigBlind != null) item.txtBigBlind.text = data.bigBlind.ToString();

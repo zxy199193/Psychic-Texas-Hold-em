@@ -35,8 +35,17 @@ public class AchievementUI : MonoBehaviour
 
     public void Show()
     {
-        if (achievementPanel != null) achievementPanel.SetActive(true);
-        RefreshList();
+        if (achievementPanel != null)
+        {
+            achievementPanel.SetActive(true);
+            RefreshList();
+            UILayoutUtils.ForceRebuildAllLayoutsImmediate(achievementPanel.transform);
+            StartCoroutine(UILayoutUtils.RebuildLayoutAtEndOfFrame(achievementPanel.transform));
+        }
+        else
+        {
+            RefreshList();
+        }
     }
 
     public void Hide()

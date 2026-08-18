@@ -394,6 +394,7 @@ public class LobbyUIManager : MonoBehaviour
             if (roomUI.lobbyUIGroup != null) roomUI.lobbyUIGroup.SetActive(true);
             if (roomUI.btnStartGame != null) roomUI.btnStartGame.gameObject.SetActive(isHost);
             if (roomUI.btnHalftimeStats != null) roomUI.btnHalftimeStats.gameObject.SetActive(false);
+            roomUI.SetHalftimeRoundInfoActive(false); // 第一次准备阶段隐藏圈数节点
 
             if (roomUI.txtLobbyRoomName != null && roomUI.txtLobbyRoomName.transform.parent != null)
             {
@@ -559,13 +560,13 @@ public class LobbyUIManager : MonoBehaviour
             UIMgr.SafeSetText(nameTransform, config.GetLocalizedName());
             UIMgr.SafeSetText(descTransform, config.GetLocalizedDescription());
 
-            // 【魔像与神像互斥】：选择其中一个后，另一个置灰不可点击
+            // 【魔像(19)与神像(18)互斥】：选择其中一个后，另一个置灰不可点击
             bool isMutualExclusive = false;
-            if (config.trinketID == 11 && localSelectedTrinkets.Contains(8))
+            if (config.trinketID == 18 && localSelectedTrinkets.Contains(19))
             {
                 isMutualExclusive = true;
             }
-            else if (config.trinketID == 8 && localSelectedTrinkets.Contains(11))
+            else if (config.trinketID == 19 && localSelectedTrinkets.Contains(18))
             {
                 isMutualExclusive = true;
             }
@@ -614,15 +615,16 @@ public class LobbyUIManager : MonoBehaviour
     {
         int maxSkills = roomUI != null ? roomUI.maxSkillSelection : 3;
         if (roomUI != null && roomUI.selectedCountText != null)
-            roomUI.selectedCountText.text = LocalizationManager.GetFormattedText("UI_LOBBY_SKILL_COUNT", localSelectedSkills.Count);
+            roomUI.selectedCountText.text = $"{localSelectedSkills.Count}/{maxSkills}";
 
         RefreshSelectedSkillIconsPreview();
     }
 
     private void UpdateSelectedTrinketCountText()
     {
+        int maxTrinkets = roomUI != null ? roomUI.maxTrinketSelection : 3;
         if (roomUI != null && roomUI.selectedTrinketCountText != null)
-            roomUI.selectedTrinketCountText.text = LocalizationManager.GetFormattedText("UI_LOBBY_TRINKET_COUNT", localSelectedTrinkets.Count);
+            roomUI.selectedTrinketCountText.text = $"{localSelectedTrinkets.Count}/{maxTrinkets}";
 
         RefreshSelectedTrinketIconsPreview();
     }
@@ -716,20 +718,23 @@ public class LobbyUIManager : MonoBehaviour
 
         bool isHost = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost;
         SetupLobbyUI(isHost);
-        if (roomUI != null && roomUI.btnHalftimeStats != null) roomUI.btnHalftimeStats.gameObject.SetActive(true);
-        if (roomUI != null && roomUI.halftimeStatsWindow != null)
+        if (roomUI != null)
         {
-            roomUI.halftimeStatsWindow.SetActive(false);
+            if (roomUI.btnHalftimeStats != null) roomUI.btnHalftimeStats.gameObject.SetActive(true);
+            if (roomUI.halftimeStatsWindow != null) roomUI.halftimeStatsWindow.SetActive(false);
+            roomUI.SetHalftimeRoundInfoActive(true); // 中场休息显示圈数节点
         }
         if (roomUI != null && roomUI.txtHalftimeRoundTitle != null)
         {
             if (maxCirclesVal > 0)
             {
-                roomUI.txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}/{maxCirclesVal}圈 】";
+                string format = LocalizationManager.GetText("UI_ROOM_ROUND_COUNT", "【 中场休息 - 第{0}/{1}圈 】");
+                roomUI.txtHalftimeRoundTitle.text = string.Format(format, roundCount, maxCirclesVal);
             }
             else
             {
-                roomUI.txtHalftimeRoundTitle.text = $"【 中场休息 - 第{roundCount}圈 】";
+                string format = LocalizationManager.GetText("UI_ROOM_ROUND_COUNT", "【 中场休息 - 第{0}圈 】");
+                roomUI.txtHalftimeRoundTitle.text = string.Format(format, roundCount);
             }
         }
 

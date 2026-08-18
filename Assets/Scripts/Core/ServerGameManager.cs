@@ -480,7 +480,7 @@ public class ServerGameManager : NetworkBehaviour
 
             if (p.overdraftPending)
             {
-                int banTurns = p.equippedTrinkets.Contains(19) ? 2 : 3;
+                int banTurns = p.equippedTrinkets.Contains(17) ? 2 : 3;
                 p.overdraftTurnsRemaining = banTurns;
                 p.overdraftPending = false;
             }
@@ -546,8 +546,8 @@ public class ServerGameManager : NetworkBehaviour
             p.serverGolemActiveThisHand = false;
             if (p.serverHasWishBuff)
             {
-                // 【魔像起效】：如果有魔像，运行魔像特殊发牌算法
-                if (p.equippedTrinkets.Contains(15))
+                // 【魔像起效】：如果有魔像(19)，运行魔像特殊发牌算法
+                if (p.equippedTrinkets.Contains(19))
                 {
                     if (deck.TryDrawGolemCards(futureCommunityCards, out c1, out c2))
                     {
@@ -569,8 +569,8 @@ public class ServerGameManager : NetworkBehaviour
                         c2 = deck.Draw();
                     }
                 }
-                // 【神像起效】：如果有神像，用超级发牌器！
-                else if (p.equippedTrinkets.Contains(14))
+                // 【神像起效】：如果有神像(18)，用超级发牌器！
+                else if (p.equippedTrinkets.Contains(18))
                 {
                     c1 = deck.DrawSuperWishCard();
                     c2 = deck.DrawSuperWishCard();
@@ -1537,39 +1537,55 @@ public class ServerGameManager : NetworkBehaviour
         MoveToNextPlayer(); // 这里的逻辑和你原来写的一模一样
     }
     // ==========================================
-    // 专业牌型翻译工具 (支持双关键牌)
+    // 专业牌型翻译工具 (支持双关键牌与多语言)
     // ==========================================
     public string GetProfessionalHandName(string rankString, int score)
     {
         // 核心解密魔法：按 16 进制位移，依次提取出排好序的 5 张牌大小！
         int card1 = (score >> 16) & 15; // 最大的主牌
-        // int card2 = (score >> 12) & 15; // 第2张 (如果是两对或葫芦，这张肯定和第1张一样，不需要)
         int card3 = (score >> 8) & 15;  // 第3张 (这正是两对里的第二对！)
         int card4 = (score >> 4) & 15;  // 第4张 (这正是葫芦里的对子！)
 
         // 转成 A, K, Q 字母
         string c1 = GetCardFaceString(card1);
 
-        if (rankString.Contains("RoyalFlush")) return "皇家同花顺";
-        if (rankString.Contains("StraightFlush")) return $"同花顺 [{c1}高]";
-        if (rankString.Contains("FourOfAKind") || rankString.Contains("Quads")) return $"四条 [{c1}]";
+        if (rankString.Contains("RoyalFlush")) 
+            return LocalizationManager.GetText("HAND_ROYAL_FLUSH", "皇家同花顺");
+
+        if (rankString.Contains("StraightFlush")) 
+            return string.Format(LocalizationManager.GetText("HAND_STRAIGHT_FLUSH", "同花顺 [{0}高]"), c1);
+
+        if (rankString.Contains("FourOfAKind") || rankString.Contains("Quads")) 
+            return string.Format(LocalizationManager.GetText("HAND_FOUR_OF_A_KIND", "四条 [{0}]"), c1);
+
         if (rankString.Contains("FullHouse"))
         {
             string c2 = GetCardFaceString(card4); // 拿到葫芦的带牌
-            return $"葫芦 [{c1}带{c2}]";
+            return string.Format(LocalizationManager.GetText("HAND_FULL_HOUSE", "葫芦 [{0}带{1}]"), c1, c2);
         }
-        if (rankString.Contains("Flush")) return $"同花 [{c1}高]";
-        if (rankString.Contains("Straight")) return $"顺子 [{c1}高]";
-        if (rankString.Contains("ThreeOfAKind") || rankString.Contains("Trips") || rankString.Contains("Set")) return $"三条 [{c1}]";
+
+        if (rankString.Contains("Flush")) 
+            return string.Format(LocalizationManager.GetText("HAND_FLUSH", "同花 [{0}高]"), c1);
+
+        if (rankString.Contains("Straight")) 
+            return string.Format(LocalizationManager.GetText("HAND_STRAIGHT", "顺子 [{0}高]"), c1);
+
+        if (rankString.Contains("ThreeOfAKind") || rankString.Contains("Trips") || rankString.Contains("Set")) 
+            return string.Format(LocalizationManager.GetText("HAND_THREE_OF_A_KIND", "三条 [{0}]"), c1);
+
         if (rankString.Contains("TwoPair"))
         {
             string c2 = GetCardFaceString(card3); // 拿到两对的第二对
-            return $"两对 [{c1}-{c2}]";
+            return string.Format(LocalizationManager.GetText("HAND_TWO_PAIR", "两对 [{0}-{1}]"), c1, c2);
         }
-        if (rankString.Contains("Pair")) return $"一对 [{c1}]";
-        if (rankString.Contains("HighCard")) return $"高牌 [{c1}]";
 
-        return "未知牌型";
+        if (rankString.Contains("Pair")) 
+            return string.Format(LocalizationManager.GetText("HAND_PAIR", "一对 [{0}]"), c1);
+
+        if (rankString.Contains("HighCard")) 
+            return string.Format(LocalizationManager.GetText("HAND_HIGH_CARD", "高牌 [{0}]"), c1);
+
+        return LocalizationManager.GetText("HAND_UNKNOWN", "未知牌型");
     }
 
     // ==========================================

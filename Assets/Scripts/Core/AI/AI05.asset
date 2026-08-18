@@ -16,5 +16,5 @@ MonoBehaviour:
   avatarID: 4
   personality: 0
   targetingPreference: 0
-  equippedSkills: 0f000000
-  equippedTrinkets: 0e000000
+  equippedSkills: 10000000
+  equippedTrinkets: 12000000

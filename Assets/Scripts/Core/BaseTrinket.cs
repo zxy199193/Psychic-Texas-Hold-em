@@ -30,33 +30,30 @@ public abstract class BaseTrinket
     public virtual int ModifySkillCost(int currentCost, BaseSkill skill, PokerPlayer player) { return currentCost; }
 }
 
-// 1. 红宝石
-public class RedGemTrinket : BaseTrinket
+// 1. 项链
+public class NecklaceTrinket : BaseTrinket
 {
-    public RedGemTrinket() { trinketID = 1; trinketName = "项链"; }
+    public NecklaceTrinket() { trinketID = 1; trinketName = "项链"; }
     public override int ModifyMaxEnergy(int currentMax, PokerPlayer player) { return currentMax + 5; }
 }
 
-// 2. 蓝宝石
-public class BlueGemTrinket : BaseTrinket
+// 2. 烟斗
+public class PipeTrinket : BaseTrinket
 {
-    public BlueGemTrinket() { trinketID = 2; trinketName = "烟斗"; }
+    public PipeTrinket() { trinketID = 2; trinketName = "烟斗"; }
     public override int ModifyEnergyRegen(int currentRegen, PokerPlayer player) { return currentRegen + 1; }
 }
 
-// 3. 王冠 (高风险高回报 - 数值增减版)
-public class CrownTrinket : BaseTrinket
+// 3. 奖牌 (高风险高回报 - 数值增减版)
+public class MedalTrinket : BaseTrinket
 {
-    public CrownTrinket() { trinketID = 3; trinketName = "奖牌"; }
+    public MedalTrinket() { trinketID = 3; trinketName = "奖牌"; }
 
-    // 初始能量 -1（默认开局是 3，减 1 后正好等于 2）
     public override int ModifyInitialEnergy(int current, PokerPlayer player) 
     { 
-        // 使用 Mathf.Max 防止和其他扣减饰品叠加时出现负数初始蓝量
         return Mathf.Max(0, current - 1); 
     } 
 
-    // 每回合自动回蓝 -1（默认是 1，减 1 后变成 0）
     public override int ModifyEnergyRegen(int current, PokerPlayer player) 
     { 
         return current - 1; 
@@ -79,59 +76,113 @@ public class WatchTrinket : BaseTrinket
     public override float ModifyCastTime(float currentCastTime, PokerPlayer player) { return currentCastTime * 0.3f; }
 }
 
-// 5. 手镯
-public class BraceletTrinket : BaseTrinket
+// 5. 啤酒 / 酒
+public class BeerTrinket : BaseTrinket
 {
-    public BraceletTrinket() { trinketID = 7; trinketName = "斗篷"; }
-    public override int ModifyResistCost(int currentCost, PokerPlayer player) { return Mathf.Max(0, currentCost - 1); }
+    public BeerTrinket() { trinketID = 5; trinketName = "啤酒"; }
 }
 
-// 6. 眼镜 (在 PeekSkill 中直接判断)
-public class GlassesTrinket : BaseTrinket { public GlassesTrinket() { trinketID = 10; trinketName = "镜片"; } }
-
-// 7. 音叉
-public class TuningForkTrinket : BaseTrinket
+// 6. 磁线圈
+public class MagneticCoilTrinket : BaseTrinket
 {
-    public TuningForkTrinket() { trinketID = 13; trinketName = "音叉"; }
-    public override int ModifyInterfereRate(int currentRate, PokerPlayer player) { return 60; } // 覆盖原有的 25%
-}
-
-// 8. 神像 (在 ServerGameManager 中直接判断)
-public class IdolTrinket : BaseTrinket { public IdolTrinket() { trinketID = 14; trinketName = "神像"; } }
-
-// 9. 天线
-public class AntennaTrinket : BaseTrinket { public AntennaTrinket() { trinketID = 8; trinketName = "天线"; } }
-
-// 10. 戒指
-public class RingTrinket : BaseTrinket { public RingTrinket() { trinketID = 12; trinketName = "戒指"; } }
-
-// 11. 魔像
-public class GolemTrinket : BaseTrinket { public GolemTrinket() { trinketID = 15; trinketName = "魔像"; } }
-
-// 12. 帽子
-public class HatTrinket : BaseTrinket { public HatTrinket() { trinketID = 9; trinketName = "帽子"; } }
-
-// 13. 兽爪
-public class BeastClawTrinket : BaseTrinket { public BeastClawTrinket() { trinketID = 6; trinketName = "兽爪"; } }
-
-// 14. 电池
-public class BatteryTrinket : BaseTrinket
-{
-    public BatteryTrinket() { trinketID = 5; trinketName = "磁线圈"; }
+    public MagneticCoilTrinket() { trinketID = 6; trinketName = "磁线圈"; }
     public override int ModifyMaxEnergy(int currentMax, PokerPlayer player) { return currentMax - 6; }
     public override int ModifyEnergyRegen(int currentRegen, PokerPlayer player) { return currentRegen - 2; }
 }
 
-// 15. 眼药
-public class EyeDropsTrinket : BaseTrinket
+// 7. 兽爪
+public class BeastClawTrinket : BaseTrinket
 {
-    public EyeDropsTrinket() { trinketID = 11; trinketName = "眼药"; }
+    public BeastClawTrinket() { trinketID = 7; trinketName = "兽爪"; }
 }
 
-// 16. 袖章
+// 8. 斗篷
+public class CloakTrinket : BaseTrinket
+{
+    public CloakTrinket() { trinketID = 8; trinketName = "斗篷"; }
+    public override int ModifyResistCost(int currentCost, PokerPlayer player) { return Mathf.Max(0, currentCost - 1); }
+}
+
+// 9. 天线
+public class AntennaTrinket : BaseTrinket
+{
+    public AntennaTrinket() { trinketID = 9; trinketName = "天线"; }
+}
+
+// 10. 帽子
+public class HatTrinket : BaseTrinket
+{
+    public HatTrinket() { trinketID = 10; trinketName = "帽子"; }
+}
+
+// 11. 镜片 (透视额外随机显示一张牌)
+public class GlassTrinket : BaseTrinket
+{
+    public GlassTrinket() { trinketID = 11; trinketName = "镜片"; }
+}
+
+// 12. 眼药 (透视时间提升至60秒)
+public class EyeDropsTrinket : BaseTrinket
+{
+    public EyeDropsTrinket() { trinketID = 12; trinketName = "眼药"; }
+}
+
+// 13. 戒指 (变牌和交换可对公牌使用)
+public class RingTrinket : BaseTrinket
+{
+    public RingTrinket() { trinketID = 13; trinketName = "戒指"; }
+}
+
+// 14. 音叉 (干扰效果+25%)
+public class TuningForkTrinket : BaseTrinket
+{
+    public TuningForkTrinket() { trinketID = 14; trinketName = "音叉"; }
+    public override int ModifyInterfereRate(int currentRate, PokerPlayer player) { return 60; }
+}
+
+// 15. 香薰 (迟钝效果改为x3)
+public class IncenseTrinket : BaseTrinket
+{
+    public IncenseTrinket() { trinketID = 15; trinketName = "香薰"; }
+}
+
+// 16. 仙女棒 (首次使用灵机变化的技能能耗-2)
+public class MagicWandTrinket : BaseTrinket
+{
+    public MagicWandTrinket() { trinketID = 16; trinketName = "仙女棒"; }
+
+    public override int ModifySkillCost(int currentCost, BaseSkill skill, PokerPlayer player)
+    {
+        if (player != null && player.serverInspirationDiscountActive && skill != null && skill.skillID == player.serverInspirationSkillID)
+        {
+            return Mathf.Max(0, currentCost - 2);
+        }
+        return currentCost;
+    }
+}
+
+// 17. 可乐 (透支技能禁用时间减为2局)
+public class ColaTrinket : BaseTrinket
+{
+    public ColaTrinket() { trinketID = 17; trinketName = "可乐"; }
+}
+
+// 18. 神像 (许愿必定QKA，与魔像互斥)
+public class StatueTrinket : BaseTrinket
+{
+    public StatueTrinket() { trinketID = 18; trinketName = "神像"; }
+}
+
+// 19. 魔像 (许愿必成三条无法加注，与神像互斥)
+public class GolemTrinket : BaseTrinket
+{
+    public GolemTrinket() { trinketID = 19; trinketName = "魔像"; }
+}
+
+// 20. 袖章 (亏损最高技能/抵抗能耗-2，最低1)
 public class ArmbandTrinket : BaseTrinket
 {
-    public ArmbandTrinket() { trinketID = 16; trinketName = "袖章"; }
+    public ArmbandTrinket() { trinketID = 20; trinketName = "袖章"; }
 
     public override int ModifySkillCost(int currentCost, BaseSkill skill, PokerPlayer player)
     {
@@ -151,54 +202,5 @@ public class ArmbandTrinket : BaseTrinket
             return Mathf.Max(1, currentCost - 2);
         }
         return currentCost;
-    }
-}
-
-// 17. 香薰
-public class IncenseTrinket : BaseTrinket
-{
-    public IncenseTrinket()
-    {
-        trinketID = 17;
-        trinketName = "香薰";
-    }
-}
-
-// 18. 魔棒
-public class MagicWandTrinket : BaseTrinket
-{
-    public MagicWandTrinket()
-    {
-        trinketID = 18;
-        trinketName = "魔棒";
-    }
-
-    public override int ModifySkillCost(int currentCost, BaseSkill skill, PokerPlayer player)
-    {
-        if (player != null && player.serverInspirationDiscountActive && skill != null && skill.skillID == player.serverInspirationSkillID)
-        {
-            return Mathf.Max(0, currentCost - 2);
-        }
-        return currentCost;
-    }
-}
-
-// 19. 可乐
-public class ColaTrinket : BaseTrinket
-{
-    public ColaTrinket()
-    {
-        trinketID = 19;
-        trinketName = "可乐";
-    }
-}
-
-// 20. 酒
-public class WineTrinket : BaseTrinket
-{
-    public WineTrinket()
-    {
-        trinketID = 20;
-        trinketName = "酒";
     }
 }

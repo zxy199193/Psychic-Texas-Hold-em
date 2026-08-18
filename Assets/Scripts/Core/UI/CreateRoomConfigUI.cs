@@ -39,6 +39,19 @@ public class CreateRoomConfigUI : MonoBehaviour
     [Header("Text Preview")]
     public Text txtBuyInPreview;       // 预览显示最终买入筹码数（例如 100BB = 1000 筹码）
 
+    private string lastGeneratedDefaultRoomName = "";
+
+    private void OnEnable()
+    {
+        LocalizationManager.OnLanguageChanged += RefreshLocalizedDefaults;
+        RefreshLocalizedDefaults();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.OnLanguageChanged -= RefreshLocalizedDefaults;
+    }
+
     private void Start()
     {
         if (btnConfirm != null) btnConfirm.onClick.AddListener(OnConfirmClicked);
@@ -51,19 +64,42 @@ public class CreateRoomConfigUI : MonoBehaviour
         InitializeOptions();
     }
 
-    private void InitializeOptions()
+    private void RefreshLocalizedDefaults()
     {
-        // 自动填入默认房间名称
+        // 1. 刷新密码占位符提示
+        if (inpRoomPassword != null && inpRoomPassword.placeholder != null && inpRoomPassword.placeholder is Text placeholderText)
+        {
+            placeholderText.text = LocalizationManager.GetText("UI_LOBBY_ROOM_PASSWORD_NULL", "无密码");
+        }
+
+        // 2. 刷新默认房间名（仅在未输入或输入内容为之前生成的默认名时自动更新）
         if (inpRoomName != null)
         {
-            string hostName = "玩家";
-            if (SteamManager.Initialized)
+            string currentText = inpRoomName.text;
+            if (string.IsNullOrEmpty(currentText) || currentText == lastGeneratedDefaultRoomName)
             {
-                hostName = SteamFriends.GetPersonaName();
+                string hostName = LocalizationManager.GetText("UI_COMMON_PLAYER", "玩家");
+                if (SteamManager.Initialized)
+                {
+                    hostName = SteamFriends.GetPersonaName();
+                }
+                string defaultNameFormat = LocalizationManager.GetText("UI_LOBBY_ROOM_NAME_DEFAULT", "{0}的房间");
+                string newDefaultName = string.Format(defaultNameFormat, hostName);
+                if (newDefaultName.Length > roomNameCharLimit)
+                {
+                    newDefaultName = newDefaultName.Substring(0, roomNameCharLimit);
+                }
+                inpRoomName.text = newDefaultName;
+                lastGeneratedDefaultRoomName = newDefaultName;
             }
-            inpRoomName.text = $"{hostName}的房间";
             inpRoomName.characterLimit = roomNameCharLimit;
         }
+    }
+
+    private void InitializeOptions()
+    {
+        // 自动填入默认房间名称与密码占位符
+        RefreshLocalizedDefaults();
 
         // 限制密码输入为最多 4 位数字
         if (inpRoomPassword != null)
@@ -147,12 +183,13 @@ public class CreateRoomConfigUI : MonoBehaviour
         string roomName = inpRoomName != null ? inpRoomName.text : "";
         if (string.IsNullOrEmpty(roomName.Trim()))
         {
-            string hostName = "玩家";
+            string hostName = LocalizationManager.GetText("UI_COMMON_PLAYER", "玩家");
             if (SteamManager.Initialized)
             {
                 hostName = SteamFriends.GetPersonaName();
             }
-            roomName = $"{hostName}的房间";
+            string defaultNameFormat = LocalizationManager.GetText("UI_LOBBY_ROOM_NAME_DEFAULT", "{0}的房间");
+            roomName = string.Format(defaultNameFormat, hostName);
         }
 
         // 字符数限制

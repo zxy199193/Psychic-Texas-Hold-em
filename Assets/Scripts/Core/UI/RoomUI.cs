@@ -27,6 +27,7 @@ public class RoomUI : MonoBehaviour
     public Button btnHalftimeStats;
     public Button btnCloseHalftimeStats;
     public Text txtHalftimeRoundTitle;
+    public GameObject goHalftimeRoundInfoGroup; // 圈数信息根节点 (中场休息显示，首次准备大厅隐藏)
     public Transform halftimeStatsContainer;
     public GameObject halftimeStatsItemPrefab;
 
@@ -205,6 +206,9 @@ public class RoomUI : MonoBehaviour
         bool isHalftime = ServerGameManager.Instance != null && ServerGameManager.Instance.currentPhase == ServerGameManager.GamePhase.Halftime;
         bool isHost = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost;
 
+        // 0. 中场圈数信息节点 (中场休息时显示，第一次准备阶段隐藏)
+        SetHalftimeRoundInfoActive(isHalftime);
+
         // 1. 排名按钮 (Button Rank / btnHalftimeStats)
         // 仅在中场休息时显示
         if (btnHalftimeStats != null)
@@ -229,7 +233,9 @@ public class RoomUI : MonoBehaviour
             }
             if (txtLobbyReadyBtnText != null)
             {
-                txtLobbyReadyBtnText.text = PokerPlayer.LocalPlayer.isReady ? "取消" : "准备";
+                txtLobbyReadyBtnText.text = PokerPlayer.LocalPlayer.isReady
+                    ? LocalizationManager.GetText("UI_ROOM_READY_CANCEL", "取消准备")
+                    : LocalizationManager.GetText("UI_ROOM_READY", "准备");
             }
 
             // 3. 开始or继续 (Button Start or Continue / btnStartGame)
@@ -241,7 +247,7 @@ public class RoomUI : MonoBehaviour
                 Text startBtnText = btnStartGame.GetComponentInChildren<Text>(true);
                 if (startBtnText != null)
                 {
-                    startBtnText.text = isHalftime ? "继续游戏" : "开始游戏";
+                    startBtnText.text = LocalizationManager.GetText("UI_ROOM_START", isHalftime ? "继续游戏" : "开始游戏");
                 }
 
                 bool conditionMet = pCount >= 2 || (ServerGameManager.Instance != null && ServerGameManager.Instance.fillBots);
@@ -510,6 +516,21 @@ public class RoomUI : MonoBehaviour
                     allTrinketConfigs.Add(new TrinketConfig(t));
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// 控制中场圈数信息节点的显示/隐藏（中场休息时显示，第一次进入房间的准备阶段隐藏）
+    /// </summary>
+    public void SetHalftimeRoundInfoActive(bool active)
+    {
+        if (goHalftimeRoundInfoGroup != null)
+        {
+            goHalftimeRoundInfoGroup.SetActive(active);
+        }
+        else if (txtHalftimeRoundTitle != null)
+        {
+            txtHalftimeRoundTitle.gameObject.SetActive(active);
         }
     }
 }

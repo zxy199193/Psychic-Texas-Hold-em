@@ -7,6 +7,11 @@ using UnityEditor;
 [CreateAssetMenu(fileName = "GameConfigDatabase", menuName = "Configs/Game Config Database")]
 public class GameConfigDatabaseSO : ScriptableObject
 {
+    [Header("多语言配置资产")]
+    public TextAsset localizationJsonAsset;
+    public LocalizationFontSettingsSO fontSettingsAsset;
+
+    [Header("技能与饰品配置")]
     public List<SkillConfigSO> allSkillConfigs = new List<SkillConfigSO>();
     public List<TrinketConfigSO> allTrinketConfigs = new List<TrinketConfigSO>();
 
