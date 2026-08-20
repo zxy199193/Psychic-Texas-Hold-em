@@ -70,6 +70,19 @@
             ]
         },
         {
+            "key": "UI_MAIN_FREE_DIAMOND_CLAIMED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "已领取"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "CLAIMED"
+                }
+            ]
+        },
+        {
             "key": "UI_MAIN_RANK",
             "translations": [
                 {
@@ -87,11 +100,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "加载中"
+                    "val": "加载中..."
                 },
                 {
                     "lang": "en_US",
-                    "val": "Loading..."
+                    "val": "LOADING..."
                 }
             ]
         },
@@ -208,7 +221,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "JOIN ROOM"
+                    "val": "JOIN"
                 }
             ]
         },
@@ -243,7 +256,7 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "房间密码"
+                    "val": "密码"
                 },
                 {
                     "lang": "en_US",
@@ -261,6 +274,19 @@
                 {
                     "lang": "en_US",
                     "val": "None"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_ROOM_PASSWORD_NEED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "需要"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Need"
                 }
             ]
         },
@@ -300,6 +326,19 @@
                 {
                     "lang": "en_US",
                     "val": "Rounds"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_ROUNDS_ENDLESS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "无限"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Endless"
                 }
             ]
         },
@@ -404,6 +443,19 @@
                 {
                     "lang": "en_US",
                     "val": "CONFIRM"
+                }
+            ]
+        },
+        {
+            "key": "UI_LOBBY_PASSWORD_TIPS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "输入4位数字"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Type 4 numbers"
                 }
             ]
         },
@@ -538,6 +590,19 @@
             ]
         },
         {
+            "key": "UI_ROOM_SETTING_SHORT_DECK_DES",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "1. 移除2、3、4、5\n2. [同花] > [葫芦]\n3. A6789可构成最小的顺子"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "1.Remove 2~5\n2.Flush > Full House\n3.Lowest straight: A6789"
+                }
+            ]
+        },
+        {
             "key": "UI_ROOM_SETTING_ROBOT",
             "translations": [
                 {
@@ -629,6 +694,84 @@
             ]
         },
         {
+            "key": "UI_ROOM_SCORE_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "计分板"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "SCORE BOARD"
+                }
+            ]
+        },
+        {
+            "key": "UI_ROOM_SCORE_RANK",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "排名"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "No."
+                }
+            ]
+        },
+        {
+            "key": "UI_ROOM_SCORE_PLAYER",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "玩家"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Player"
+                }
+            ]
+        },
+        {
+            "key": "UI_ROOM_SCORE_CHIPS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Chips"
+                }
+            ]
+        },
+        {
+            "key": "UI_ROOM_SCORE_BUY-IN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "买入"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Buy-in"
+                }
+            ]
+        },
+        {
+            "key": "UI_ROOM_SCORE_INCOME",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "收益"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Income"
+                }
+            ]
+        },
+        {
             "key": "UI_GAME_ROUND_HAND",
             "translations": [
                 {
@@ -651,6 +794,19 @@
                 {
                     "lang": "en_US",
                     "val": "POT"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_POT_SIDE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "边池 {0}:"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Side Pot {0}:"
                 }
             ]
         },
@@ -785,6 +941,19 @@
             ]
         },
         {
+            "key": "UI_GAME_HAND_TYPE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "牌型："
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Hand Type: "
+                }
+            ]
+        },
+        {
             "key": "UI_GAME_AUTO",
             "translations": [
                 {
@@ -833,6 +1002,318 @@
                 {
                     "lang": "en_US",
                     "val": "LOG"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_ENERGY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "ENERGY"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_ENERGY_DES",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "发动技能需要消耗能量，每当开始新的牌局即会自动恢复4点能量，上限10点\n每局胜利的玩家会额外奖励2点能量"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Using skills costs Energy Points. At the start of each hand, restore 4 points (max 10).\nThe winner of each hand gains an extra 2 points."
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "计分板"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "SCORE BOARD"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_STATUS_WAITING",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "等待中..."
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Waiting..."
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_STATUS_MY_TURN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "你的回合"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Your turn"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_STATUS_DEALING",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "发牌中..."
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Dealing..."
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_STATUS_PLAYER_TURN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "玩家{0}的回合"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "{0}'s turn"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_STATUS_WIN_FOLD",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "{0}赢得{1}筹码 (对手弃牌)"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "{0} wins {1} Chips (Others all fold)"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_STATUS_WIN_POT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "{0}赢得{1}筹码！！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "{0} wins {1} Chips!!"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_STATUS_WIN_MAIN_POT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "{0}赢得{1}筹码！！【主池】"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "{0} wins {1} Chips!![Main Pot]"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_STATUS_WIN_SIDE_POT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "{0}赢得{1}筹码！！【边池{2}】"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "{0} wins {1} Chips!![Side Pot {2}]"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_OVER_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "游戏结束"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "GAME OVER"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_RANK",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "排名"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "No."
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_PLAYER",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "玩家"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Player"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_CHIPS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Chips"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_BUY-IN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "买入"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Buy-in"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_INCOME",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "收益"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Income"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_REWARD",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "奖励"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Rewards"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_LOBBY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "返回大厅"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "RETURN LOBBY"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_SCORE_ROOM",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "返回房间"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "RETURE ROOM"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_QUIT_HOST",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "警告：您是房主，离开游戏将解散房间，其他玩家将被迫返回大厅。确定离开吗？"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Warning: As the host, leaving will disband the room and return all players to the lobby. Are you sure you want to leave?"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_QUIT_NOMAL",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "您确定要离开游戏吗？"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Are you sure you want to leave the game?"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_QUIT_CONFIRM",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "确认"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "CONFIRM"
+                }
+            ]
+        },
+        {
+            "key": "UI_GAME_QUIT_CANCEL",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "取消"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "CANCEL"
                 }
             ]
         },
@@ -928,80 +1409,80 @@
             ]
         },
         {
-            "key": "UI_SHOP_BUY",
+            "key": "UI_SHOP_BUY_BTN_CONFIRM",
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "购买"
+                    "val": "确认"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Buy"
+                    "val": "CONFIRM"
                 }
             ]
         },
         {
-            "key": "UI_SHOP_OWNED",
+            "key": "UI_SHOP_BUY_BTN_CANCEL",
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "已拥有"
+                    "val": "取消"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Owned"
+                    "val": "CANCEL"
                 }
             ]
         },
         {
-            "key": "UI_SHOP_FREE",
+            "key": "UI_SHOP_BUY_CONFIRM",
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "免费领取"
+                    "val": "是否确认消耗{0}{1}购买[{2}]？"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Claim Free"
+                    "val": "Would you like to spend {0} {1} to buy [{2}]?"
                 }
             ]
         },
         {
-            "key": "UI_SHOP_CONFIRM_BUY",
+            "key": "UI_SHOP_BUY_INSUFFICIENT",
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "确认花费 {0} 购买 {1} 吗？"
+                    "val": "钻石不足，无法购买"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Confirm purchasing {1} for {0}?"
+                    "val": "Not enough Diamonds"
                 }
             ]
         },
         {
-            "key": "UI_SHOP_BUY_SUCCESS",
+            "key": "UI_SHOP_DIAMOND",
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "购买成功！"
+                    "val": "钻石"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Purchase successful!"
+                    "val": "Diamonds"
                 }
             ]
         },
         {
-            "key": "UI_SHOP_CURRENCY_NOT_ENOUGH",
+            "key": "UI_SHOP_CHIP",
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "余额不足，无法购买！"
+                    "val": "筹码"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Insufficient balance!"
+                    "val": "Chips"
                 }
             ]
         },
@@ -1240,6 +1721,71 @@
             ]
         },
         {
+            "key": "UI_RANK_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "排行榜"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "RANK"
+                }
+            ]
+        },
+        {
+            "key": "UI_RANK_NO",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "排名"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "No."
+                }
+            ]
+        },
+        {
+            "key": "UI_RANK_PLAYER",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "玩家"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Player"
+                }
+            ]
+        },
+        {
+            "key": "UI_RANK_TOTAL_CHIPS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "总资产"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Asset"
+                }
+            ]
+        },
+        {
+            "key": "UI_OTHER_REWARD_TITLE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得奖励"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "GET REWARDS"
+                }
+            ]
+        },
+        {
             "key": "HAND_ROYAL_FLUSH",
             "translations": [
                 {
@@ -1391,7 +1937,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Resist"
+                    "val": "RESIST"
                 }
             ]
         },
@@ -1417,7 +1963,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Sensing"
+                    "val": "SENSE"
                 }
             ]
         },
@@ -1443,7 +1989,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Peek"
+                    "val": "PEEK"
                 }
             ]
         },
@@ -1469,7 +2015,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Swap"
+                    "val": "CHANGE"
                 }
             ]
         },
@@ -1495,7 +2041,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Blur"
+                    "val": "BLUR"
                 }
             ]
         },
@@ -1521,7 +2067,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Interfere"
+                    "val": "INTERFERE"
                 }
             ]
         },
@@ -1547,7 +2093,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Upside Down"
+                    "val": "UPSIDEDOWN"
                 }
             ]
         },
@@ -1573,7 +2119,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Sluggish"
+                    "val": "SLOW"
                 }
             ]
         },
@@ -1599,7 +2145,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Shackle"
+                    "val": "CHAIN"
                 }
             ]
         },
@@ -1625,7 +2171,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Resonance"
+                    "val": "RESONANCE"
                 }
             ]
         },
@@ -1651,7 +2197,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Assist"
+                    "val": "HELP"
                 }
             ]
         },
@@ -1677,7 +2223,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Seal"
+                    "val": "SEAL"
                 }
             ]
         },
@@ -1703,7 +2249,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Inspiration"
+                    "val": "IDEA"
                 }
             ]
         },
@@ -1729,7 +2275,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Overdraft"
+                    "val": "OVERDRAW"
                 }
             ]
         },
@@ -1755,7 +2301,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Exchange"
+                    "val": "SWAP"
                 }
             ]
         },
@@ -1781,7 +2327,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Wish"
+                    "val": "WISH"
                 }
             ]
         },
@@ -1807,7 +2353,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Gravity Field"
+                    "val": "GRAVITY FIELD"
                 }
             ]
         },
@@ -1833,7 +2379,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Trick Room"
+                    "val": "TRICK ZONE"
                 }
             ]
         },
@@ -1859,7 +2405,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Reflect Wall"
+                    "val": "REFLECT WALL"
                 }
             ]
         },
@@ -1885,7 +2431,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Mind Control"
+                    "val": "MIND CONTROL"
                 }
             ]
         },
@@ -1911,7 +2457,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Necklace"
+                    "val": "NECKLACE"
                 }
             ]
         },
@@ -1937,7 +2483,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Pipe"
+                    "val": "PIPE"
                 }
             ]
         },
@@ -1963,7 +2509,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Medal"
+                    "val": "MEDAL"
                 }
             ]
         },
@@ -1989,7 +2535,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Pocket Watch"
+                    "val": "WATCH"
                 }
             ]
         },
@@ -2015,7 +2561,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Beer"
+                    "val": "BEER"
                 }
             ]
         },
@@ -2041,7 +2587,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Magnetic Coil"
+                    "val": "COIL"
                 }
             ]
         },
@@ -2067,7 +2613,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Beast Claw"
+                    "val": "CLAW"
                 }
             ]
         },
@@ -2093,7 +2639,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Cloak"
+                    "val": "CLOAK"
                 }
             ]
         },
@@ -2119,7 +2665,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Antenna"
+                    "val": "ANTENNA"
                 }
             ]
         },
@@ -2145,7 +2691,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Hat"
+                    "val": "HAT"
                 }
             ]
         },
@@ -2171,7 +2717,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Monocle"
+                    "val": "CLASS"
                 }
             ]
         },
@@ -2197,7 +2743,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Eyedrop"
+                    "val": "EYEDROP"
                 }
             ]
         },
@@ -2223,7 +2769,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Ring"
+                    "val": "RING"
                 }
             ]
         },
@@ -2249,7 +2795,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Tuning Fork"
+                    "val": "TUNE FORK"
                 }
             ]
         },
@@ -2275,7 +2821,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Incense"
+                    "val": "INCENSE"
                 }
             ]
         },
@@ -2301,7 +2847,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Magic Wand"
+                    "val": "MAGIC WAND"
                 }
             ]
         },
@@ -2327,7 +2873,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Cola"
+                    "val": "COLA"
                 }
             ]
         },
@@ -2353,7 +2899,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Idol"
+                    "val": "STATUE"
                 }
             ]
         },
@@ -2379,7 +2925,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Golem"
+                    "val": "COLEM"
                 }
             ]
         },
@@ -2405,7 +2951,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Armband"
+                    "val": "ARMBAND"
                 }
             ]
         },
@@ -2419,6 +2965,474 @@
                 {
                     "lang": "en_US",
                     "val": "When you have the largest chip loss at the table, all skill costs -2 (min 1)."
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_SPEC_NAME_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "快速解锁礼包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Quick Unlock Pack"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_SPEC_DESC_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "立刻解锁全部技能和饰品，并获得1200钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Unlock all Skills and Items, and get 1200 Diamonds immediately"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_SPEC_NAME_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "每日钻石升级"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Daily Diamonds Boost"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_SPEC_DESC_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "每日钻石奖励提升至200，永久有效"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Permanently increase daily Diamonds gifts to 200"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_NAME_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "300钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "300 DIAMONDS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_DESC_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得300钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 300 Diamonds"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_NAME_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "630钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "630 DIAMONDS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_DESC_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得630钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 630 Diamonds"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_NAME_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "1650钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "1650 DIAMONDS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_DESC_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得1650钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 1650 Diamonds"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_NAME_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "3500钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "3500 DIAMONDS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_DESC_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得3500钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 3500 Diamonds"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_NAME_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "5600钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "5600 DIAMONDS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_DESC_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得5600钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 5600 Diamonds"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_NAME_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "8000钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "8000 DIAMONDS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_DESC_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得8000钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 8000 Diamonds"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_NAME_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "12600钻石包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "12600 DIAMONDS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_DESC_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得12600钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 12,600 Diamonds"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_NAME_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "22000钻石包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "22000 DIAMONDS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_DIAM_DESC_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得22000钻石"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 22,000 Diamonds"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_NAME_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "3000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "3000 CHIPS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_DESC_1",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得3000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 3000 Chips"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_NAME_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "6000筹码包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "6000 CHIPS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_DESC_2",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得6000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 6000 Chips"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_NAME_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "10000筹码包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "10,000 CHIPS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_DESC_3",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得10000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 10,000 Chips"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_NAME_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "30000筹码包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "30,000 CHIPS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_DESC_4",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得30000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 30,000 Chips"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_NAME_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "50000筹码包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "50,000 CHIPS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_DESC_5",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得50000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 50,000 Chips"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_NAME_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "100000筹码包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "100,000 CHIPS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_DESC_6",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得100000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 100,000 Chips"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_NAME_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "300000筹码包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "300,000 CHIPS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_DESC_7",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得300000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 300,000 Chips"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_NAME_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "500000筹码包"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "500,000 CHIPS"
+                }
+            ]
+        },
+        {
+            "key": "SHOPITEM_CHIP_DESC_8",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "获得500000筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Get 500,000 Chips"
                 }
             ]
         },
@@ -3238,6 +4252,656 @@
                 {
                     "lang": "en_US",
                     "val": "Achievement requirements not yet met!"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_SELF",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "正在发动技能[{0}]..."
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Using [{0}]..."
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_ENEMY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]正在对[{1}]发动技能[{2}]..."
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] is using [{2}] to [{1}]"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_SUCCESS_SELF",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]发动成功"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Use [{0}] successfully"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_SUCCESS_ENEMY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]成功发动[{1}]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] uses [{1}] successfully"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_FAIL_NO_ENERGY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量不足"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Insufficient Energy"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_FAIL_BUSY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "无法发动，对方正遭受其他技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cannot use, the player is suffering other skill now"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_FAIL_SEALED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "无法发动，这张牌已被封印"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cannot use, this Card is sealed"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_FAIL_SEALED_ALREADY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "无法发动，这张牌已被封印"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cannot use, this Card is sealed"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_FAIL_AUTO_PROTECT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "无法对托管中玩家使用[精神控制]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cannot use to player in [Auto] mode"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_USE_FAIL_INTERGERE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "由于[干扰]的效果，技能发动失败"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Due to [Interfere], your skill is failed"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_MIND_CONTROLED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "由于[精神控制]的效果，本局无法弃牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Due to [Mind Control], you cannot [Fold] this hand"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_RESIST_NO_ENERGY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "能量不足，无法抵抗"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cannot resist, insufficient Energy"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_RESIST",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]成功抵挡住了[{1}]的[{2}]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] resists [{2}] from [{1}] successfully"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_CHAINED",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "由于[枷锁]的效果，本局游戏只能再使用3次技能"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Due to [Chain], you can only use skill 3 times from now"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_CHAINED_ALREADY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "无法发动，该玩家已经受到[枷锁]效果"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Cannot use, this player is affected by [Chain] already"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_WISH_ENERGY_RETURN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "已无满足许愿条件的牌，能量返还"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "There is no enough card for [Wish}, Energies are returned"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_REFLECT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "由于[反射壁]的效果，[{0}]的[{1}]技能被反弹给了[{2}]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Due to [Reflection Wall], [{1}] from [{0}] is reflected to [{2}]"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SKILL_ERROR",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "非法操作"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "ERROR"
+                }
+            ]
+        },
+        {
+            "key": "MSG_All_IN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]决定All-in！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] decide(s) to All-in!!"
+                }
+            ]
+        },
+        {
+            "key": "MSG_BUY_IN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "筹码耗尽，重新买入{0}筹码"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Run out of Chips, rebuy {0} Chips"
+                }
+            ]
+        },
+        {
+            "key": "MSG_YOU",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "你"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "YOU"
+                }
+            ]
+        },
+        {
+            "key": "MSG_SOMEONE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "某玩家"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "SOMEONE"
+                }
+            ]
+        },
+        {
+            "key": "LOG_PHASE_PREFLOP",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "--- 翻牌前 ---"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "--- PRE-FLOP ---"
+                }
+            ]
+        },
+        {
+            "key": "LOG_PHASE_FLOP",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "--- 翻牌圈 ---"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "--- FLOP ---"
+                }
+            ]
+        },
+        {
+            "key": "LOG_PHASE_TURN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "--- 转牌圈 ---"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "--- TURN ---"
+                }
+            ]
+        },
+        {
+            "key": "LOG_PHASE_RIVER",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "--- 河牌圈 ---"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "--- RIVER ---"
+                }
+            ]
+        },
+        {
+            "key": "LOG_PHASE_SHOWDOWN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "--- 亮牌 ---"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "--- SHOWDOWN ---"
+                }
+            ]
+        },
+        {
+            "key": "LOG_PHASE_HALFTIME",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "--- 中场休息 ---"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "--- HALF TIME ---"
+                }
+            ]
+        },
+        {
+            "key": "LOG_PHASE_GAMEOVER",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "--- 游戏结束 ---"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "--- GAME OVER ---"
+                }
+            ]
+        },
+        {
+            "key": "LOG_ACTION_CHECK",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 选择过牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] Checks"
+                }
+            ]
+        },
+        {
+            "key": "LOG_ACTION_CALL",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 选择跟注 {1}"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] Calls {1}"
+                }
+            ]
+        },
+        {
+            "key": "LOG_ACTION_CALL_ALLIN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 选择All in，跟注 {1}"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] All-in, Calls {1}"
+                }
+            ]
+        },
+        {
+            "key": "LOG_ACTION_RAISE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 选择加注至 {1}"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] Raises to {1}"
+                }
+            ]
+        },
+        {
+            "key": "LOG_ACTION_RAISE_ALLIN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 选择All in，加注至 {1}"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] All-in, Raises to {1}"
+                }
+            ]
+        },
+        {
+            "key": "LOG_ACTION_FOLD",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 选择弃牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] Folds"
+                }
+            ]
+        },
+        {
+            "key": "LOG_WIN_FOLD",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 获胜，赢得 {1} 筹码 (对手弃牌)！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] Wins {1} Chips (All folded)!"
+                }
+            ]
+        },
+        {
+            "key": "LOG_WIN_HAND",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 获胜，牌型为 [{1}]，赢得 {2} 筹码！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] Wins {2} Cchips with [{1}]!"
+                }
+            ]
+        },
+        {
+            "key": "LOG_LOSE_HAND",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 失败，牌型为 [{1}]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] Lost with [{1}]"
+                }
+            ]
+        },
+        {
+            "key": "LOG_BUY_IN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 筹码耗尽，已重新买入 {1} 筹码！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] is out of Chips, rebought {1} Chips!"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SKILL_CAST_SELF",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]发动了[{1}]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] uses [{1}]"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SKILL_CAST_TARGET",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]对[{1}]发动了[{2}]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] uses [{2}] to [{1}]"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SKILL_CAST_COMMUNITY",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]对[公牌]发动了[{1}]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] uses [{1}] to Community Card"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SKILL_SUCCESS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]的[{1}]技能成功了"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] uses [{1}] successfully"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SKILL_FAIL",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]的[{1}]技能失败了"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] failed to use [{1}]"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SKILL_INTERRUPT_SHOWDOWN",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}]的[{1}]技能中断了(进入亮牌阶段)"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] failed to use [{1}] due to Showdown"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SKILL_REFLECT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "由于[反射壁]的效果，[{0}]的[{1}]技能被反弹给了[{2}]"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Due to [Reflection Wall], [{1}] from [{0}] is reflected to [{2}]"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SYS_LOAD_CHIPS",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 成功载入云端筹码: {1} CP (携带 {2} 上桌)"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] Cloud chips loaded: {1} CP (bringing {2} to the table)"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SYS_RECONNECT",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "[{0}] 重新连入游戏，已成功恢复掉线前的 {1} 筹码！"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "[{0}] Reconnected. Successfully restored {1} chips."
+                }
+            ]
+        },
+        {
+            "key": "LOG_YOU",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "你"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "YOU"
+                }
+            ]
+        },
+        {
+            "key": "LOG_SOMEONE",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "某玩家"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "SOMEONE"
                 }
             ]
         }

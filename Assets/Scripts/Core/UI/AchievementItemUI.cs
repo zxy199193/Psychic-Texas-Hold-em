@@ -76,10 +76,12 @@ public class AchievementItemUI : MonoBehaviour
                     // 弹出通用奖励弹窗
                     if (parentUI != null && parentUI.lobbyUIMgr != null)
                     {
+                        string diamondName = LocalizationManager.GetText("UI_SHOP_DIAMOND", "钻石");
+                        string popupTitle = LocalizationManager.GetText("UI_POPUP_TITLE_REWARD", "获得奖励");
                         var rewardList = new System.Collections.Generic.List<LobbyUIManager.RewardItemData> {
-                            new LobbyUIManager.RewardItemData("钻石", parentUI.lobbyUIMgr.spriteDiamond, rewardAmount, true)
+                            new LobbyUIManager.RewardItemData(diamondName, parentUI.lobbyUIMgr.spriteDiamond, rewardAmount, true)
                         };
-                        parentUI.lobbyUIMgr.ShowRewardPopup("获得奖励", rewardList, "");
+                        parentUI.lobbyUIMgr.ShowRewardPopup(popupTitle, rewardList, "");
                     }
 
                     // 刷新成就面板列表以更新本条状态

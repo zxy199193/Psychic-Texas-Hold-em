@@ -73,11 +73,16 @@ public class LobbyUI : MonoBehaviour
                 if (item.txtRoomPassword != null)
                 {
                     item.txtRoomPassword.text = data.hasPassword 
-                        ? LocalizationManager.GetText("UI_LOBBY_ROOM_PASSWORD_REQ", "需要密码") 
+                        ? LocalizationManager.GetText("UI_LOBBY_ROOM_PASSWORD_NEED", "需要密码") 
                         : LocalizationManager.GetText("UI_LOBBY_ROOM_PASSWORD_NULL", "无密码");
                 }
                 if (item.txtMaxPlayers != null) item.txtMaxPlayers.text = data.maxPlayers.ToString();
-                if (item.txtMaxCircles != null) item.txtMaxCircles.text = data.maxCircles.ToString();
+                if (item.txtMaxCircles != null)
+                {
+                    item.txtMaxCircles.text = data.maxCircles > 0
+                        ? data.maxCircles.ToString()
+                        : LocalizationManager.GetText("UI_LOBBY_ROUNDS_ENDLESS", "无尽");
+                }
                 if (item.txtBigBlind != null) item.txtBigBlind.text = data.bigBlind.ToString();
                 if (item.txtBuyIn != null) item.txtBuyIn.text = data.buyInMultiplier + "BB";
 

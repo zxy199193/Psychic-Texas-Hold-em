@@ -24,6 +24,8 @@ public class ShopItemDataDrawer : PropertyDrawer
 
         SerializedProperty tabTypeProp = property.FindPropertyRelative("tabType");
         SerializedProperty playFabItemIdProp = property.FindPropertyRelative("playFabItemId");
+        SerializedProperty nameKeyProp = property.FindPropertyRelative("nameKey");
+        SerializedProperty descKeyProp = property.FindPropertyRelative("descKey");
         SerializedProperty displayNameProp = property.FindPropertyRelative("displayName");
         SerializedProperty displayIconProp = property.FindPropertyRelative("displayIcon");
         SerializedProperty displayDescriptionProp = property.FindPropertyRelative("displayDescription");
@@ -83,9 +85,11 @@ public class ShopItemDataDrawer : PropertyDrawer
             }
             else
             {
-                DrawField(displayNameProp);
+                DrawField(nameKeyProp, new GUIContent("名称多语言 Key (Name Key)"));
+                DrawField(displayNameProp, new GUIContent("默认中文名称 (Display Name)"));
                 DrawField(displayIconProp);
-                DrawField(displayDescriptionProp);
+                DrawField(descKeyProp, new GUIContent("描述多语言 Key (Desc Key)"));
+                DrawField(displayDescriptionProp, new GUIContent("默认中文描述 (Description)"));
                 DrawField(rewardAmountProp);
                 DrawField(costCurrencyProp);
                 DrawField(priceProp);

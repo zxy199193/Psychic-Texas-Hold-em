@@ -178,7 +178,13 @@ public class RoomUI : MonoBehaviour
                 GamePlayUI.SetTextAndRebuildLayout(txtLobbyRoomName, finalName);
             }
             if (txtLobbyMaxPlayers != null) GamePlayUI.SetTextAndRebuildLayout(txtLobbyMaxPlayers, ServerGameManager.Instance.maxPlayers.ToString());
-            if (txtLobbyMaxCircles != null) GamePlayUI.SetTextAndRebuildLayout(txtLobbyMaxCircles, ServerGameManager.Instance.maxCircles.ToString());
+            if (txtLobbyMaxCircles != null)
+            {
+                string circlesStr = ServerGameManager.Instance.maxCircles > 0
+                    ? ServerGameManager.Instance.maxCircles.ToString()
+                    : LocalizationManager.GetText("UI_LOBBY_ROUNDS_ENDLESS", "无尽");
+                GamePlayUI.SetTextAndRebuildLayout(txtLobbyMaxCircles, circlesStr);
+            }
             if (txtLobbyBigBlind != null) GamePlayUI.SetTextAndRebuildLayout(txtLobbyBigBlind, ServerGameManager.Instance.bigBlind.ToString());
             
             if (txtLobbyBuyIn != null)

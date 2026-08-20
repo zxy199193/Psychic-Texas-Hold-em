@@ -68,10 +68,6 @@ public class SensingSkill : BaseSkill
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         caster.StartSensingBuff();
-        if (caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动成功！你感受到了全场的动向！", this.skillID);
-        }
     }
 }
 
@@ -94,8 +90,6 @@ public class PeekSkill : BaseSkill
         {
             if (target1.serverHoleCardsSealed || target1.IsCardSealed(index1))
             {
-                if (caster.connectionToClient != null)
-                    caster.TargetReceiveSkillMessage(caster.connectionToClient, "底牌被封印了，透视失败！", this.skillID);
                 return;
             }
             targetCard = target1.serverHand[index1];
@@ -115,7 +109,6 @@ public class PeekSkill : BaseSkill
             }
 
             caster.TargetPeekSingleCard(caster.connectionToClient, type1, index1, tNetId, targetCard.Value, duration);
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "透视成功！", this.skillID);
             caster.AddActivePeek(type1, index1, tNetId, duration);
 
             // 饰品11【镜片】：额外随机偷看一张全场未知的牌！
@@ -154,7 +147,6 @@ public class PeekSkill : BaseSkill
                 {
                     var luckyCard = pool[Random.Range(0, pool.Count)];
                     caster.TargetPeekSingleCard(caster.connectionToClient, luckyCard.type, luckyCard.index, luckyCard.netId, luckyCard.card, duration);
-                    caster.TargetReceiveSkillMessage(caster.connectionToClient, "触发[镜片]效果：额外显示了一张牌！", this.skillID);
                     caster.AddActivePeek(luckyCard.type, luckyCard.index, luckyCard.netId, duration);
                 }
             }
@@ -180,8 +172,6 @@ public class SwapSkill : BaseSkill
         {
             if (target.serverHoleCardsSealed || target.IsCardSealed(targetIndex))
             {
-                if (caster.connectionToClient != null)
-                    caster.TargetReceiveSkillMessage(caster.connectionToClient, "底牌被封印了，变牌失败！", this.skillID);
                 return;
             }
             oldCard = target.serverHand[targetIndex];
@@ -191,10 +181,6 @@ public class SwapSkill : BaseSkill
             // 饰品13【戒指】：变牌和交换可对公牌使用
             if (!caster.equippedTrinkets.Contains(13))
             {
-                if (caster.connectionToClient != null)
-                {
-                    caster.TargetReceiveSkillMessage(caster.connectionToClient, "无法对公牌变牌！需要装备[戒指]。", this.skillID);
-                }
                 return;
             }
             oldCard = serverContext.futureCommunityCards[targetIndex];
@@ -214,8 +200,6 @@ public class SwapSkill : BaseSkill
             if (target.connectionToClient != null)
             {
                 target.TargetUpdateSingleHandCard(target.connectionToClient, targetIndex, newCard);
-                if (target != caster)
-                    target.TargetReceiveSkillMessage(target.connectionToClient, $"你的第{targetIndex + 1}张手牌被改变了！", this.skillID);
             }
             serverContext.NotifyCardChanged(0, targetIndex, target.netId, newCard);
         }
@@ -228,9 +212,6 @@ public class SwapSkill : BaseSkill
                 serverContext.serverCommunityCards[targetIndex] = newCard;
                 serverContext.RpcUpdateCommunityCard(targetIndex, newCard.suit, newCard.rank);
             }
-
-            if (caster.connectionToClient != null)
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动成功！一张公共牌的命运被改变了！", this.skillID);
             serverContext.NotifyCardChanged(1, targetIndex, 0, newCard);
         }
     }
@@ -255,11 +236,6 @@ public class BlurSkill : BaseSkill
         {
             target.TargetApplyBlur(target.connectionToClient);
         }
-
-        if (caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！{target.playerName}无法看清牌面！", this.skillID);
-        }
     }
 }
 
@@ -280,9 +256,6 @@ public class InterfereSkill : BaseSkill
 
         int rateToAdd = caster.GetInterfereRate(35);
         target1.interferenceRate += rateToAdd;
-
-        if (caster.connectionToClient != null)
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功，[{target1.playerName}]本局发动技能有{target1.interferenceRate}%的概率发动失败！", this.skillID);
     }
 }
 
@@ -302,16 +275,6 @@ public class TrickRoomSkill : BaseSkill
         if (target == null) return;
 
         target.serverIsTrickRoomFlipped = !target.serverIsTrickRoomFlipped;
-
-        serverContext.RpcAddGameLog($"[{caster.playerName}]对[{target.playerName}]使用了[颠倒]！", 3);
-        if (target.connectionToClient != null)
-        {
-            target.TargetReceiveSkillMessage(target.connectionToClient, target.serverIsTrickRoomFlipped ? "颠倒启动！你的画面颠倒了！" : "颠倒解除！你的画面恢复了正常！", this.skillID);
-        }
-        if (caster.connectionToClient != null && caster != target)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功对[{target.playerName}]发动颠倒！", this.skillID);
-        }
     }
 }
 
@@ -338,19 +301,6 @@ public class SluggishSkill : BaseSkill
         }
 
         target.serverSluggishMultiplier *= mult;
-
-        if (serverContext != null)
-        {
-            serverContext.RpcAddGameLog($"[{caster.playerName}] 对 [{target.playerName}] 使用了 [迟钝]！【{target.playerName}】本局内所有技能的发动时间变为原先的 {target.serverSluggishMultiplier} 倍！", 3);
-        }
-        if (target.connectionToClient != null)
-        {
-            target.TargetReceiveSkillMessage(target.connectionToClient, $"你中了【迟钝】效果！本局技能施法时间变为 {target.serverSluggishMultiplier} 倍！", this.skillID);
-        }
-        if (caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功对 [{target.playerName}] 施加【迟钝】！", this.skillID);
-        }
     }
 }
 
@@ -371,10 +321,9 @@ public class ShackleSkill : BaseSkill
 
         if (target.serverIsShackled)
         {
-            serverContext.RpcAddGameLog($"[{caster.playerName}] 对 [{target.playerName}] 使用了 [枷锁]，但是 [{target.playerName}] 已经戴有枷锁，技能未产生额外效果！", 3);
             if (caster.connectionToClient != null)
             {
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, $"[{target.playerName}] 身上已存有枷锁，本次施法无效！", this.skillID);
+                caster.TargetReceiveSkillMessage(caster.connectionToClient, "KEY:MSG_SKILL_CHAINED_ALREADY", this.skillID);
             }
             return;
         }
@@ -382,14 +331,9 @@ public class ShackleSkill : BaseSkill
         target.serverIsShackled = true;
         target.serverShackledSkillCount = 0;
 
-        serverContext.RpcAddGameLog($"[{caster.playerName}] 对 [{target.playerName}] 使用了 [枷锁]！本局内其技能与抵抗限制为最多3次！", 3);
         if (target.connectionToClient != null)
         {
-            target.TargetReceiveSkillMessage(target.connectionToClient, "你被枷锁束缚了！本局最多只能使用（含抵抗）3次技能！", this.skillID);
-        }
-        if (caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功对 [{target.playerName}] 施加了枷锁！", this.skillID);
+            target.TargetReceiveSkillMessage(target.connectionToClient, "KEY:MSG_SKILL_CHAINED", this.skillID);
         }
     }
 }
@@ -432,18 +376,6 @@ public class ResonanceSkill : BaseSkill
                 }
             }
         }
-
-        if (caster.connectionToClient != null)
-        {
-            if (triggeredAny)
-            {
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, "共鸣成功！已标记相同牌型的玩家底牌。", this.skillID);
-            }
-            else
-            {
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, "未发现相同牌型的玩家。", this.skillID);
-            }
-        }
     }
 }
 
@@ -467,15 +399,6 @@ public class AssistSkill : BaseSkill
 
         int maxE = target.GetMaxEnergy(serverContext.maxEnergy);
         target.energy = Mathf.Clamp(target.energy + 3, 0, maxE);
-
-        if (target.connectionToClient != null)
-        {
-            target.TargetReceiveSkillMessage(target.connectionToClient, $"受到了来自[{caster.playerName}]的援助！能量恢复了3点！", this.skillID);
-        }
-        if (caster.connectionToClient != null && caster != target)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功援助了[{target.playerName}]，使其能量恢复了3点！", this.skillID);
-        }
     }
 }
 
@@ -494,10 +417,6 @@ public class SealSkill : BaseSkill
     {
         if (targetType != 0 || target == null || targetIndex < 0 || targetIndex >= target.serverHand.Count)
         {
-            if (caster.connectionToClient != null)
-            {
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, "无效的目标！只能封印底牌。", this.skillID);
-            }
             return;
         }
 
@@ -511,16 +430,6 @@ public class SealSkill : BaseSkill
         }
 
         serverContext.NotifyCardSealed(0, targetIndex, target.netId);
-        serverContext.RpcAddGameLog($"[{caster.playerName}]对[{target.playerName}]的第{targetIndex + 1}张底牌使用了[封印]！该牌进入封印且受保护状态。", 3);
-
-        if (target.connectionToClient != null)
-        {
-            target.TargetReceiveSkillMessage(target.connectionToClient, $"你的第{targetIndex + 1}张底牌被封印了！无法查看且不受任何技能影响。", this.skillID);
-        }
-        if (caster.connectionToClient != null && caster != target)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"成功封印了[{target.playerName}]的第{targetIndex + 1}张底牌！", this.skillID);
-        }
     }
 }
 
@@ -564,12 +473,6 @@ public class InspirationSkill : BaseSkill
                     caster.serverInspirationDiscountActive = true;
                     caster.serverInspirationSkillID = randomSkill;
                 }
-
-                if (caster.connectionToClient != null)
-                {
-                    string newSkillName = caster.skillDatabase[randomSkill].skillName;
-                    caster.TargetReceiveSkillMessage(caster.connectionToClient, $"【灵机】一动！技能变成了【{newSkillName}】！", this.skillID);
-                }
             }
         }
     }
@@ -595,13 +498,6 @@ public class OverdraftSkill : BaseSkill
         int maxE = caster.GetMaxEnergy(serverContext.maxEnergy);
         caster.energy = maxE;
         caster.overdraftPending = true;
-
-        // 饰品17【可乐】：技能禁用时间减为2局（原3局）
-        int banTurns = caster.equippedTrinkets.Contains(17) ? 2 : 3;
-        if (caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"透支成功！能量已恢复至最大，从下一局开始的{banTurns}局中将无法施放或抵抗技能！", this.skillID);
-        }
     }
 }
 
@@ -625,10 +521,6 @@ public class ExchangeSkill : BaseSkill
         // 饰品13【戒指】：变牌和交换可对公牌使用
         if ((type1 == 1 || type2 == 1) && !caster.equippedTrinkets.Contains(13))
         {
-            if (caster.connectionToClient != null)
-            {
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, "无法对公牌进行交换！需要装备[戒指]。", this.skillID);
-            }
             return;
         }
 
@@ -644,15 +536,11 @@ public class ExchangeSkill : BaseSkill
 
         if (type1 == 0 && target1 != null && (target1.serverHoleCardsSealed || target1.IsCardSealed(index1)))
         {
-            if (caster.connectionToClient != null)
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, "目标1被封印了，交换失败！", this.skillID);
             return;
         }
 
         if (type2 == 0 && target2 != null && (target2.serverHoleCardsSealed || target2.IsCardSealed(index2)))
         {
-            if (caster.connectionToClient != null)
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, "目标2被封印了，交换失败！", this.skillID);
             return;
         }
 
@@ -661,8 +549,6 @@ public class ExchangeSkill : BaseSkill
 
         if (!card1Nullable.HasValue || !card2Nullable.HasValue)
         {
-            if (caster.connectionToClient != null)
-                caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动失败，目标卡牌已失效！", this.skillID);
             return;
         }
         Card card1 = card1Nullable.Value;
@@ -670,9 +556,6 @@ public class ExchangeSkill : BaseSkill
 
         SetCard(target1, type1, index1, card2, serverContext);
         SetCard(target2, type2, index2, card1, serverContext);
-
-        if (caster.connectionToClient != null)
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动成功！两张牌进行交换了！", this.skillID);
     }
 
     private Card? GetCard(PokerPlayer p, int type, int index, ServerGameManager ctx)
@@ -728,11 +611,6 @@ public class WishSkill : BaseSkill
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         caster.serverHasWishBuff = true;
-
-        if (caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "许愿成功！", this.skillID);
-        }
     }
 }
 
@@ -756,7 +634,6 @@ public class GravityFieldSkill : BaseSkill
         if (serverContext == null) return;
 
         serverContext.serverIsGravityFieldActive = true;
-        serverContext.RpcAddGameLog($"【重力场】被 [{caster.playerName}] 启动了！这局游戏内当前能量最高的玩家所有技能与抵抗能耗+2！", 3);
     }
 }
 
@@ -788,12 +665,6 @@ public class MagicRoomSkill : BaseSkill
             int offset = UnityEngine.Random.Range(-2, 3);
             serverContext.syncMagicRoomOffsets.Add(offset);
         }
-
-        serverContext.RpcAddGameLog($"【戏法空间】被 [{caster.playerName}] 启动了！这局游戏全场玩家所有技能与抵抗的能量消耗发生扭曲 (-2~+2)！", 3);
-        if (caster != null && caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "戏法空间展开！全场技能能耗发生扭曲！", this.skillID);
-        }
     }
 }
 
@@ -815,11 +686,6 @@ public class ReflectWallSkill : BaseSkill
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         caster.serverHasReflectWall = true;
-
-        if (caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, "发动成功！这局对你发动的技能将被反弹给其他玩家！", this.skillID);
-        }
     }
 }
 
@@ -837,13 +703,7 @@ public class MindControlSkill : BaseSkill
     public override void Execute(PokerPlayer caster, PokerPlayer target, int targetType, int targetIndex, ServerGameManager serverContext)
     {
         if (target == null) return;
-
         target.ApplyMindControl();
-
-        if (caster.connectionToClient != null)
-        {
-            caster.TargetReceiveSkillMessage(caster.connectionToClient, $"发动成功！{target.playerName}无法弃牌了！", this.skillID);
-        }
     }
 }
 

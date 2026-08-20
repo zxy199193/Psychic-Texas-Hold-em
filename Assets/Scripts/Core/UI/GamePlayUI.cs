@@ -295,6 +295,30 @@ public class GamePlayUI : MonoBehaviour
 
     #region 生命期方法 (Unity Lifecycle)
 
+    private void OnEnable()
+    {
+        LocalizationManager.OnLanguageChanged += OnLanguageChangedInGame;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.OnLanguageChanged -= OnLanguageChangedInGame;
+    }
+
+    private void OnLanguageChangedInGame()
+    {
+        GenerateInGameSkillBar();
+        GenerateInGameTrinketUI();
+        UpdateMaxHandTypeTip(true);
+
+        if (isShowingResult && turnStatusText != null && !string.IsNullOrEmpty(rawResultPattern))
+        {
+            turnStatusText.text = FormatResultString(rawResultPattern);
+            RectTransform parentRect = turnStatusText.transform.parent.GetComponent<RectTransform>();
+            if (parentRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
+        }
+    }
+
     private void Awake()
     {
         Instance = this;
@@ -410,6 +434,21 @@ public class GamePlayUI : MonoBehaviour
         if (logScrollRect != null)
         {
             logScrollRect.scrollSensitivity = logScrollSensitivity;
+            if (logScrollRect.content == null)
+            {
+                if (logText != null)
+                {
+                    Transform p = logText.transform.parent;
+                    if (p != null && (p.name.ToLower().Contains("content") || p.name.ToLower().Contains("view")))
+                    {
+                        logScrollRect.content = p as RectTransform;
+                    }
+                    else
+                    {
+                        logScrollRect.content = logText.rectTransform;
+                    }
+                }
+            }
         }
 
         if (btnHosting != null)
@@ -546,7 +585,12 @@ public class GamePlayUI : MonoBehaviour
             for (int i = 0; i < potList.Count; i++)
             {
                 Text txt = activePotUIItems[i].GetComponentInChildren<Text>();
-                string label = (i == 0) ? "" : $"边池[{i}]: ";
+                string label = "";
+                if (i > 0)
+                {
+                    string sidePotFormat = LocalizationManager.GetText("UI_GAME_POT_SIDE", "边池 {0}：");
+                    label = string.Format(sidePotFormat, i);
+                }
                 UpdateTextIfIntChanged(txt, potList[i], label);
                 activePotUIItems[i].SetActive(i == 0 || potList[i] > 0);
             }
@@ -970,18 +1014,19 @@ public class GamePlayUI : MonoBehaviour
 
             if (turnStatusText != null && !isShowingResult)
             {
-                string statusMsg = "等待中...";
+                string statusMsg = LocalizationManager.GetText("UI_GAME_STATUS_WAITING", "等待中...");
                 if (myTurn)
                 {
-                    statusMsg = "你的回合，请进行操作";
+                    statusMsg = LocalizationManager.GetText("UI_GAME_STATUS_MY_TURN", "你的回合");
                 }
                 else if (string.IsNullOrEmpty(currentActingPlayerName))
                 {
-                    statusMsg = "发牌中...";
+                    statusMsg = LocalizationManager.GetText("UI_GAME_STATUS_DEALING", "发牌中...");
                 }
                 else
                 {
-                    statusMsg = $"等待玩家 [{currentActingPlayerName}] 行动...";
+                    string playerTurnFormat = LocalizationManager.GetText("UI_GAME_STATUS_PLAYER_TURN", "玩家 {0} 的回合");
+                    statusMsg = string.Format(playerTurnFormat, currentActingPlayerName);
                 }
                 Color statusColor = myTurn ? colorMyTurn : colorWaiting;
 
@@ -1144,14 +1189,17 @@ public class GamePlayUI : MonoBehaviour
 
     #region 结算与倒计时 (Result & Showdown UI)
 
+    private string rawResultPattern = null;
+
     public void ShowResult(string message, int waitTime)
     {
         if (AudioManager.Instance != null) AudioManager.Instance.PlayWinChips();
         isShowingResult = true;
+        rawResultPattern = message;
 
         if (turnStatusText != null)
         {
-            turnStatusText.text = message;
+            turnStatusText.text = FormatResultString(message);
             turnStatusText.color = colorResult;
             turnStatusText.gameObject.SetActive(true);
 
@@ -1167,6 +1215,51 @@ public class GamePlayUI : MonoBehaviour
 
         if (countdownCoroutine != null) StopCoroutine(countdownCoroutine);
         countdownCoroutine = StartCoroutine(CountdownToNextHand(waitTime));
+    }
+
+    private string FormatResultString(string raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return "";
+        if (!raw.Contains("KEY:")) return raw;
+
+        string[] tokens = raw.Split(new[] { '\n', ';' }, System.StringSplitOptions.RemoveEmptyEntries);
+        List<string> formattedList = new List<string>();
+
+        foreach (string token in tokens)
+        {
+            string trimTok = token.Trim();
+            if (trimTok.StartsWith("KEY:"))
+            {
+                string[] parts = trimTok.Substring(4).Split('|');
+                string key = parts[0];
+                object[] args = new object[parts.Length - 1];
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    args[i - 1] = parts[i];
+                }
+
+                string fallback = "";
+                if (key == "UI_GAME_STATUS_WIN_FOLD") fallback = "{0} 赢得 {1} 筹码 (对手弃牌)";
+                else if (key == "UI_GAME_STATUS_WIN_POT") fallback = "{0} 赢得 {1} 筹码！！";
+                else if (key == "UI_GAME_STATUS_WIN_MAIN_POT") fallback = "{0}赢得{1}筹码！！【主池】";
+                else if (key == "UI_GAME_STATUS_WIN_SIDE_POT") fallback = "{0}赢得{1}筹码！！【边池{2}】";
+
+                string localizedPattern = LocalizationManager.GetText(key, fallback);
+                try
+                {
+                    formattedList.Add(string.Format(localizedPattern, args));
+                }
+                catch
+                {
+                    formattedList.Add(trimTok);
+                }
+            }
+            else
+            {
+                formattedList.Add(trimTok);
+            }
+        }
+        return string.Join("\n", formattedList);
     }
 
     private System.Collections.IEnumerator CountdownToNextHand(int seconds)
@@ -1278,10 +1371,9 @@ public class GamePlayUI : MonoBehaviour
         if (logPanel != null)
         {
             logPanel.SetActive(!logPanel.activeSelf);
-            if (logPanel.activeSelf && logScrollRect != null && logScrollRect.content != null)
+            if (logPanel.activeSelf)
             {
-                Canvas.ForceUpdateCanvases();
-                logScrollRect.verticalNormalizedPosition = 0f;
+                if (effectManager != null) effectManager.ScrollLogToBottom();
             }
         }
     }
@@ -1667,11 +1759,8 @@ public class GamePlayUI : MonoBehaviour
                     cost = PokerPlayer.LocalPlayer.GetSkillCost(skillID);
                 }
 
-                Transform costTransform = DeepFind(kvp.Key.transform, "Text Cost");
-                if (costTransform != null)
-                {
-                    SafeSetText(costTransform, cost.ToString());
-                }
+                string costStr = (skillID == 1 || cost < 0) ? "X" : cost.ToString();
+                UpdateSkillNodeCosts(kvp.Key.transform, costStr);
 
                 bool isSkillDisabled = isSilenced || (skillID == 14 && isOverdraftPending);
                 if (PokerPlayer.LocalPlayer != null)
@@ -1689,12 +1778,32 @@ public class GamePlayUI : MonoBehaviour
             int sensingCost = (PokerPlayer.LocalPlayer != null) ? PokerPlayer.LocalPlayer.GetSkillCost(2) : 1;
             btnSensingSkill.interactable = !isSilenced && !isAlreadySensing && (currentEnergy >= sensingCost);
 
-            Transform costTrans = DeepFind(btnSensingSkill.transform, "Text Cost");
-            if (costTrans == null) costTrans = btnSensingSkill.transform.Find("Text Cost");
-            if (costTrans != null)
+            UpdateSkillNodeCosts(btnSensingSkill.transform, sensingCost.ToString());
+        }
+    }
+
+    private void UpdateSkillNodeCosts(Transform rootTransform, string costStr)
+    {
+        if (rootTransform == null) return;
+        Text[] allTexts = rootTransform.GetComponentsInChildren<Text>(true);
+        foreach (Text t in allTexts)
+        {
+            if (t != null && t.name == "Text Cost")
             {
-                Text costText = costTrans.GetComponent<Text>();
-                if (costText != null) costText.text = sensingCost.ToString();
+                t.text = costStr;
+            }
+        }
+    }
+
+    private void UpdateSkillNodeTimes(Transform rootTransform, string timeStr)
+    {
+        if (rootTransform == null) return;
+        Text[] allTexts = rootTransform.GetComponentsInChildren<Text>(true);
+        foreach (Text t in allTexts)
+        {
+            if (t != null && t.name == "Text Time")
+            {
+                t.text = timeStr;
             }
         }
     }
@@ -1709,9 +1818,18 @@ public class GamePlayUI : MonoBehaviour
         GameObject go = Instantiate(castMessagePrefab, messageFeedContainer);
         currentCastItem = go.GetComponent<SkillMessageItem>();
 
-        string msg = (casterName == "你") ?
-            $"正在发动技能[{skillName}] ..." :
-            $"注意！有人正在对你发动技能[{skillName}]！";
+        string myName = PokerPlayer.LocalPlayer != null ? PokerPlayer.LocalPlayer.playerName : "";
+        string rawKeyMsg = "";
+        if (casterName == "你" || (!string.IsNullOrEmpty(myName) && casterName == myName))
+        {
+            rawKeyMsg = $"KEY:MSG_SKILL_USE_SELF|{skillID}";
+        }
+        else
+        {
+            rawKeyMsg = $"KEY:MSG_SKILL_USE_ENEMY|{casterName}|{myName}|{skillID}";
+        }
+
+        string msg = (effectManager != null) ? effectManager.FormatSkillNotificationMessage(rawKeyMsg) : rawKeyMsg;
 
         if (shockwave != null)
         {
@@ -2148,33 +2266,32 @@ public class GamePlayUI : MonoBehaviour
 
     public void GenerateInGameSkillBar()
     {
-        if (inGameSkillBar != null)
+        ClearArea(inGameSkillBar);
+        if (inGameSkillBar == null || inGameSkillBtnPrefab == null) return;
+        if (PokerPlayer.LocalPlayer == null) return;
+
+        activeDynamicSkillButtons.Clear();
+
+        // 统一构建技能列表：首先加入 1(抵抗) 与 2(感应) 这两个固有基础技能，接着加入玩家当前装备的自定义技能
+        List<int> skillsToRender = new List<int>();
+        skillsToRender.Add(1); // 抵抗
+        skillsToRender.Add(2); // 感应
+
+        if (PokerPlayer.LocalPlayer.equippedSkills != null)
         {
-            for (int i = inGameSkillBar.childCount - 1; i >= 0; i--)
+            foreach (int equippedID in PokerPlayer.LocalPlayer.equippedSkills)
             {
-                Transform child = inGameSkillBar.GetChild(i);
-                if (child.name.Contains("(Clone)"))
+                if (equippedID == 1 || equippedID == 2) continue;
+                if (!skillsToRender.Contains(equippedID))
                 {
-                    child.SetParent(null);
-                    Destroy(child.gameObject);
-                }
-                else
-                {
-                    child.gameObject.SetActive(true);
+                    skillsToRender.Add(equippedID);
                 }
             }
         }
 
-        if (PokerPlayer.LocalPlayer == null) return;
-        activeDynamicSkillButtons.Clear();
-
-        List<int> skillsToRender = new List<int>(PokerPlayer.LocalPlayer.equippedSkills);
-        foreach (int equippedID in skillsToRender)
+        foreach (int skillID in skillsToRender)
         {
-            // 抵抗(1)与感应(2)为 HUD 固定 UI 按钮 (btnResistSkill / btnSensingSkill)，无需在动态技能栏中重复生成
-            if (equippedID == 1 || equippedID == 2) continue;
-
-            SkillConfig config = allSkillConfigs.Find(c => c.skillID == equippedID);
+            SkillConfig config = allSkillConfigs.Find(c => c.skillID == skillID);
             if (config == null) continue;
 
             GameObject btnGo = Instantiate(inGameSkillBtnPrefab, inGameSkillBar);
@@ -2189,14 +2306,22 @@ public class GamePlayUI : MonoBehaviour
             if (iconTransform != null)
             {
                 Image iconImg = iconTransform.GetComponent<Image>();
-                if (iconImg != null) iconImg.sprite = config.icon;
+                if (iconImg != null)
+                {
+                    iconImg.sprite = (config.skillID == 1 && iconResist != null) ? iconResist :
+                                     (config.skillID == 2 && iconSensing != null) ? iconSensing :
+                                     config.icon;
+                }
             }
 
             SafeSetText(nameBtnTransform, config.GetLocalizedName());
             SafeSetText(nameTipTransform, config.GetLocalizedName());
             SafeSetText(descTransform, config.GetLocalizedDescription());
-            SafeSetText(costTransform, (config.skillID == 1 || config.energyCost < 0) ? "X" : config.energyCost.ToString());
-            SafeSetText(timeTransform, config.castTime > 0 ? $"{config.castTime}" : "0");
+
+            string initialCostStr = (config.skillID == 1 || config.energyCost < 0) ? "X" : config.energyCost.ToString();
+            string initialTimeStr = config.castTime > 0 ? $"{config.castTime}" : "0";
+            UpdateSkillNodeCosts(btnGo.transform, initialCostStr);
+            UpdateSkillNodeTimes(btnGo.transform, initialTimeStr);
 
             GameObject tooltipObj = tooltipTransform != null ? tooltipTransform.gameObject : null;
             BindHoverTooltip(btnGo, tooltipObj);
@@ -2204,9 +2329,33 @@ public class GamePlayUI : MonoBehaviour
             Button btn = btnGo.GetComponent<Button>();
             if (btn != null)
             {
-                btn.onClick.AddListener(() => OnDynamicSkillClicked(config));
-                activeDynamicSkillButtons.Add(btn, config);
+                btn.onClick.RemoveAllListeners();
+
+                if (config.skillID == 1) // 抵抗
+                {
+                    btnResistSkill = btn;
+                    Transform btnCostTrans = DeepFind(btnGo.transform, "Image Energy")?.Find("Text Cost") ?? costTransform;
+                    if (btnCostTrans != null) txtResistCost = btnCostTrans.GetComponent<Text>();
+                    btn.onClick.AddListener(OnBtnResistClicked);
+                    btn.interactable = false; // 初始默认不可点击，直到被他人施法时激活
+                }
+                else if (config.skillID == 2) // 感应
+                {
+                    btnSensingSkill = btn;
+                    btn.onClick.AddListener(OnBtnSensingClicked);
+                }
+                else // 其他自定义技能
+                {
+                    btn.onClick.AddListener(() => OnDynamicSkillClicked(config));
+                    activeDynamicSkillButtons.Add(btn, config);
+                }
             }
+        }
+
+        // 统一刷新一次技能按钮的能量消耗与交互状态
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            RefreshSkillButtonsState(PokerPlayer.LocalPlayer.energy);
         }
     }
 
@@ -2883,10 +3032,11 @@ public class GamePlayUI : MonoBehaviour
         // 只有当翻出的有效公共牌数量 >= 3 且拥有 2 张手牌时才进行计算和显示
         if (validCommunity.Count >= 3 && localHoleCards.Count == 2)
         {
+            string handTypeLabel = LocalizationManager.GetText("UI_GAME_HAND_TYPE", "牌型：");
+
             if (isCurrentlyBlurred || PokerPlayer.LocalPlayer.serverHoleCardsSealed || PokerPlayer.LocalPlayer.serverCard0Sealed || PokerPlayer.LocalPlayer.serverCard1Sealed)
             {
-                string unknownHandTip = LocalizationManager.GetText("UI_GAME_CURRENT_HAND_UNKNOWN", "当前牌型：???");
-                SetTextAndRebuildLayout(maxHandTypeText, unknownHandTip);
+                SetTextAndRebuildLayout(maxHandTypeText, $"{handTypeLabel}???");
                 currentHandScore = -1; // 重置以便解除模糊后能重新更新
                 if (!maxHandTypePanel.activeSelf)
                 {
@@ -2914,8 +3064,7 @@ public class GamePlayUI : MonoBehaviour
                 currentHandScore = bestHand.score;
 
                 string handName = ServerGameManager.Instance.GetProfessionalHandName(bestHand.rank.ToString(), bestHand.score);
-                string format = LocalizationManager.GetText("UI_GAME_CURRENT_HAND", "当前牌型：{0}");
-                SetTextAndRebuildLayout(maxHandTypeText, string.Format(format, handName));
+                SetTextAndRebuildLayout(maxHandTypeText, $"{handTypeLabel}{handName}");
 
                 if (!maxHandTypePanel.activeSelf)
                 {
@@ -3241,8 +3390,8 @@ public class GamePlayUI : MonoBehaviour
     {
         bool isHost = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost;
         string msg = isHost 
-            ? "警告：您是房主，离开游戏将解散房间，其他玩家将被迫返回大厅。确定离开吗？" 
-            : "确定要离开当前游戏并返回大厅吗？（如果您在牌局中，离开将被视为弃牌）";
+            ? LocalizationManager.GetText("UI_GAME_QUIT_HOST", "警告：您是房主，离开游戏将解散房间，其他玩家将被迫返回大厅。确定离开吗？") 
+            : LocalizationManager.GetText("UI_GAME_QUIT_NOMAL", "确定要离开当前游戏并返回大厅吗？（如果您在牌局中，离开将被视为弃牌）");
 
         if (leaveConfirmPanel != null)
         {

@@ -339,7 +339,7 @@ public class ServerGameManager : NetworkBehaviour
         currentPhase = GamePhase.PreFlop;
         serverCommunityCards.Clear();
         RpcClearTable();
-        RpcAddGameLog("--- Pre-Flop ---", 1);
+        RpcAddGameLog("KEY:LOG_PHASE_PREFLOP", 1);
 
         activePlayers.Clear();
         activePlayers.AddRange(FindObjectsOfType<PokerPlayer>());
@@ -407,9 +407,9 @@ public class ServerGameManager : NetworkBehaviour
                 // 悄悄告诉破产的玩家
                 if (p.connectionToClient != null)
                 {
-                    p.TargetReceiveSkillMessage(p.connectionToClient, $"筹码耗尽，已自动为您重新买入{buyInChips}筹码！", 0);
+                    p.TargetReceiveSkillMessage(p.connectionToClient, $"KEY:MSG_BUY_IN|{buyInChips}", 0);
                 }
-                RpcAddGameLog($"[{p.playerName}]筹码耗尽，已自动重新买入{buyInChips}筹码！", 2);
+                RpcAddGameLog($"KEY:LOG_BUY_IN|{p.playerName}|{buyInChips}", 2);
             }
             else
             {
@@ -562,7 +562,7 @@ public class ServerGameManager : NetworkBehaviour
 
                         if (p.connectionToClient != null)
                         {
-                            p.TargetReceiveSkillMessage(p.connectionToClient, "已无满足许愿条件的牌，能量返还", 6);
+                            p.TargetReceiveSkillMessage(p.connectionToClient, "KEY:MSG_SKILL_WISH_ENERGY_RETURN", 6);
                         }
 
                         c1 = deck.Draw();
@@ -717,7 +717,7 @@ public class ServerGameManager : NetworkBehaviour
     private void ExecuteShowdown()
     {
         currentPhase = GamePhase.Showdown;
-        RpcAddGameLog("--- Showdown (摊牌) ---", 1);
+        RpcAddGameLog("KEY:LOG_PHASE_SHOWDOWN", 1);
 
         // 中断所有正在施法的玩家技能并返还能量
         PokerPlayer[] allScenePlayers = FindObjectsOfType<PokerPlayer>();
@@ -777,8 +777,8 @@ public class ServerGameManager : NetworkBehaviour
                 }
             }
 
-            RpcShowResult($"{winner.playerName}赢得{totalWin}筹码！(对手弃牌)", 3);
-            RpcAddGameLog($"{winner.playerName} 获胜，赢得 {totalWin} 筹码 (对手弃牌)！", 4);
+            RpcShowResult($"KEY:UI_GAME_STATUS_WIN_FOLD|{winner.playerName}|{totalWin}", 3);
+            RpcAddGameLog($"KEY:LOG_WIN_FOLD|{winner.playerName}|{totalWin}", 4);
             StartCoroutine(HandleRoundEnd(3f));
             return;
         }
@@ -786,8 +786,11 @@ public class ServerGameManager : NetworkBehaviour
         // 2. 情况 B：正常摊牌！逐个池子分赃！
         string resultMsg = "";
         Dictionary<PokerPlayer, int> winAmounts = new Dictionary<PokerPlayer, int>();
-        foreach (var pot in serverPots)
+        bool hasSidePots = serverPots.Count > 1;
+
+        for (int potIndex = 0; potIndex < serverPots.Count; potIndex++)
         {
+            var pot = serverPots[potIndex];
             if (pot.amount == 0) continue;
 
             // 筛出有资格分这个池子，且活到最后的人
@@ -825,7 +828,24 @@ public class ServerGameManager : NetworkBehaviour
             {
                 w.chips += splitAmount;
                 w.energy = Mathf.Clamp(w.energy + winnerBonus, 0, w.GetMaxEnergy(maxEnergy));
-                resultMsg += $"[{w.playerName}]赢得{splitAmount}筹码！";
+                if (resultMsg.Length > 0) resultMsg += "\n";
+
+                if (hasSidePots)
+                {
+                    if (potIndex == 0)
+                    {
+                        resultMsg += $"KEY:UI_GAME_STATUS_WIN_MAIN_POT|{w.playerName}|{splitAmount}";
+                    }
+                    else
+                    {
+                        resultMsg += $"KEY:UI_GAME_STATUS_WIN_SIDE_POT|{w.playerName}|{splitAmount}|{potIndex}";
+                    }
+                }
+                else
+                {
+                    resultMsg += $"KEY:UI_GAME_STATUS_WIN_POT|{w.playerName}|{splitAmount}";
+                }
+
                 tempUltimateWinners.Add(w);
 
                 if (splitAmount > 0)
@@ -875,11 +895,11 @@ public class ServerGameManager : NetworkBehaviour
             if (isWinner)
             {
                 int won = winAmounts.ContainsKey(p) ? winAmounts[p] : 0;
-                RpcAddGameLog($"{p.playerName} 获胜，牌型为 [{professionalName}]，赢得 {won} 筹码！", 4);
+                RpcAddGameLog($"KEY:LOG_WIN_HAND|{p.playerName}|{professionalName}|{won}", 4);
             }
             else
             {
-                RpcAddGameLog($"{p.playerName} 失败，牌型为 [{professionalName}]", 5);
+                RpcAddGameLog($"KEY:LOG_LOSE_HAND|{p.playerName}|{professionalName}", 5);
             }
         }
 
@@ -985,13 +1005,13 @@ public class ServerGameManager : NetworkBehaviour
                     NetworkServer.Destroy(bot.gameObject);
                 }
 
-                RpcAddGameLog("--- Game Over (游戏结束) ---", 1);
+                RpcAddGameLog("KEY:LOG_PHASE_GAMEOVER", 1);
                 RpcEnterGameEnd();
             }
             else
             {
                 currentPhase = GamePhase.Halftime;
-                RpcAddGameLog("--- Halftime (中场休息) ---", 1);
+                RpcAddGameLog("KEY:LOG_PHASE_HALFTIME", 1);
                 RpcEnterHalftime(currentRoundCount, maxCircles);
 
                 // ==========================================
@@ -1071,7 +1091,7 @@ public class ServerGameManager : NetworkBehaviour
     private void DealFlop()
     {
         currentPhase = GamePhase.Flop;
-        RpcAddGameLog("--- Flop ---", 1);
+        RpcAddGameLog("KEY:LOG_PHASE_FLOP", 1);
         // 把提前定好的前 3 张牌加入已翻开列表
         serverCommunityCards.Add(futureCommunityCards[0]);
         serverCommunityCards.Add(futureCommunityCards[1]);
@@ -1085,7 +1105,7 @@ public class ServerGameManager : NetworkBehaviour
     private void DealTurn()
     {
         currentPhase = GamePhase.Turn;
-        RpcAddGameLog("--- Turn ---", 1);
+        RpcAddGameLog("KEY:LOG_PHASE_TURN", 1);
         serverCommunityCards.Add(futureCommunityCards[3]);
         RpcRevealCommunityCards(3, 1, new Card[] { futureCommunityCards[3] });
     }
@@ -1094,7 +1114,7 @@ public class ServerGameManager : NetworkBehaviour
     private void DealRiver()
     {
         currentPhase = GamePhase.River;
-        RpcAddGameLog("--- River ---", 1);
+        RpcAddGameLog("KEY:LOG_PHASE_RIVER", 1);
         serverCommunityCards.Add(futureCommunityCards[4]);
         RpcRevealCommunityCards(4, 1, new Card[] { futureCommunityCards[4] });
     }
@@ -1145,7 +1165,7 @@ public class ServerGameManager : NetworkBehaviour
         }
         player.isFolded = true;
         player.hasActed = true; // 【新增】
-        RpcAddGameLog($"{player.playerName} 选择弃牌", 2);
+        RpcAddGameLog($"KEY:LOG_ACTION_FOLD|{player.playerName}", 2);
         Debug.Log($"{player.playerName} 弃牌");
         RpcPlayActionSound("Fold");
         CheckAndMove(); // 【修改】不再直接调用 MoveToNextPlayer
@@ -1165,9 +1185,12 @@ public class ServerGameManager : NetworkBehaviour
         {
             callAmount = player.chips;
             player.isAllIn = true;
-            if (player.connectionToClient != null)
+            foreach (var ap in activePlayers)
             {
-                player.TargetReceiveSkillMessage(player.connectionToClient, "All-in!!", 0);
+                if (ap != null && ap.connectionToClient != null)
+                {
+                    ap.TargetReceiveSkillMessage(ap.connectionToClient, $"KEY:MSG_All_IN|{player.playerName}", 0);
+                }
             }
         }
 
@@ -1177,16 +1200,16 @@ public class ServerGameManager : NetworkBehaviour
 
         if (callAmount == 0)
         {
-            RpcAddGameLog($"{player.playerName} 选择过牌", 2);
+            RpcAddGameLog($"KEY:LOG_ACTION_CHECK|{player.playerName}", 2);
             Debug.Log($"{player.playerName} 过牌 (Check)");
             RpcPlayActionSound("Check"); // 通知全网播放敲桌子音效！
         }
         else
         {
             if (player.isAllIn)
-                RpcAddGameLog($"{player.playerName} 选择All in，跟注 {callAmount}", 2);
+                RpcAddGameLog($"KEY:LOG_ACTION_CALL_ALLIN|{player.playerName}|{callAmount}", 2);
             else
-                RpcAddGameLog($"{player.playerName} 选择跟注 {callAmount}", 2);
+                RpcAddGameLog($"KEY:LOG_ACTION_CALL|{player.playerName}|{callAmount}", 2);
             Debug.Log($"{player.playerName}跟注{callAmount}");
             // 下注音效不需要在这里写，因为你的 GamePlayUI 已经在监听 currentBet 的增加了！
         }
@@ -1208,9 +1231,12 @@ public class ServerGameManager : NetworkBehaviour
         {
             totalNeeded = player.chips;
             player.isAllIn = true;
-            if (player.connectionToClient != null)
+            foreach (var ap in activePlayers)
             {
-                player.TargetReceiveSkillMessage(player.connectionToClient, "All-in!!", 0);
+                if (ap != null && ap.connectionToClient != null)
+                {
+                    ap.TargetReceiveSkillMessage(ap.connectionToClient, $"KEY:MSG_All_IN|{player.playerName}", 0);
+                }
             }
         }
 
@@ -1249,9 +1275,9 @@ public class ServerGameManager : NetworkBehaviour
         }
 
         if (player.isAllIn)
-            RpcAddGameLog($"{player.playerName} 选择All in，加注至 {highestBet}", 2);
+            RpcAddGameLog($"KEY:LOG_ACTION_RAISE_ALLIN|{player.playerName}|{highestBet}", 2);
         else
-            RpcAddGameLog($"{player.playerName} 选择加注至 {highestBet}", 2);
+            RpcAddGameLog($"KEY:LOG_ACTION_RAISE|{player.playerName}|{highestBet}", 2);
         Debug.Log($"{player.playerName}加注到{highestBet}");
         CheckAndMove();
     }
@@ -1652,25 +1678,25 @@ public class ServerGameManager : NetworkBehaviour
             {
                 if (target == caster || target == null)
                 {
-                    message = $"[{caster.playerName}]使用[{skillName}]";
+                    message = $"KEY:LOG_SKILL_CAST_SELF|{caster.playerName}|{skillName}";
                 }
                 else
                 {
-                    message = $"[{caster.playerName}]对[{target.playerName}]使用[{skillName}]";
+                    message = $"KEY:LOG_SKILL_CAST_TARGET|{caster.playerName}|{target.playerName}|{skillName}";
                 }
             }
             else // Target community card
             {
-                message = $"[{caster.playerName}]对[公牌]使用[{skillName}]";
+                message = $"KEY:LOG_SKILL_CAST_COMMUNITY|{caster.playerName}|{skillName}";
             }
         }
         else if (eventType == 2) // Success
         {
-            message = $"[{caster.playerName}]的[{skillName}]技能成功了";
+            message = $"KEY:LOG_SKILL_SUCCESS|{caster.playerName}|{skillName}";
         }
         else if (eventType == 3) // Failure
         {
-            message = $"[{caster.playerName}]的[{skillName}]技能失败了";
+            message = $"KEY:LOG_SKILL_FAIL|{caster.playerName}|{skillName}";
         }
 
         if (string.IsNullOrEmpty(message)) return;

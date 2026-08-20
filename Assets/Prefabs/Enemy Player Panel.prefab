@@ -2930,6 +2930,10 @@ PrefabInstance:
       propertyPath: m_FontData.m_FontSize
       value: 30
       objectReference: {fileID: 0}
+    - target: {fileID: 1743279685176461148, guid: 6186232e7f584ac409c6a321ecade0ff, type: 3}
+      propertyPath: localizationKey
+      value: UI_GAME_FOLD_MARK
+      objectReference: {fileID: 0}
     - target: {fileID: 4760768736442733649, guid: 6186232e7f584ac409c6a321ecade0ff, type: 3}
       propertyPath: m_Name
       value: Text
@@ -3055,6 +3059,10 @@ PrefabInstance:
     - target: {fileID: 713236543009962932, guid: 6186232e7f584ac409c6a321ecade0ff, type: 3}
       propertyPath: m_FontData.m_FontSize
       value: 18
+      objectReference: {fileID: 0}
+    - target: {fileID: 1743279685176461148, guid: 6186232e7f584ac409c6a321ecade0ff, type: 3}
+      propertyPath: localizationKey
+      value: UI_GAME_AUTO_MARK
       objectReference: {fileID: 0}
     - target: {fileID: 4760768736442733649, guid: 6186232e7f584ac409c6a321ecade0ff, type: 3}
       propertyPath: m_Name

@@ -94,6 +94,24 @@ public class CreateRoomConfigUI : MonoBehaviour
             }
             inpRoomName.characterLimit = roomNameCharLimit;
         }
+
+        // 3. 刷新游戏圈数下拉菜单中的“无尽”选项多语言
+        RefreshMaxCirclesDropdown();
+    }
+
+    private void RefreshMaxCirclesDropdown()
+    {
+        if (ddMaxCircles != null && ddMaxCircles.options != null && ddMaxCircles.options.Count > 0)
+        {
+            string endlessText = LocalizationManager.GetText("UI_LOBBY_ROUNDS_ENDLESS", "无尽");
+            int lastIndex = ddMaxCircles.options.Count - 1;
+            ddMaxCircles.options[lastIndex].text = endlessText;
+
+            if (ddMaxCircles.value == lastIndex && ddMaxCircles.captionText != null)
+            {
+                ddMaxCircles.captionText.text = endlessText;
+            }
+        }
     }
 
     private void InitializeOptions()
@@ -172,6 +190,12 @@ public class CreateRoomConfigUI : MonoBehaviour
     private int GetSelectedMaxCircles()
     {
         if (ddMaxCircles == null || ddMaxCircles.options.Count == 0) return 8;
+        int lastIndex = ddMaxCircles.options.Count - 1;
+        if (ddMaxCircles.value == lastIndex)
+        {
+            return 0; // 0 表示无尽
+        }
+
         string text = ddMaxCircles.options[ddMaxCircles.value].text;
         if (int.TryParse(text, out int mc)) return mc;
         return 8;

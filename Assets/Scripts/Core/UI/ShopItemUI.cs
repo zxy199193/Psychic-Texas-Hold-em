@@ -23,28 +23,8 @@ public class ShopItemUI : MonoBehaviour
         this.itemData = data;
         this.onBuyClick = onBuyCallback;
 
-        string finalName = data.displayName;
-        string finalDesc = data.displayDescription;
-
-        // 如果是技能/饰品，优先从本地化 SO 读取最新多语言文本
-        if (data.tabType == ShopTabType.Skills && GameConfigDatabaseSO.Instance != null)
-        {
-            var skillSO = GameConfigDatabaseSO.Instance.GetSkill(data.associatedId);
-            if (skillSO != null)
-            {
-                finalName = skillSO.GetLocalizedName();
-                finalDesc = skillSO.GetLocalizedDescription();
-            }
-        }
-        else if (data.tabType == ShopTabType.Trinkets && GameConfigDatabaseSO.Instance != null)
-        {
-            var trinketSO = GameConfigDatabaseSO.Instance.GetTrinket(data.associatedId);
-            if (trinketSO != null)
-            {
-                finalName = trinketSO.GetLocalizedName();
-                finalDesc = trinketSO.GetLocalizedDescription();
-            }
-        }
+        string finalName = data.GetLocalizedName();
+        string finalDesc = data.GetLocalizedDescription();
 
         // 填充基本名称、图标与说明
         if (txtName != null) txtName.text = finalName;

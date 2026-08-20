@@ -17,7 +17,7 @@ MonoBehaviour:
   languageFonts:
   - languageCode: zh_CN
     font: {fileID: 12800000, guid: 227709874d94f8746a0621ab831dfe75, type: 3}
-    lineSpacing: 1
+    lineSpacing: 1.1
   - languageCode: en_US
     font: {fileID: 12800000, guid: 7837eb9c7f26efe48918121be852177b, type: 3}
-    lineSpacing: 0.8
+    lineSpacing: 0.85

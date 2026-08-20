@@ -48,19 +48,30 @@ public class LocalizationExporter
         LocalizationFontSettingsSO asset = AssetDatabase.LoadAssetAtPath<LocalizationFontSettingsSO>(FontSettingsAssetPath);
         if (asset == null)
         {
-            asset = ScriptableObject.CreateInstance<LocalizationFontSettingsSO>();
-            
-            // 自动配置中文与英文初始项
-            asset.languageFonts.Add(new LanguageFontItem { languageCode = LocalizationManager.LANG_ZH_CN });
-            asset.languageFonts.Add(new LanguageFontItem { languageCode = LocalizationManager.LANG_EN_US });
+            // 只有当磁盘上完全不存在资产文件时，才首次自动创建，严禁覆盖已有配置文件！
+            if (!File.Exists(FontSettingsAssetPath))
+            {
+                asset = ScriptableObject.CreateInstance<LocalizationFontSettingsSO>();
+                
+                // 自动配置中文与英文初始项
+                asset.languageFonts.Add(new LanguageFontItem { languageCode = LocalizationManager.LANG_ZH_CN });
+                asset.languageFonts.Add(new LanguageFontItem { languageCode = LocalizationManager.LANG_EN_US });
 
-            AssetDatabase.CreateAsset(asset, FontSettingsAssetPath);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Debug.Log($"<color=green>[LocalizationExporter] 🔤 成功自动创建多语言字体配置资产: {FontSettingsAssetPath}</color>");
+                AssetDatabase.CreateAsset(asset, FontSettingsAssetPath);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log($"<color=green>[LocalizationExporter] 🔤 成功自动创建多语言字体配置资产: {FontSettingsAssetPath}</color>");
+            }
+            else
+            {
+                Debug.LogWarning($"[LocalizationExporter] ⚠️ 检测到 {FontSettingsAssetPath} 文件已存在，已跳过创建以保护配置内容。");
+            }
         }
 
-        LinkToGameConfigDatabase(asset, null);
+        if (asset != null)
+        {
+            LinkToGameConfigDatabase(asset, null);
+        }
         return asset;
     }
 

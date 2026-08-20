@@ -266,11 +266,67 @@ public class PlayFabAuthManager : MonoBehaviour
         return IsItemUnlocked("daily_diamonds_bundle") ? 200 : 50;
     }
 
+    private static readonly Dictionary<int, string[]> SkillItemAliasMap = new Dictionary<int, string[]>
+    {
+        { 1, new[] { "skill_1", "skill_resist" } },
+        { 2, new[] { "skill_2", "skill_sense" } },
+        { 3, new[] { "skill_3", "skill_blur" } },
+        { 4, new[] { "skill_4", "skill_xray" } },
+        { 5, new[] { "skill_5", "skill_change" } },
+        { 6, new[] { "skill_6", "skill_interfere" } },
+        { 7, new[] { "skill_7", "skill_upsidedown" } },
+        { 8, new[] { "skill_8", "skill_slow" } },
+        { 9, new[] { "skill_9", "skill_chain" } },
+        { 10, new[] { "skill_10", "skill_resonance" } },
+        { 11, new[] { "skill_11", "skill_help" } },
+        { 12, new[] { "skill_12", "skill_seal" } },
+        { 13, new[] { "skill_13", "skill_idea" } },
+        { 14, new[] { "skill_14", "skill_overdraw" } },
+        { 15, new[] { "skill_15", "skill_swap" } },
+        { 16, new[] { "skill_16", "skill_wish" } },
+        { 17, new[] { "skill_17", "skill_gravity" } },
+        { 18, new[] { "skill_18", "skill_zone" } },
+        { 19, new[] { "skill_19", "skill_reflect" } },
+        { 20, new[] { "skill_20", "skill_control" } },
+    };
+
+    private static readonly Dictionary<int, string[]> TrinketItemAliasMap = new Dictionary<int, string[]>
+    {
+        { 1, new[] { "trinket_1", "trinket_battery" } },
+        { 2, new[] { "trinket_2", "trinket_candle" } },
+        { 3, new[] { "trinket_3", "trinket_bell" } },
+        { 4, new[] { "trinket_4", "trinket_badge" } },
+        { 5, new[] { "trinket_5", "trinket_beer" } },
+        { 6, new[] { "trinket_6", "trinket_coil" } },
+        { 7, new[] { "trinket_7", "trinket_claw" } },
+        { 8, new[] { "trinket_8", "trinket_cloak" } },
+        { 9, new[] { "trinket_9", "trinket_antenna" } },
+        { 10, new[] { "trinket_10", "trinket_hat" } },
+        { 11, new[] { "trinket_11", "trinket_glass" } },
+        { 12, new[] { "trinket_12", "trinket_eyedrop" } },
+        { 13, new[] { "trinket_13", "trinket_ring" } },
+        { 14, new[] { "trinket_14", "trinket_fork" } },
+        { 15, new[] { "trinket_15", "trinket_aroma" } },
+        { 16, new[] { "trinket_16", "trinket_wand" } },
+        { 17, new[] { "trinket_17", "trinket_cola" } },
+        { 18, new[] { "trinket_18", "trinket_statue" } },
+        { 19, new[] { "trinket_19", "trinket_golem" } },
+        { 20, new[] { "trinket_20", "trinket_armband" } },
+    };
+
     public bool IsSkillUnlocked(int skillId)
     {
         if (IsItemUnlocked("all_unlock_bundle")) return true;
         // 价格为 0 的技能默认解锁（ID 1 至 6）
         if (skillId >= 1 && skillId <= 6) return true;
+
+        if (SkillItemAliasMap.TryGetValue(skillId, out var aliases))
+        {
+            foreach (var alias in aliases)
+            {
+                if (IsItemUnlocked(alias)) return true;
+            }
+        }
         return IsItemUnlocked("skill_" + skillId);
     }
 
@@ -279,6 +335,14 @@ public class PlayFabAuthManager : MonoBehaviour
         if (IsItemUnlocked("all_unlock_bundle")) return true;
         // 价格为 0 的饰品默认解锁（ID 1 至 4）
         if (trinketId >= 1 && trinketId <= 4) return true;
+
+        if (TrinketItemAliasMap.TryGetValue(trinketId, out var aliases))
+        {
+            foreach (var alias in aliases)
+            {
+                if (IsItemUnlocked(alias)) return true;
+            }
+        }
         return IsItemUnlocked("trinket_" + trinketId);
     }
 
@@ -293,7 +357,26 @@ public class PlayFabAuthManager : MonoBehaviour
         PlayFabClientAPI.PurchaseItem(request, result =>
         {
             Debug.Log($"[PlayFabAuthManager] Successfully purchased shop item: {itemId}");
-            // 閲嶆柊鎷夊彇浠ュ埛鏂颁簯绔浣欓濆拰鑳屽寘锛屼笖鍒锋柊瀹屾垚鍚庡啀鍥炶皟 onSuccess
+
+            if (result.Items != null && result.Items.Count > 0)
+            {
+                foreach (var newItem in result.Items)
+                {
+                    if (!playerInventory.Exists(x => x.ItemId == newItem.ItemId))
+                    {
+                        playerInventory.Add(newItem);
+                    }
+                }
+            }
+            else if (!string.IsNullOrEmpty(itemId))
+            {
+                if (!playerInventory.Exists(x => x.ItemId == itemId))
+                {
+                    playerInventory.Add(new PlayFab.ClientModels.ItemInstance { ItemId = itemId });
+                }
+            }
+
+            // 重新拉取以刷新云端余额和背包，且刷新完成后再回调 onSuccess
             GetUserChips(() =>
             {
                 onSuccess?.Invoke();

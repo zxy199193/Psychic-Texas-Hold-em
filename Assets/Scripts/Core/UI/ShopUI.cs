@@ -23,6 +23,12 @@ public class ShopItemData
 {
     public ShopTabType tabType;
     public string playFabItemId;
+
+    [Tooltip("多语言名称 Key（如 UI_SHOP_ITEM_GIFT1_NAME），若为空则使用默认 displayName")]
+    public string nameKey;
+    [Tooltip("多语言描述 Key（如 UI_SHOP_ITEM_GIFT1_DESC），若为空则使用默认 displayDescription")]
+    public string descKey;
+
     public string displayName;
     public Sprite displayIcon;
     [TextArea(2, 4)]
@@ -34,6 +40,46 @@ public class ShopItemData
     public bool isUniqueUnlock; // 是否为一次性解锁（已拥有后不可重复购买）
     public int associatedId;    // 关联的技能或饰品 ID
     public int rewardAmount = 1; // 奖励包含的物品数值/数量（如：50钻石、100筹码）
+
+    public string GetLocalizedName()
+    {
+        if (tabType == ShopTabType.Skills && GameConfigDatabaseSO.Instance != null)
+        {
+            var skillSO = GameConfigDatabaseSO.Instance.GetSkill(associatedId);
+            if (skillSO != null) return skillSO.GetLocalizedName();
+        }
+        else if (tabType == ShopTabType.Trinkets && GameConfigDatabaseSO.Instance != null)
+        {
+            var trinketSO = GameConfigDatabaseSO.Instance.GetTrinket(associatedId);
+            if (trinketSO != null) return trinketSO.GetLocalizedName();
+        }
+
+        if (!string.IsNullOrEmpty(nameKey))
+        {
+            return LocalizationManager.GetText(nameKey, displayName);
+        }
+        return displayName;
+    }
+
+    public string GetLocalizedDescription()
+    {
+        if (tabType == ShopTabType.Skills && GameConfigDatabaseSO.Instance != null)
+        {
+            var skillSO = GameConfigDatabaseSO.Instance.GetSkill(associatedId);
+            if (skillSO != null) return skillSO.GetLocalizedDescription();
+        }
+        else if (tabType == ShopTabType.Trinkets && GameConfigDatabaseSO.Instance != null)
+        {
+            var trinketSO = GameConfigDatabaseSO.Instance.GetTrinket(associatedId);
+            if (trinketSO != null) return trinketSO.GetLocalizedDescription();
+        }
+
+        if (!string.IsNullOrEmpty(descKey))
+        {
+            return LocalizationManager.GetText(descKey, displayDescription);
+        }
+        return displayDescription;
+    }
 }
 
 public class ShopUI : MonoBehaviour
@@ -189,6 +235,23 @@ public class ShopUI : MonoBehaviour
         {
             if (data.tabType != currentTab) continue;
 
+            // 判断是否已解锁拥有（技能、饰品/道具以及一次性商品，已拥有则直接在列表中移除）
+            if (PlayFabAuthManager.Instance != null)
+            {
+                if (data.tabType == ShopTabType.Skills && PlayFabAuthManager.Instance.IsSkillUnlocked(data.associatedId))
+                {
+                    continue;
+                }
+                if (data.tabType == ShopTabType.Trinkets && PlayFabAuthManager.Instance.IsTrinketUnlocked(data.associatedId))
+                {
+                    continue;
+                }
+                if (data.isUniqueUnlock && !string.IsNullOrEmpty(data.playFabItemId) && PlayFabAuthManager.Instance.IsItemUnlocked(data.playFabItemId))
+                {
+                    continue;
+                }
+            }
+
             // 自动加载技能/饰品的名称、描述、图标数据，避免重复在 Inspector 配置
             ResolveProductDetails(data);
 
@@ -219,22 +282,7 @@ public class ShopUI : MonoBehaviour
             ShopItemUI itemUI = go.GetComponent<ShopItemUI>();
             if (itemUI != null)
             {
-                // 判断是否已解锁拥有
-                bool isUnlocked = false;
-                if (data.tabType == ShopTabType.Skills)
-                {
-                    isUnlocked = PlayFabAuthManager.Instance.IsSkillUnlocked(data.associatedId);
-                }
-                else if (data.tabType == ShopTabType.Trinkets)
-                {
-                    isUnlocked = PlayFabAuthManager.Instance.IsTrinketUnlocked(data.associatedId);
-                }
-                else if (data.isUniqueUnlock)
-                {
-                    isUnlocked = PlayFabAuthManager.Instance.IsItemUnlocked(data.playFabItemId);
-                }
-
-                itemUI.Setup(data, isUnlocked, TryBuyItem);
+                itemUI.Setup(data, false, TryBuyItem);
             }
         }
         Debug.Log($"[ShopUI] Finished instantiating {instantiatedCount} items for tab {currentTab}.");
@@ -299,6 +347,10 @@ public class ShopUI : MonoBehaviour
         if (data.tabType == ShopTabType.Skills)
         {
             data.isUniqueUnlock = true;
+            if (string.IsNullOrEmpty(data.playFabItemId))
+            {
+                data.playFabItemId = "skill_" + data.associatedId;
+            }
             var skillSO = db != null ? db.GetSkill(data.associatedId) : null;
             if (skillSO != null)
             {
@@ -310,6 +362,10 @@ public class ShopUI : MonoBehaviour
         else if (data.tabType == ShopTabType.Trinkets)
         {
             data.isUniqueUnlock = true;
+            if (string.IsNullOrEmpty(data.playFabItemId))
+            {
+                data.playFabItemId = "trinket_" + data.associatedId;
+            }
             var trinketSO = db != null ? db.GetTrinket(data.associatedId) : null;
             if (trinketSO != null)
             {
@@ -325,12 +381,14 @@ public class ShopUI : MonoBehaviour
         // 校验余额是否足够
         if (data.costCurrency == ShopCurrencyType.DM && PlayFabAuthManager.Instance.myDiamondsBalance < data.price)
         {
-            ShowTips("余额不足！需要更多钻石。");
+            string insufficientTip = LocalizationManager.GetText("UI_SHOP_BUY_INSUFFICIENT", "钻石不足，无法购买");
+            ShowTips(insufficientTip);
             return;
         }
         if (data.costCurrency == ShopCurrencyType.CP && PlayFabAuthManager.Instance.myChipsBalance < data.price)
         {
-            ShowTips("余额不足！需要更多筹码。");
+            string insufficientTip = LocalizationManager.GetText("UI_SHOP_BUY_INSUFFICIENT_CHIPS", "筹码不足，无法购买");
+            ShowTips(insufficientTip);
             return;
         }
 
@@ -338,14 +396,20 @@ public class ShopUI : MonoBehaviour
         pendingPurchaseItem = data;
         if (confirmPanel != null)
         {
+            string itemName = data.GetLocalizedName();
             if (data.costCurrency == ShopCurrencyType.FREE)
             {
-                txtConfirmMsg.text = $"是否确认免费获取 [{data.displayName}]？";
+                string format = LocalizationManager.GetText("UI_SHOP_BUY_CONFIRM_FREE", "是否确认免费获取 [{0}]？");
+                txtConfirmMsg.text = string.Format(format, itemName);
             }
             else
             {
-                string currencyName = (data.costCurrency == ShopCurrencyType.DM) ? "钻石" : "筹码";
-                txtConfirmMsg.text = $"是否确认消耗 {data.price} {currencyName} 购买 [{data.displayName}]？";
+                string currencyName = (data.costCurrency == ShopCurrencyType.DM)
+                    ? LocalizationManager.GetText("UI_SHOP_DIAMOND", "钻石")
+                    : LocalizationManager.GetText("UI_SHOP_CHIP", "筹码");
+
+                string format = LocalizationManager.GetText("UI_SHOP_BUY_CONFIRM", "是否确认消耗{0}{1}购买[{2}]？");
+                txtConfirmMsg.text = string.Format(format, data.price, currencyName, itemName);
             }
             confirmPanel.SetActive(true);
         }
@@ -367,8 +431,15 @@ public class ShopUI : MonoBehaviour
 
         if (lobbyUIMgr != null) lobbyUIMgr.ShowLoading(true);
 
+        string itemIdToBuy = pendingPurchaseItem.playFabItemId;
+        if (string.IsNullOrEmpty(itemIdToBuy))
+        {
+            if (pendingPurchaseItem.tabType == ShopTabType.Skills) itemIdToBuy = "skill_" + pendingPurchaseItem.associatedId;
+            else if (pendingPurchaseItem.tabType == ShopTabType.Trinkets) itemIdToBuy = "trinket_" + pendingPurchaseItem.associatedId;
+        }
+
         PlayFabAuthManager.Instance.PurchaseShopItem(
-            pendingPurchaseItem.playFabItemId,
+            itemIdToBuy,
             currencyCode,
             finalPrice,
             () =>
@@ -376,23 +447,24 @@ public class ShopUI : MonoBehaviour
                 if (lobbyUIMgr != null) lobbyUIMgr.ShowLoading(false);
 
                 // 弹出通用奖励/购买成功获取框
-                string popupTitle = "购买成功";
+                string localizedItemName = pendingPurchaseItem.GetLocalizedName();
+                string popupTitle = LocalizationManager.GetText("UI_POPUP_TITLE_PURCHASE_SUCCESS", "购买成功");
                 bool showAmount = true;
                 if (pendingPurchaseItem.tabType == ShopTabType.Skills)
                 {
-                    popupTitle = "获得新技能";
+                    popupTitle = LocalizationManager.GetText("UI_POPUP_TITLE_GET_SKILL", "获得新技能");
                     showAmount = false;
                 }
                 else if (pendingPurchaseItem.tabType == ShopTabType.Trinkets)
                 {
-                    popupTitle = "获得新饰品";
+                    popupTitle = LocalizationManager.GetText("UI_POPUP_TITLE_GET_TRINKET", "获得新饰品");
                     showAmount = false;
                 }
 
                 if (lobbyUIMgr != null)
                 {
                     var rewardList = new List<LobbyUIManager.RewardItemData> {
-                        new LobbyUIManager.RewardItemData(pendingPurchaseItem.displayName, pendingPurchaseItem.displayIcon, pendingPurchaseItem.rewardAmount, showAmount)
+                        new LobbyUIManager.RewardItemData(localizedItemName, pendingPurchaseItem.displayIcon, pendingPurchaseItem.rewardAmount, showAmount)
                     };
                     lobbyUIMgr.ShowRewardPopup(popupTitle, rewardList);
                 }
