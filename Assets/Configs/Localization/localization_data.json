@@ -83,6 +83,19 @@
             ]
         },
         {
+            "key": "UI_MAIN_FREE_DIAMOND_ERROR",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "领取失败（{0}）"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "FAILED ({0})"
+                }
+            ]
+        },
+        {
             "key": "UI_MAIN_RANK",
             "translations": [
                 {
@@ -92,6 +105,19 @@
                 {
                     "lang": "en_US",
                     "val": "RANK"
+                }
+            ]
+        },
+        {
+            "key": "UI_MAIN_RANK_ERROR",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "刷新失败（{0}）"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "FAILED ({0})"
                 }
             ]
         },
@@ -1318,6 +1344,19 @@
             ]
         },
         {
+            "key": "UI_GAME_CANT_FOLD",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "被精神控制，无法弃牌"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "Can't Fold due to [Mind Control]"
+                }
+            ]
+        },
+        {
             "key": "UI_SHOP_TITLE",
             "translations": [
                 {
@@ -1483,6 +1522,19 @@
                 {
                     "lang": "en_US",
                     "val": "Chips"
+                }
+            ]
+        },
+        {
+            "key": "UI_SHOP_ERROR",
+            "translations": [
+                {
+                    "lang": "zh_CN",
+                    "val": "购买失败（{0}）"
+                },
+                {
+                    "lang": "en_US",
+                    "val": "FAILED ({0})"
                 }
             ]
         },
@@ -1673,7 +1725,7 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "成就系统"
+                    "val": "成就"
                 },
                 {
                     "lang": "en_US",
@@ -1768,7 +1820,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Asset"
+                    "val": "Chip Asset"
                 }
             ]
         },
@@ -1946,11 +1998,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "其他玩家向你发动技能时进行提示，发动完成之前消耗同等能量使其发动失败"
+                    "val": "其他玩家向你发动技能期间显示提示，可消耗同等能量使其发动失败"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Notifies when an opponent targets you with a skill. Spend equal energy before cast completes to negate it."
+                    "val": "When targeted by a Skill, get notified and you can spend equal Energy to resist it"
                 }
             ]
         },
@@ -1972,11 +2024,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "发动后这局游戏可以查看其他玩家的能量，且当其他玩家发动技能时进行提示"
+                    "val": "显示其他玩家当前能量，且当其他玩家发动技能时显示提示"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Reveals all players' energy levels and alerts you whenever any player casts a skill for the rest of this hand."
+                    "val": "Reveals all Players' Energy, and notifies you whenever any player uses a Skill"
                 }
             ]
         },
@@ -2002,7 +2054,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Reveals an opponent's hole card or community card for 3 seconds."
+                    "val": "Choose one hole card (Opponent) or community card: Reveal it for 3 seconds"
                 }
             ]
         },
@@ -2028,7 +2080,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Replaces one hole card of any player with a random card from the remaining deck."
+                    "val": "Choose one hole card (Any): Replace it with a random card from the deck"
                 }
             ]
         },
@@ -2050,11 +2102,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "选择一名玩家发动，该玩家这局游戏无法看清手牌和公牌"
+                    "val": "选择一名玩家，该玩家这局游戏无法看清手牌和公牌"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Target player's hole cards and community cards become blurred for the rest of this hand."
+                    "val": "Choose an Opponent: Blur their hole cards and the community cards"
                 }
             ]
         },
@@ -2076,11 +2128,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "选择一名玩家发动，该玩家这局游戏发动技能有35%概率失败，可叠加"
+                    "val": "选择一名玩家，该玩家这局游戏发动技能有35%概率失败，可叠加"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Target player has a 35% chance of skill casting failure for this hand. Stacks with multiple casts."
+                    "val": "Choose an Opponent: Each time they use a Skill, it has a 35% chance to fail (Stackable)"
                 }
             ]
         },
@@ -2093,7 +2145,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "UPSIDEDOWN"
+                    "val": "UPSIDE DOWN"
                 }
             ]
         },
@@ -2102,11 +2154,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "选择一名玩家发动，该玩家这局游戏画面颠倒"
+                    "val": "选择一名玩家，该玩家这局游戏画面颠倒"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Target player's view becomes inverted upside down for this hand."
+                    "val": "Choose an Opponent: Flip their screen upside down"
                 }
             ]
         },
@@ -2128,11 +2180,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "选择一名玩家发动，该玩家这局游戏所有技能的发动时间x2"
+                    "val": "选择一名玩家，该玩家这局游戏所有技能的发动时间x2"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Doubles all skill casting times for the target player for this hand."
+                    "val": "Choose an Opponent: All their Skill activation time x2"
                 }
             ]
         },
@@ -2154,11 +2206,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "选择一名玩家发动，该玩家这局游戏只能再使用3次技能"
+                    "val": "选择一名玩家，该玩家这局游戏只能再使用3次技能"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Target player can only cast skills up to 3 more times this hand."
+                    "val": "Choose an Opponent: They can only use Skills 3 more times this hand"
                 }
             ]
         },
@@ -2184,7 +2236,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Highlights matching poker hand components if opponents hold similar card combinations."
+                    "val": "If any Opponent holds the same hand rank as you, their hole cards glitter"
                 }
             ]
         },
@@ -2206,11 +2258,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "选择一名玩家发动，恢复其3点能量"
+                    "val": "选择一名玩家，恢复该玩家3点能量"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Restores 3 energy points to the target player."
+                    "val": "Choose an Opponent: Restore 3 Energy to them"
                 }
             ]
         },
@@ -2232,11 +2284,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "选择场上玩家一张底牌发动，将这张牌遮挡，且免疫[透视]、[变牌]、[交换]"
+                    "val": "选择场上任意一张底牌发动，这张牌被遮挡，且免疫[透视]、[变牌]、[交换]"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Shields a hole card from view and makes it immune to Peek, Swap, and Exchange."
+                    "val": "Choose one hole card (Any): Conceal it and make it immune to [PEEK], [CHANGE], and [SWAP]"
                 }
             ]
         },
@@ -2258,11 +2310,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "发动后这局游戏该技能会随机变成其他任意技能"
+                    "val": "发动后该技能会随机变成其他任意技能"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Randomly transforms this skill into any other skill for the rest of this hand."
+                    "val": "This Skill will randomly transform into any other Skill"
                 }
             ]
         },
@@ -2284,11 +2336,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "能量恢复至最大，但接下来三局无法使用任何技能"
+                    "val": "能量恢复至最大，但接下来三局游戏无法使用任何技能（包括[抵抗]）"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Instantly restores energy to maximum, but disables all skill casting for the next 3 hands."
+                    "val": "Restore Energy to max, but cannot use any Skill for the next 3 hands (Including [RESIST])"
                 }
             ]
         },
@@ -2310,11 +2362,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "选择场上任意2张牌发动，将这两张牌进行调换"
+                    "val": "选择场上任意2张底牌发动，将这两张牌进行调换"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Swaps any two cards currently in play."
+                    "val": "Choose two hole cards (Any): Swap them"
                 }
             ]
         },
@@ -2340,7 +2392,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Guarantees both hole cards in the next hand will be among J, Q, K, A."
+                    "val": "Guarantees your hole cards in the next hand will be J, Q, K, or A"
                 }
             ]
         },
@@ -2366,7 +2418,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Increases skill energy cost by 2 for the player with the highest current energy."
+                    "val": "To all Players: The player with the highest Energy must spend 2 extra Energy to use Skills"
                 }
             ]
         },
@@ -2392,7 +2444,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Randomly alters energy cost of all skills for all players by -2 to +2 for this hand."
+                    "val": "To all Players: The Energy cost of all skills randomly changes by ±0-2"
                 }
             ]
         },
@@ -2414,11 +2466,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "发动后这局游戏受到其他玩家的技能时，技能会被反射给其他任意一名玩家"
+                    "val": "发动后这局游戏受到其他玩家的技能时，技能会被反弹给其他任意一名玩家"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Reflects any incoming offensive skill to a random other player for this hand."
+                    "val": "If an Opponent uses a Skill on you, it is reflected to a random Opponent"
                 }
             ]
         },
@@ -2440,11 +2492,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "选择一名玩家发动，该玩家这局游戏无法弃牌"
+                    "val": "选择一名玩家，该玩家这局游戏无法[弃牌]"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Prevents target player from folding for the rest of this hand."
+                    "val": "Choose an Opponent: They cannot [FOLD] for the rest of this hand"
                 }
             ]
         },
@@ -2470,7 +2522,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Max energy +5"
+                    "val": "Max Energy +5"
                 }
             ]
         },
@@ -2522,7 +2574,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Energy recovery -1. If won, max energy +3 and fully restores energy next hand."
+                    "val": "Energy recovery -1. If you win this hand, Max Energy +3 and fully restore Energy next hand"
                 }
             ]
         },
@@ -2548,7 +2600,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Skill casting time -70%"
+                    "val": "Skill activation time -70%"
                 }
             ]
         },
@@ -2570,11 +2622,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "每次加注恢复1点能量"
+                    "val": "每次[加注]恢复1点能量"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Restores 1 energy point every time you raise"
+                    "val": "Restores 1 Energy every time you [RAISE]"
                 }
             ]
         },
@@ -2596,11 +2648,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "能量上限-6，能量恢复-2，每当其他玩家成功发动技能，恢复1点能量"
+                    "val": "能量上限-6，能量恢复-2，每当其他玩家成功发动技能，恢复1点能量（不包括[抵抗]）"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Max energy -6, energy recovery -2. Restores 1 energy whenever any opponent successfully casts a skill."
+                    "val": "Max Energy -6, Energy Recovery -2. Restores 1 Energy whenever an Opponent uses a Skill (Excluding [RESIST])"
                 }
             ]
         },
@@ -2626,7 +2678,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "If equipping only 2 skills, opponents need 1 extra energy to resist them."
+                    "val": "If you only equip 2 Skills, Opponents need 1 extra Energy to resist them"
                 }
             ]
         },
@@ -2652,7 +2704,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Resist skill energy cost -1"
+                    "val": "[RESIST] Energy cost -1"
                 }
             ]
         },
@@ -2678,7 +2730,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Sensing costs 0 energy and reveals opponent trinkets"
+                    "val": "[SENSE] costs 0 Energy and reveals Opponents' Items"
                 }
             ]
         },
@@ -2704,7 +2756,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Skill casting will not trigger Sensing alerts"
+                    "val": "Immune to Opponents' [SENSE] effect"
                 }
             ]
         },
@@ -2717,7 +2769,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "CLASS"
+                    "val": "GLASS"
                 }
             ]
         },
@@ -2730,7 +2782,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Peek reveals 1 additional random card in play"
+                    "val": "[PEEK] reveals 1 additional random card"
                 }
             ]
         },
@@ -2756,7 +2808,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Peek duration increased to 60 seconds"
+                    "val": "[PEEK] duration extended to 60 seconds"
                 }
             ]
         },
@@ -2782,7 +2834,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Swap and Exchange can now target community cards"
+                    "val": "[CHANGE] and [SWAP] can target community cards"
                 }
             ]
         },
@@ -2808,7 +2860,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Interfere failure chance increased by 25%"
+                    "val": "[Interfere] failure chance +25%"
                 }
             ]
         },
@@ -2834,7 +2886,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Sluggish casting time multiplier increased to 3x"
+                    "val": "[SLOW] activation time becomes x3"
                 }
             ]
         },
@@ -2847,7 +2899,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "MAGIC WAND"
+                    "val": "WAND"
                 }
             ]
         },
@@ -2860,7 +2912,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "First cast of the skill transformed by Inspiration costs -2 energy"
+                    "val": "The First use of the Skill transformed by [IDEA], the Energy cost -2"
                 }
             ]
         },
@@ -2886,7 +2938,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Overdraft skill lockout reduced to 2 hands"
+                    "val": "[OVERDRAW] Skill disable duration reduced to 2 hands"
                 }
             ]
         },
@@ -2908,11 +2960,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "[许愿]获得的牌必定是QKA（和魔像互斥）"
+                    "val": "[许愿]获得的牌必定是QKA（与[魔像]互斥）"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Wish cards are guaranteed to be Q, K, or A (Exclusive with Golem)"
+                    "val": "[WISH] guaranteed cards become Q, K, or A (Incompatible with [GOLEM])"
                 }
             ]
         },
@@ -2934,11 +2986,11 @@
             "translations": [
                 {
                     "lang": "zh_CN",
-                    "val": "[许愿]获得的牌必定能凑成三条，但该局无法加注（和神像互斥）"
+                    "val": "[许愿]获得的牌必定能凑成三条，但该局无法加注（与[神像]互斥）"
                 },
                 {
                     "lang": "en_US",
-                    "val": "Wish cards guarantee Three of a Kind, but cannot raise this hand (Exclusive with Idol)"
+                    "val": "[WISH] guaranteed cards will form a [Three of a Kind], but you cannot [RAISE] this hand (Incompatible with [STATUE])"
                 }
             ]
         },
@@ -2964,7 +3016,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "When you have the largest chip loss at the table, all skill costs -2 (min 1)."
+                    "val": "When you have the largest Chip loss at the table, all Skill Energy costs -2 (Min 1)"
                 }
             ]
         },
@@ -3445,7 +3497,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Battle-Hardened I"
+                    "val": "VETERAN I"
                 }
             ]
         },
@@ -3471,7 +3523,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Battle-Hardened II"
+                    "val": "VETERAN II"
                 }
             ]
         },
@@ -3497,7 +3549,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Battle-Hardened III"
+                    "val": "VETERAN III"
                 }
             ]
         },
@@ -3523,7 +3575,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Battle-Hardened IV"
+                    "val": "VETERAN IV"
                 }
             ]
         },
@@ -3549,7 +3601,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Battle-Hardened V"
+                    "val": "VETERAN V"
                 }
             ]
         },
@@ -3575,7 +3627,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Battle-Hardened VI"
+                    "val": "VETERAN VI"
                 }
             ]
         },
@@ -3601,7 +3653,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Psychic Master I"
+                    "val": "PSYCHIC MASTER I"
                 }
             ]
         },
@@ -3614,7 +3666,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Cast a skill 1 time"
+                    "val": "Use a Skill 1 time"
                 }
             ]
         },
@@ -3627,7 +3679,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Psychic Master II"
+                    "val": "PSYCHIC MASTER II"
                 }
             ]
         },
@@ -3640,7 +3692,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Cast skills 10 times"
+                    "val": "Use Skills 10 times"
                 }
             ]
         },
@@ -3653,7 +3705,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Psychic Master III"
+                    "val": "PSYCHIC MASTER III"
                 }
             ]
         },
@@ -3666,7 +3718,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Cast skills 30 times"
+                    "val": "Use Skills 30 times"
                 }
             ]
         },
@@ -3679,7 +3731,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Psychic Master IV"
+                    "val": "PSYCHIC MASTER IV"
                 }
             ]
         },
@@ -3692,7 +3744,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Cast skills 100 times"
+                    "val": "Use Skills 100 times"
                 }
             ]
         },
@@ -3705,7 +3757,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Psychic Master V"
+                    "val": "PSYCHIC MASTER V"
                 }
             ]
         },
@@ -3718,7 +3770,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Cast skills 300 times"
+                    "val": "Use Skills 300 times"
                 }
             ]
         },
@@ -3731,7 +3783,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Psychic Master VI"
+                    "val": "PSYCHIC MASTER VI"
                 }
             ]
         },
@@ -3744,7 +3796,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Cast skills 500 times"
+                    "val": "Use Skills 500 times"
                 }
             ]
         },
@@ -3757,7 +3809,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "High Roller I"
+                    "val": "REACH THE SUMMIT I"
                 }
             ]
         },
@@ -3770,7 +3822,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win 100 chips in total"
+                    "val": "Win 100 Chips in total"
                 }
             ]
         },
@@ -3783,7 +3835,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "High Roller II"
+                    "val": "REACH THE SUMMIT II"
                 }
             ]
         },
@@ -3796,7 +3848,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win 500 chips in total"
+                    "val": "Win 500 Chips in total"
                 }
             ]
         },
@@ -3809,7 +3861,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "High Roller III"
+                    "val": "REACH THE SUMMIT III"
                 }
             ]
         },
@@ -3822,7 +3874,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win 2000 chips in total"
+                    "val": "Win 2000 Chips in total"
                 }
             ]
         },
@@ -3835,7 +3887,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "High Roller IV"
+                    "val": "REACH THE SUMMIT IV"
                 }
             ]
         },
@@ -3848,7 +3900,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win 5000 chips in total"
+                    "val": "Win 5000 Chips in total"
                 }
             ]
         },
@@ -3861,7 +3913,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "High Roller V"
+                    "val": "REACH THE SUMMIT V"
                 }
             ]
         },
@@ -3874,7 +3926,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win 10000 chips in total"
+                    "val": "Win 10000 Chips in total"
                 }
             ]
         },
@@ -3887,7 +3939,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "High Roller VI"
+                    "val": "REACH THE SUMMIT VI"
                 }
             ]
         },
@@ -3900,7 +3952,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win 30000 chips in total"
+                    "val": "Win 30000 Chips in total"
                 }
             ]
         },
@@ -3913,7 +3965,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Showdown Winner I"
+                    "val": "COUP DE GRACE I"
                 }
             ]
         },
@@ -3926,7 +3978,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win a hand with Two Pair"
+                    "val": "Win a hand with [Two Pair]"
                 }
             ]
         },
@@ -3939,7 +3991,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Showdown Winner II"
+                    "val": "COUP DE GRACE II"
                 }
             ]
         },
@@ -3952,7 +4004,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win a hand with Three of a Kind"
+                    "val": "Win a hand with [Three of a Kind]"
                 }
             ]
         },
@@ -3965,7 +4017,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Showdown Winner III"
+                    "val": "COUP DE GRACE III"
                 }
             ]
         },
@@ -3978,7 +4030,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win a hand with Straight"
+                    "val": "Win a hand with [Straight]"
                 }
             ]
         },
@@ -3991,7 +4043,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Showdown Winner IV"
+                    "val": "COUP DE GRACE IV"
                 }
             ]
         },
@@ -4004,7 +4056,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win a hand with Full House"
+                    "val": "Win a hand with [Full House]"
                 }
             ]
         },
@@ -4017,7 +4069,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Showdown Winner V"
+                    "val": "COUP DE GRACE V"
                 }
             ]
         },
@@ -4030,7 +4082,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win a hand with Flush"
+                    "val": "Win a hand with [Flush]"
                 }
             ]
         },
@@ -4043,7 +4095,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Showdown Winner VI"
+                    "val": "COUP DE GRACE VI"
                 }
             ]
         },
@@ -4056,7 +4108,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win a hand with Four of a Kind"
+                    "val": "Win a hand with [Four of a Kind]"
                 }
             ]
         },
@@ -4069,7 +4121,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Showdown Winner VII"
+                    "val": "COUP DE GRACE VII"
                 }
             ]
         },
@@ -4082,7 +4134,7 @@
                 },
                 {
                     "lang": "en_US",
-                    "val": "Win a hand with Straight Flush"
+                    "val": "Win a hand with [Straight Flush]"
                 }
             ]
         },

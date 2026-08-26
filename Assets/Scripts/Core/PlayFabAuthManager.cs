@@ -792,15 +792,15 @@ public class PlayFabAuthManager : MonoBehaviour
     public string GetAchievementTitle(int id)
     {
         var config = allAchievements.Find(x => x.id == id);
-        string defaultTitle = config != null ? config.title : "";
-        return LocalizationManager.GetText($"ACHV_TITLE_{id}", defaultTitle);
+        if (config != null) return config.GetLocalizedTitle();
+        return LocalizationManager.GetText($"ACHV_TITLE_{id}", "");
     }
 
     public string GetAchievementDescription(int id)
     {
         var config = allAchievements.Find(x => x.id == id);
-        string defaultDesc = config != null ? config.description : "";
-        return LocalizationManager.GetText($"ACHV_DESC_{id}", defaultDesc);
+        if (config != null) return config.GetLocalizedDescription();
+        return LocalizationManager.GetText($"ACHV_DESC_{id}", "");
     }
 
     public int GetAchievementReward(int id)
@@ -879,34 +879,34 @@ public class PlayFabAuthManager : MonoBehaviour
     {
         allAchievements = new List<AchievementConfig>
         {
-            new AchievementConfig { id = 1, title = "久经沙场1", description = "进行1场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 1, rewardDiamonds = 20 },
-            new AchievementConfig { id = 2, title = "久经沙场2", description = "进行10场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 10, rewardDiamonds = 30 },
-            new AchievementConfig { id = 3, title = "久经沙场3", description = "进行30场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 30, rewardDiamonds = 50 },
-            new AchievementConfig { id = 4, title = "久经沙场4", description = "进行100场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 100, rewardDiamonds = 100 },
-            new AchievementConfig { id = 5, title = "久经沙场5", description = "进行300场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 300, rewardDiamonds = 300 },
-            new AchievementConfig { id = 6, title = "久经沙场6", description = "进行500场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 500, rewardDiamonds = 500 },
+            new AchievementConfig { id = 1, titleKey = "ACHV_TITLE_1", descKey = "ACHV_DESC_1", title = "久经沙场1", description = "进行1场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 1, rewardDiamonds = 20 },
+            new AchievementConfig { id = 2, titleKey = "ACHV_TITLE_2", descKey = "ACHV_DESC_2", title = "久经沙场2", description = "进行10场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 10, rewardDiamonds = 30 },
+            new AchievementConfig { id = 3, titleKey = "ACHV_TITLE_3", descKey = "ACHV_DESC_3", title = "久经沙场3", description = "进行30场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 30, rewardDiamonds = 50 },
+            new AchievementConfig { id = 4, titleKey = "ACHV_TITLE_4", descKey = "ACHV_DESC_4", title = "久经沙场4", description = "进行100场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 100, rewardDiamonds = 100 },
+            new AchievementConfig { id = 5, titleKey = "ACHV_TITLE_5", descKey = "ACHV_DESC_5", title = "久经沙场5", description = "进行300场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 300, rewardDiamonds = 300 },
+            new AchievementConfig { id = 6, titleKey = "ACHV_TITLE_6", descKey = "ACHV_DESC_6", title = "久经沙场6", description = "进行500场牌局", type = AchievementConfig.AchievementType.HandRoundsPlayed, targetValue = 500, rewardDiamonds = 500 },
 
-            new AchievementConfig { id = 7, title = "超能大师1", description = "使用1次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 1, rewardDiamonds = 20 },
-            new AchievementConfig { id = 8, title = "超能大师2", description = "使用10次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 10, rewardDiamonds = 30 },
-            new AchievementConfig { id = 9, title = "超能大师3", description = "使用30次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 30, rewardDiamonds = 50 },
-            new AchievementConfig { id = 10, title = "超能大师4", description = "使用100次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 100, rewardDiamonds = 100 },
-            new AchievementConfig { id = 11, title = "超能大师5", description = "使用300次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 300, rewardDiamonds = 300 },
-            new AchievementConfig { id = 12, title = "超能大师6", description = "使用500次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 500, rewardDiamonds = 500 },
+            new AchievementConfig { id = 7, titleKey = "ACHV_TITLE_7", descKey = "ACHV_DESC_7", title = "超能大师1", description = "使用1次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 1, rewardDiamonds = 20 },
+            new AchievementConfig { id = 8, titleKey = "ACHV_TITLE_8", descKey = "ACHV_DESC_8", title = "超能大师2", description = "使用10次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 10, rewardDiamonds = 30 },
+            new AchievementConfig { id = 9, titleKey = "ACHV_TITLE_9", descKey = "ACHV_DESC_9", title = "超能大师3", description = "使用30次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 30, rewardDiamonds = 50 },
+            new AchievementConfig { id = 10, titleKey = "ACHV_TITLE_10", descKey = "ACHV_DESC_10", title = "超能大师4", description = "使用100次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 100, rewardDiamonds = 100 },
+            new AchievementConfig { id = 11, titleKey = "ACHV_TITLE_11", descKey = "ACHV_DESC_11", title = "超能大师5", description = "使用300次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 300, rewardDiamonds = 300 },
+            new AchievementConfig { id = 12, titleKey = "ACHV_TITLE_12", descKey = "ACHV_DESC_12", title = "超能大师6", description = "使用500次技能", type = AchievementConfig.AchievementType.SkillsUsedCount, targetValue = 500, rewardDiamonds = 500 },
 
-            new AchievementConfig { id = 13, title = "攀登高峰1", description = "累计赢得100筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 100, rewardDiamonds = 20 },
-            new AchievementConfig { id = 14, title = "攀登高峰2", description = "累计赢得500筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 500, rewardDiamonds = 30 },
-            new AchievementConfig { id = 15, title = "攀登高峰3", description = "累计赢得2000筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 2000, rewardDiamonds = 50 },
-            new AchievementConfig { id = 16, title = "攀登高峰4", description = "累计赢得5000筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 5000, rewardDiamonds = 100 },
-            new AchievementConfig { id = 17, title = "攀登高峰5", description = "累计赢得10000筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 10000, rewardDiamonds = 300 },
-            new AchievementConfig { id = 18, title = "攀登高峰6", description = "累计赢得30000筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 30000, rewardDiamonds = 500 },
+            new AchievementConfig { id = 13, titleKey = "ACHV_TITLE_13", descKey = "ACHV_DESC_13", title = "攀登高峰1", description = "累计赢得100筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 100, rewardDiamonds = 20 },
+            new AchievementConfig { id = 14, titleKey = "ACHV_TITLE_14", descKey = "ACHV_DESC_14", title = "攀登高峰2", description = "累计赢得500筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 500, rewardDiamonds = 30 },
+            new AchievementConfig { id = 15, titleKey = "ACHV_TITLE_15", descKey = "ACHV_DESC_15", title = "攀登高峰3", description = "累计赢得2000筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 2000, rewardDiamonds = 50 },
+            new AchievementConfig { id = 16, titleKey = "ACHV_TITLE_16", descKey = "ACHV_DESC_16", title = "攀登高峰4", description = "累计赢得5000筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 5000, rewardDiamonds = 100 },
+            new AchievementConfig { id = 17, titleKey = "ACHV_TITLE_17", descKey = "ACHV_DESC_17", title = "攀登高峰5", description = "累计赢得10000筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 10000, rewardDiamonds = 300 },
+            new AchievementConfig { id = 18, titleKey = "ACHV_TITLE_18", descKey = "ACHV_DESC_18", title = "攀登高峰6", description = "累计赢得30000筹码", type = AchievementConfig.AchievementType.TotalChipsWon, targetValue = 30000, rewardDiamonds = 500 },
 
-            new AchievementConfig { id = 19, title = "一击必杀1", description = "以”两对“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithTwoPair, targetValue = 1, rewardDiamonds = 100 },
-            new AchievementConfig { id = 20, title = "一击必杀2", description = "以”三条“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithThreeOfAKind, targetValue = 1, rewardDiamonds = 100 },
-            new AchievementConfig { id = 21, title = "一击必杀3", description = "以”顺子“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithStraight, targetValue = 1, rewardDiamonds = 100 },
-            new AchievementConfig { id = 22, title = "一击必杀4", description = "以”葫芦“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithFullHouse, targetValue = 1, rewardDiamonds = 200 },
-            new AchievementConfig { id = 23, title = "一击必杀5", description = "以”同花“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithFlush, targetValue = 1, rewardDiamonds = 200 },
-            new AchievementConfig { id = 24, title = "一击必杀6", description = "以”四条“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithFourOfAKind, targetValue = 1, rewardDiamonds = 300 },
-            new AchievementConfig { id = 25, title = "一击必杀7", description = "以”同花顺“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithStraightFlush, targetValue = 1, rewardDiamonds = 500 }
+            new AchievementConfig { id = 19, titleKey = "ACHV_TITLE_19", descKey = "ACHV_DESC_19", title = "一击必杀1", description = "以”两对“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithTwoPair, targetValue = 1, rewardDiamonds = 100 },
+            new AchievementConfig { id = 20, titleKey = "ACHV_TITLE_20", descKey = "ACHV_DESC_20", title = "一击必杀2", description = "以”三条“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithThreeOfAKind, targetValue = 1, rewardDiamonds = 100 },
+            new AchievementConfig { id = 21, titleKey = "ACHV_TITLE_21", descKey = "ACHV_DESC_21", title = "一击必杀3", description = "以”顺子“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithStraight, targetValue = 1, rewardDiamonds = 100 },
+            new AchievementConfig { id = 22, titleKey = "ACHV_TITLE_22", descKey = "ACHV_DESC_22", title = "一击必杀4", description = "以”葫芦“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithFullHouse, targetValue = 1, rewardDiamonds = 200 },
+            new AchievementConfig { id = 23, titleKey = "ACHV_TITLE_23", descKey = "ACHV_DESC_23", title = "一击必杀5", description = "以”同花“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithFlush, targetValue = 1, rewardDiamonds = 200 },
+            new AchievementConfig { id = 24, titleKey = "ACHV_TITLE_24", descKey = "ACHV_DESC_24", title = "一击必杀6", description = "以”四条“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithFourOfAKind, targetValue = 1, rewardDiamonds = 300 },
+            new AchievementConfig { id = 25, titleKey = "ACHV_TITLE_25", descKey = "ACHV_DESC_25", title = "一击必杀7", description = "以”同花顺“牌型赢得一场牌局", type = AchievementConfig.AchievementType.WonWithStraightFlush, targetValue = 1, rewardDiamonds = 500 }
         };
     }
 
@@ -988,8 +988,10 @@ public class PlayFabAuthManager : MonoBehaviour
 public class AchievementConfig
 {
     public int id;                   // 成就唯一 ID
-    public string title;            // 成就标题
-    public string description;      // 成就条件描述
+    public string titleKey;         // 成就标题多语言 Key（例如 ACHV_TITLE_1）
+    public string descKey;          // 成就条件描述多语言 Key（例如 ACHV_DESC_1）
+    public string title;            // 默认成就标题（未配置Key或回退时使用）
+    public string description;      // 默认成就条件描述（未配置Key或回退时使用）
     
     public enum AchievementType
     {
@@ -1007,6 +1009,18 @@ public class AchievementConfig
     public AchievementType type;    // 成就判定类型
     public int targetValue;         // 目标达成数值
     public int rewardDiamonds;      // 奖励钻石数量
+
+    public string GetLocalizedTitle()
+    {
+        string key = !string.IsNullOrEmpty(titleKey) ? titleKey : $"ACHV_TITLE_{id}";
+        return LocalizationManager.GetText(key, title);
+    }
+
+    public string GetLocalizedDescription()
+    {
+        string key = !string.IsNullOrEmpty(descKey) ? descKey : $"ACHV_DESC_{id}";
+        return LocalizationManager.GetText(key, description);
+    }
 }
 
 [System.Serializable]

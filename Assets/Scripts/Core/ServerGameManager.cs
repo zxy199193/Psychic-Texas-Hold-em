@@ -1160,7 +1160,7 @@ public class ServerGameManager : NetworkBehaviour
         if (player.serverIsMindControlled)
         {
             if (player.connectionToClient != null)
-                player.TargetReceiveSkillMessage(player.connectionToClient, "无法弃牌！", 9);
+                player.TargetReceiveSkillMessage(player.connectionToClient, "KEY:UI_GAME_CANT_FOLD", 9);
             return;
         }
         player.isFolded = true;

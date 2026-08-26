@@ -1318,7 +1318,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 80, y: -135}
-  m_SizeDelta: {x: 740, y: 30}
+  m_SizeDelta: {x: 890, y: 30}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &46119328
 MonoBehaviour:
@@ -12285,7 +12285,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 50, y: -15}
+  m_AnchoredPosition: {x: 70, y: -15}
   m_SizeDelta: {x: 140, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1001 &467082423
@@ -17334,7 +17334,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
   m_AnchoredPosition: {x: 80, y: -140}
-  m_SizeDelta: {x: 300, y: 50}
+  m_SizeDelta: {x: 450, y: 50}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!1 &648301294
 GameObject:
@@ -20145,7 +20145,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 160, y: -15}
+  m_AnchoredPosition: {x: 220, y: -15}
   m_SizeDelta: {x: 140, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &772082484
@@ -27399,7 +27399,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
   m_AnchoredPosition: {x: 80, y: -60}
-  m_SizeDelta: {x: 300, y: 50}
+  m_SizeDelta: {x: 450, y: 50}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!114 &1029206293
 MonoBehaviour:
@@ -30663,7 +30663,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 280, y: -15}
+  m_AnchoredPosition: {x: 370, y: -15}
   m_SizeDelta: {x: 140, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1148368611
@@ -31491,150 +31491,200 @@ MonoBehaviour:
     claimedAchievements: 
   allAchievements:
   - id: 1
+    titleKey: ACHV_TITLE_1
+    descKey: ACHV_DESC_1
     title: "\u4E45\u7ECF\u6C99\u573A1"
     description: "\u8FDB\u884C1\u573A\u724C\u5C40"
     type: 0
     targetValue: 1
     rewardDiamonds: 20
   - id: 2
+    titleKey: ACHV_TITLE_2
+    descKey: ACHV_DESC_2
     title: "\u4E45\u7ECF\u6C99\u573A2"
     description: "\u8FDB\u884C10\u573A\u724C\u5C40"
     type: 0
     targetValue: 10
     rewardDiamonds: 30
   - id: 3
+    titleKey: ACHV_TITLE_3
+    descKey: ACHV_DESC_3
     title: "\u4E45\u7ECF\u6C99\u573A3"
     description: "\u8FDB\u884C30\u573A\u724C\u5C40"
     type: 0
     targetValue: 30
     rewardDiamonds: 50
   - id: 4
+    titleKey: ACHV_TITLE_4
+    descKey: ACHV_DESC_4
     title: "\u4E45\u7ECF\u6C99\u573A4"
     description: "\u8FDB\u884C100\u573A\u724C\u5C40"
     type: 0
     targetValue: 100
     rewardDiamonds: 100
   - id: 5
+    titleKey: ACHV_TITLE_5
+    descKey: ACHV_DESC_5
     title: "\u4E45\u7ECF\u6C99\u573A5"
     description: "\u8FDB\u884C300\u573A\u724C\u5C40"
     type: 0
     targetValue: 300
     rewardDiamonds: 300
   - id: 6
+    titleKey: ACHV_TITLE_6
+    descKey: ACHV_DESC_6
     title: "\u4E45\u7ECF\u6C99\u573A6"
     description: "\u8FDB\u884C500\u573A\u724C\u5C40"
     type: 0
     targetValue: 500
     rewardDiamonds: 500
   - id: 7
+    titleKey: ACHV_TITLE_7
+    descKey: ACHV_DESC_7
     title: "\u8D85\u80FD\u5927\u5E081"
     description: "\u4F7F\u75281\u6B21\u6280\u80FD"
     type: 1
     targetValue: 1
     rewardDiamonds: 20
   - id: 8
+    titleKey: ACHV_TITLE_8
+    descKey: ACHV_DESC_8
     title: "\u8D85\u80FD\u5927\u5E082"
     description: "\u4F7F\u752810\u6B21\u6280\u80FD"
     type: 1
     targetValue: 10
     rewardDiamonds: 30
   - id: 9
+    titleKey: ACHV_TITLE_9
+    descKey: ACHV_DESC_9
     title: "\u8D85\u80FD\u5927\u5E083"
     description: "\u4F7F\u752830\u6B21\u6280\u80FD"
     type: 1
     targetValue: 30
     rewardDiamonds: 50
   - id: 10
+    titleKey: ACHV_TITLE_10
+    descKey: ACHV_DESC_10
     title: "\u8D85\u80FD\u5927\u5E084"
     description: "\u4F7F\u7528100\u6B21\u6280\u80FD"
     type: 1
     targetValue: 100
     rewardDiamonds: 100
   - id: 11
+    titleKey: ACHV_TITLE_11
+    descKey: ACHV_DESC_11
     title: "\u8D85\u80FD\u5927\u5E085"
     description: "\u4F7F\u7528300\u6B21\u6280\u80FD"
     type: 1
     targetValue: 300
     rewardDiamonds: 300
   - id: 12
+    titleKey: ACHV_TITLE_12
+    descKey: ACHV_DESC_12
     title: "\u8D85\u80FD\u5927\u5E086"
     description: "\u4F7F\u7528500\u6B21\u6280\u80FD"
     type: 1
     targetValue: 500
     rewardDiamonds: 500
   - id: 13
+    titleKey: ACHV_TITLE_13
+    descKey: ACHV_DESC_13
     title: "\u6500\u767B\u9AD8\u5CF01"
     description: "\u7D2F\u8BA1\u8D62\u5F97100\u7B79\u7801"
     type: 2
     targetValue: 100
     rewardDiamonds: 20
   - id: 14
+    titleKey: ACHV_TITLE_14
+    descKey: ACHV_DESC_14
     title: "\u6500\u767B\u9AD8\u5CF02"
     description: "\u7D2F\u8BA1\u8D62\u5F97500\u7B79\u7801"
     type: 2
     targetValue: 500
     rewardDiamonds: 30
   - id: 15
+    titleKey: ACHV_TITLE_15
+    descKey: ACHV_DESC_15
     title: "\u6500\u767B\u9AD8\u5CF03"
     description: "\u7D2F\u8BA1\u8D62\u5F972000\u7B79\u7801"
     type: 2
     targetValue: 2000
     rewardDiamonds: 50
   - id: 16
+    titleKey: ACHV_TITLE_16
+    descKey: ACHV_DESC_16
     title: "\u6500\u767B\u9AD8\u5CF04"
     description: "\u7D2F\u8BA1\u8D62\u5F975000\u7B79\u7801"
     type: 2
     targetValue: 5000
     rewardDiamonds: 100
   - id: 17
+    titleKey: ACHV_TITLE_17
+    descKey: ACHV_DESC_17
     title: "\u6500\u767B\u9AD8\u5CF05"
     description: "\u7D2F\u8BA1\u8D62\u5F9710000\u7B79\u7801"
     type: 2
     targetValue: 10000
     rewardDiamonds: 300
   - id: 18
+    titleKey: ACHV_TITLE_18
+    descKey: ACHV_DESC_18
     title: "\u6500\u767B\u9AD8\u5CF06"
     description: "\u7D2F\u8BA1\u8D62\u5F9730000\u7B79\u7801"
     type: 2
     targetValue: 30000
     rewardDiamonds: 5000
   - id: 19
+    titleKey: ACHV_TITLE_19
+    descKey: ACHV_DESC_19
     title: "\u4E00\u51FB\u5FC5\u67401"
     description: "\u4EE5\u201D\u4E24\u5BF9\u201C\u724C\u578B\u8D62\u5F97\u4E00\u573A\u724C\u5C40"
     type: 3
     targetValue: 1
     rewardDiamonds: 100
   - id: 20
+    titleKey: ACHV_TITLE_20
+    descKey: ACHV_DESC_20
     title: "\u4E00\u51FB\u5FC5\u67402"
     description: "\u4EE5\u201D\u4E09\u6761\u201C\u724C\u578B\u8D62\u5F97\u4E00\u573A\u724C\u5C40"
     type: 4
     targetValue: 1
     rewardDiamonds: 100
   - id: 21
+    titleKey: ACHV_TITLE_21
+    descKey: ACHV_DESC_21
     title: "\u4E00\u51FB\u5FC5\u67403"
     description: "\u4EE5\u201D\u987A\u5B50\u201C\u724C\u578B\u8D62\u5F97\u4E00\u573A\u724C\u5C40"
     type: 5
     targetValue: 1
     rewardDiamonds: 100
   - id: 22
+    titleKey: ACHV_TITLE_22
+    descKey: ACHV_DESC_22
     title: "\u4E00\u51FB\u5FC5\u67404"
     description: "\u4EE5\u201D\u846B\u82A6\u201C\u724C\u578B\u8D62\u5F97\u4E00\u573A\u724C\u5C40"
     type: 6
     targetValue: 1
     rewardDiamonds: 200
   - id: 23
+    titleKey: ACHV_TITLE_23
+    descKey: ACHV_DESC_23
     title: "\u4E00\u51FB\u5FC5\u67405"
     description: "\u4EE5\u201D\u540C\u82B1\u201C\u724C\u578B\u8D62\u5F97\u4E00\u573A\u724C\u5C40"
     type: 7
     targetValue: 1
     rewardDiamonds: 200
   - id: 24
+    titleKey: ACHV_TITLE_24
+    descKey: ACHV_DESC_24
     title: "\u4E00\u51FB\u5FC5\u67406"
     description: "\u4EE5\u201D\u56DB\u6761\u201C\u724C\u578B\u8D62\u5F97\u4E00\u573A\u724C\u5C40"
     type: 8
     targetValue: 1
     rewardDiamonds: 300
   - id: 25
+    titleKey: ACHV_TITLE_25
+    descKey: ACHV_DESC_25
     title: "\u4E00\u51FB\u5FC5\u67407"
     description: "\u4EE5\u201D\u540C\u82B1\u987A\u201C\u724C\u578B\u8D62\u5F97\u4E00\u573A\u724C\u5C40"
     type: 9
@@ -33033,11 +33083,11 @@ RectTransform:
   - {fileID: 1457264987}
   m_Father: {fileID: 1029206292}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.5}
-  m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 120, y: 0}
+  m_AnchorMin: {x: 1, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 35, y: 35}
-  m_Pivot: {x: 0, y: 0.5}
+  m_Pivot: {x: 1, y: 0.5}
 --- !u!114 &1194770675
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -33110,7 +33160,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 690, y: -15}
+  m_AnchoredPosition: {x: 820, y: -15}
   m_SizeDelta: {x: 140, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1200624232 stripped
@@ -33434,11 +33484,11 @@ RectTransform:
   - {fileID: 1945234842}
   m_Father: {fileID: 691675486}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 10, y: 0}
   m_SizeDelta: {x: 10, y: 0}
-  m_Pivot: {x: 0, y: 0.5}
+  m_Pivot: {x: 1, y: 0.5}
 --- !u!114 &1218518200
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -35800,7 +35850,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 420, y: -15}
+  m_AnchoredPosition: {x: 520, y: -15}
   m_SizeDelta: {x: 140, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1001 &1354956533
@@ -38347,11 +38397,11 @@ RectTransform:
   - {fileID: 767193178}
   m_Father: {fileID: 647612688}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.5}
-  m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 100, y: 0}
+  m_AnchorMin: {x: 1, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 160, y: 40}
-  m_Pivot: {x: 0, y: 0.5}
+  m_Pivot: {x: 1, y: 0.5}
 --- !u!114 &1482642151
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -40182,11 +40232,11 @@ RectTransform:
   - {fileID: 1913207878}
   m_Father: {fileID: 870152713}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 0, y: 5}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 10, y: 5}
   m_SizeDelta: {x: 10, y: -10}
-  m_Pivot: {x: 0, y: 0.5}
+  m_Pivot: {x: 1, y: 0.5}
 --- !u!114 &1570299839
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -45285,7 +45335,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 565, y: -15}
+  m_AnchoredPosition: {x: 670, y: -15}
   m_SizeDelta: {x: 140, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1711890114

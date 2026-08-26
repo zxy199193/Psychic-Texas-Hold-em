@@ -474,7 +474,8 @@ public class ShopUI : MonoBehaviour
             errMsg =>
             {
                 if (lobbyUIMgr != null) lobbyUIMgr.ShowLoading(false);
-                ShowTips($"购买失败：{errMsg}");
+                string errFormat = LocalizationManager.GetText("UI_SHOP_ERROR", "购买失败（{0}）");
+                ShowTips(string.Format(errFormat, errMsg));
             }
         );
     }

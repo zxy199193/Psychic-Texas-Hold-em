@@ -54,7 +54,7 @@ public class RoomPasswordVerifyUI : MonoBehaviour
         {
             if (txtErrorMsg != null)
             {
-                txtErrorMsg.text = "密码错误";
+                txtErrorMsg.text = LocalizationManager.GetText("UI_LOBBY_PASSWORD_WRONG", "密码错误");
                 txtErrorMsg.gameObject.SetActive(true);
             }
             Debug.LogWarning("[RoomPasswordVerifyUI] Incorrect password entered.");

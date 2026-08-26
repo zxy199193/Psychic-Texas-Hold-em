@@ -89,7 +89,8 @@ public class LeaderboardUI : MonoBehaviour
                 Debug.LogError($"[LeaderboardUI] Refresh leaderboard failed: {errorMsg}");
                 if (lobbyUIMgr != null && lobbyUIMgr.shopUI != null)
                 {
-                    lobbyUIMgr.shopUI.ShowTips($"加载排行榜失败: {errorMsg}");
+                    string errFormat = LocalizationManager.GetText("UI_MAIN_RANK_ERROR", "刷新失败（{0}）");
+                    lobbyUIMgr.shopUI.ShowTips(string.Format(errFormat, errorMsg));
                 }
             }
         );

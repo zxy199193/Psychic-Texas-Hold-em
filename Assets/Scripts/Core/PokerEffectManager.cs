@@ -114,6 +114,7 @@ public class PokerEffectManager : MonoBehaviour
             case "MSG_All_IN": fallback = "[{0}]决定All-in！"; break;
             case "MSG_SKILL_ERROR": fallback = "非法操作"; break;
             case "MSG_BUY_IN": fallback = "筹码耗尽，重新买入{0}筹码"; break;
+            case "UI_GAME_CANT_FOLD": fallback = "无法弃牌！"; break;
             default: fallback = key; break;
         }
 

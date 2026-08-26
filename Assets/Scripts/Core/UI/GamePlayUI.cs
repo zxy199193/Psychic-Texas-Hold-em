@@ -1125,7 +1125,7 @@ public class GamePlayUI : MonoBehaviour
         int actualCost = (ServerGameManager.Instance.highestBet - PokerPlayer.LocalPlayer.currentBet) + raiseDelta;
 
         if (raiseTargetText != null) raiseTargetText.text = $"{targetTotalBet}";
-        if (raiseCostText != null) raiseCostText.text = $"需支付: {actualCost}";
+        if (raiseCostText != null) raiseCostText.gameObject.SetActive(false);
         if (btnMinusBet != null) btnMinusBet.interactable = (raiseSlider.value > raiseSlider.minValue);
         if (btnPlusBet != null) btnPlusBet.interactable = (raiseSlider.value < raiseSlider.maxValue);
     }

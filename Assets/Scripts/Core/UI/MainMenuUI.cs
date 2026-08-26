@@ -256,7 +256,8 @@ public class MainMenuUI : MonoBehaviour
             errorMsg =>
             {
                 if (lobbyUIMgr != null) lobbyUIMgr.ShowLoading(false);
-                ShowDailyRewardTip($"领取失败：{errorMsg}");
+                string errFormat = LocalizationManager.GetText("UI_MAIN_FREE_DIAMOND_ERROR", "领取失败（{0}）");
+                ShowDailyRewardTip(string.Format(errFormat, errorMsg));
                 UpdateDailyRewardButtonState(true);
             }
         );
