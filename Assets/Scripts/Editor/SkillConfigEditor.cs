@@ -50,6 +50,15 @@ public class SkillConfigEditor : Editor
                 break;
         }
 
+        EditorGUILayout.Space(10);
+        EditorGUILayout.LabelField("特效与音效表现配置 (VFX & SFX)", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("vfxVisibility"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("vfxAnchor"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("vfxPrefab"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("sfxClip"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("vfxDuration"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("vfxOffset"));
+
         serializedObject.ApplyModifiedProperties();
     }
 }

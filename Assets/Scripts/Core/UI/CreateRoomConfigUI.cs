@@ -10,7 +10,7 @@ public static class RoomConfigContainer
     public static int maxPlayers = 6;
     public static int bigBlind = 10;
     public static int buyInMultiplier = 100; // e.g. 50, 100, 150, 200
-    public static int maxCircles = 8;
+    public static int maxCircles = 6;
     public static bool shortDeck = false;
     public static bool fillBots = false;
 }
@@ -189,7 +189,7 @@ public class CreateRoomConfigUI : MonoBehaviour
 
     private int GetSelectedMaxCircles()
     {
-        if (ddMaxCircles == null || ddMaxCircles.options.Count == 0) return 8;
+        if (ddMaxCircles == null || ddMaxCircles.options.Count == 0) return 6;
         int lastIndex = ddMaxCircles.options.Count - 1;
         if (ddMaxCircles.value == lastIndex)
         {
@@ -198,7 +198,7 @@ public class CreateRoomConfigUI : MonoBehaviour
 
         string text = ddMaxCircles.options[ddMaxCircles.value].text;
         if (int.TryParse(text, out int mc)) return mc;
-        return 8;
+        return 6;
     }
 
     private void OnConfirmClicked()

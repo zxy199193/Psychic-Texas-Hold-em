@@ -562,7 +562,7 @@ public class ServerGameManager : NetworkBehaviour
 
                         if (p.connectionToClient != null)
                         {
-                            p.TargetReceiveSkillMessage(p.connectionToClient, "KEY:MSG_SKILL_WISH_ENERGY_RETURN", 6);
+                            p.TargetReceiveSkillMessage(p.connectionToClient, "KEY:MSG_SKILL_WISH_ENERGY_RETURN", 16);
                         }
 
                         c1 = deck.Draw();
@@ -1160,7 +1160,7 @@ public class ServerGameManager : NetworkBehaviour
         if (player.serverIsMindControlled)
         {
             if (player.connectionToClient != null)
-                player.TargetReceiveSkillMessage(player.connectionToClient, "KEY:UI_GAME_CANT_FOLD", 9);
+                player.TargetReceiveSkillMessage(player.connectionToClient, "KEY:UI_GAME_CANT_FOLD", 20);
             return;
         }
         player.isFolded = true;
@@ -1262,15 +1262,15 @@ public class ServerGameManager : NetworkBehaviour
 
         player.hasActed = true;
 
-        // 【酒饰品】：每次加注后恢复1点能量
-        if (player.equippedTrinkets.Contains(20))
+        // 【酒/啤酒饰品(ID:5)】：每次加注后恢复1点能量
+        if (player.equippedTrinkets.Contains(5))
         {
             int pMaxE = player.GetMaxEnergy(maxEnergy);
             int oldE = player.energy;
             player.energy = Mathf.Clamp(player.energy + 1, 0, pMaxE);
             if (player.energy > oldE)
             {
-                Debug.Log($"[酒饰品] 玩家 [{player.playerName}] 加注后能量恢复 1 点 (当前: {player.energy}/{pMaxE})");
+                Debug.Log($"[啤酒饰品] 玩家 [{player.playerName}] 加注后能量恢复 1 点 (当前: {player.energy}/{pMaxE})");
             }
         }
 
@@ -1709,8 +1709,8 @@ public class ServerGameManager : NetworkBehaviour
             bool shouldSee = (p == caster) || 
                              (targetType == 0 && target != null && p == target);
 
-            // If the caster doesn't have the Hat (12), players with Sensing can also see it
-            bool isCasterHat = caster.equippedTrinkets.Contains(9);
+            // If the caster doesn't have the Hat (10), players with Sensing can also see it
+            bool isCasterHat = caster.IsSensingBlocked();
             if (!isCasterHat && p.serverIsSensing)
             {
                 shouldSee = true;
@@ -1719,6 +1719,101 @@ public class ServerGameManager : NetworkBehaviour
             if (shouldSee && p.connectionToClient != null)
             {
                 p.TargetAddSkillLog(p.connectionToClient, message);
+            }
+        }
+    }
+
+    [Server]
+    public void ServerTriggerSkillVFX(int skillID, PokerPlayer caster, int targetType, int targetIndex, uint targetNetId, List<PokerPlayer> extraInvolvedTargets = null)
+    {
+        if (caster == null) return;
+        SkillConfigSO config = GameConfigDatabaseSO.Instance != null ? GameConfigDatabaseSO.Instance.GetSkill(skillID) : null;
+        if (config == null) return;
+        if (config.vfxVisibility == VFXVisibility.None) return;
+
+        // 公开特效：全员广播
+        if (config.vfxVisibility == VFXVisibility.Public)
+        {
+            caster.RpcPlaySkillVFX(skillID, caster.netId, targetType, targetIndex, targetNetId);
+            return;
+        }
+
+        // 私密特效：收集所有受影响的目标
+        HashSet<PokerPlayer> involvedTargets = new HashSet<PokerPlayer>();
+        if (config.vfxVisibility == VFXVisibility.PrivateTargeted)
+        {
+            if (targetType == 0 && targetNetId != 0)
+            {
+                foreach (var ap in activePlayers)
+                {
+                    if (ap != null && ap.netId == targetNetId)
+                    {
+                        involvedTargets.Add(ap);
+                        break;
+                    }
+                }
+            }
+            if (extraInvolvedTargets != null)
+            {
+                foreach (var ep in extraInvolvedTargets)
+                {
+                    if (ep != null) involvedTargets.Add(ep);
+                }
+            }
+        }
+
+        bool isCasterHat = caster.IsSensingBlocked(); // 饰品【帽子】：屏蔽感应感知
+
+        foreach (var p in activePlayers)
+        {
+            if (p == null || p.connectionToClient == null) continue;
+
+            bool canSee = (p == caster);
+            if (!canSee && config.vfxVisibility == VFXVisibility.PrivateTargeted && involvedTargets.Contains(p))
+            {
+                canSee = true;
+            }
+            if (!canSee && !isCasterHat && p.serverIsSensing)
+            {
+                canSee = true;
+            }
+
+            if (canSee)
+            {
+                p.TargetPlaySkillVFX(p.connectionToClient, skillID, caster.netId, targetType, targetIndex, targetNetId);
+            }
+        }
+    }
+
+    [Server]
+    public void ServerTriggerResistVFX(PokerPlayer resister, PokerPlayer attacker, int skillID)
+    {
+        if (resister == null || attacker == null) return;
+
+        SkillConfigSO resistConfig = GameConfigDatabaseSO.Instance != null ? GameConfigDatabaseSO.Instance.GetSkill(1) : null;
+        if (resistConfig != null && resistConfig.vfxVisibility == VFXVisibility.None) return;
+
+        if (resistConfig != null && resistConfig.vfxVisibility == VFXVisibility.Public)
+        {
+            resister.RpcPlayResistVFX(resister.netId, attacker.netId, skillID);
+            return;
+        }
+
+        bool isSensingBlocked = attacker.IsSensingBlocked(); // 饰品【帽子】
+
+        foreach (var p in activePlayers)
+        {
+            if (p == null || p.connectionToClient == null) continue;
+
+            bool canSee = (p == resister || p == attacker);
+            if (!canSee && !isSensingBlocked && p.serverIsSensing)
+            {
+                canSee = true;
+            }
+
+            if (canSee)
+            {
+                p.TargetPlayResistVFX(p.connectionToClient, resister.netId, attacker.netId, skillID);
             }
         }
     }

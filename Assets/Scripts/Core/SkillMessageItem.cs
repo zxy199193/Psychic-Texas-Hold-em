@@ -5,19 +5,31 @@ using System.Collections;
 [RequireComponent(typeof(CanvasGroup))]
 public class SkillMessageItem : MonoBehaviour
 {
-    [Header("UI ×é¼ş¹ÒÔØ")]
-    public Text messageText;       // ÏûÏ¢ÎÄ±¾
-    public Slider castSlider;      // (¿ÉÑ¡) ¶ÁÌõ Slider
-    public Image skillIcon;
+    [Header("UI æ§ä»¶")]
+    public Text messageText;       // æ¶ˆæ¯æ–‡æœ¬
+    public Slider castSlider;      // (å¯é€‰) è¯»æ¡ Slider
+    public Image skillIcon;        // æŠ€èƒ½å›¾æ ‡
 
     private CanvasGroup canvasGroup;
 
     private void Awake()
     {
         canvasGroup = GetComponent<CanvasGroup>();
+
+        LayoutElement le = GetComponent<LayoutElement>();
+        if (le == null) le = gameObject.AddComponent<LayoutElement>();
+        RectTransform rt = GetComponent<RectTransform>();
+        float h = (rt != null && rt.sizeDelta.y > 10f) ? rt.sizeDelta.y : 60f;
+        float w = (rt != null && rt.sizeDelta.x > 10f) ? rt.sizeDelta.x : 400f;
+        le.preferredHeight = h;
+        le.minHeight = h;
+        le.preferredWidth = w;
+        le.minWidth = w;
+        le.flexibleHeight = 0;
+        le.flexibleWidth = 0;
     }
 
-    // ³õÊ¼»¯Îª¡°´¿ÎÄ±¾ÏûÏ¢¡±
+    // åˆå§‹åŒ–ä¸ºæ–‡æœ¬æ¶ˆæ¯ï¼ˆå¦‚ï¼šæŠ€èƒ½æˆåŠŸ/å¤±è´¥/æ„Ÿåº”æç¤ºï¼‰
     public void SetupText(string msg, float duration, Sprite icon = null)
     {
         if (messageText != null) messageText.text = msg;
@@ -31,7 +43,7 @@ public class SkillMessageItem : MonoBehaviour
         StartCoroutine(LifecycleRoutine(duration));
     }
 
-    // ³õÊ¼»¯Îª¡°Ê©·¨¶ÁÌõÏûÏ¢¡±
+    // åˆå§‹åŒ–ä¸ºè¯»æ¡æ–½æ³•æ¶ˆæ¯ï¼ˆåŒ…å«å€’è®¡æ—¶è¿›åº¦æ¡ï¼‰
     public void SetupCast(string msg, float duration, Sprite icon = null)
     {
         if (messageText != null) messageText.text = msg;
@@ -42,7 +54,6 @@ public class SkillMessageItem : MonoBehaviour
             StartCoroutine(FillSliderRoutine(duration));
         }
 
-        // ¿ØÖÆÍ¼±êÏÔÊ¾
         if (skillIcon != null)
         {
             skillIcon.sprite = icon;
@@ -54,25 +65,28 @@ public class SkillMessageItem : MonoBehaviour
 
     private IEnumerator FillSliderRoutine(float duration)
     {
-        float t = 0;
-        while (t < duration)
+        float timer = 0;
+        while (timer < duration)
         {
-            t += Time.deltaTime;
-            if (castSlider != null) castSlider.value = t / duration;
+            timer += Time.deltaTime;
+            if (castSlider != null)
+                castSlider.value = Mathf.Clamp01(timer / duration);
             yield return null;
         }
     }
 
     private IEnumerator LifecycleRoutine(float duration)
     {
+        canvasGroup.alpha = 1;
         yield return new WaitForSeconds(duration);
 
-        float fadeTime = 0.5f;
-        float t = 0;
-        while (t < fadeTime)
+        // æ·¡å‡ºåŠ¨ç”» (0.5ç§’)
+        float fade = 0.5f;
+        float timer = 0;
+        while (timer < fade)
         {
-            t += Time.deltaTime;
-            canvasGroup.alpha = Mathf.Lerp(1, 0, t / fadeTime);
+            timer += Time.deltaTime;
+            if (canvasGroup != null) canvasGroup.alpha = 1 - (timer / fade);
             yield return null;
         }
 
@@ -83,5 +97,18 @@ public class SkillMessageItem : MonoBehaviour
     {
         StopAllCoroutines();
         Destroy(gameObject);
+    }
+
+    private void OnDestroy()
+    {
+        if (transform.parent != null)
+        {
+            RectTransform parentRect = transform.parent.GetComponent<RectTransform>();
+            if (parentRect != null)
+            {
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
+            }
+        }
     }
 }

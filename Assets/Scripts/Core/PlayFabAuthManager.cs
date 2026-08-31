@@ -99,11 +99,16 @@ public class PlayFabAuthManager : MonoBehaviour
                 SteamTicket = hexTicket
             };
 
-            PlayFabClientAPI.LoginWithSteam(request, OnLoginSuccess, OnLoginFailure);
+            PlayFabClientAPI.LoginWithSteam(request, OnLoginSuccess, error =>
+            {
+                Debug.LogWarning($"[PlayFabAuthManager] Steam Login Failed ({error.GenerateErrorReport()}). Falling back to Custom ID login...");
+                LoginWithCustomID();
+            });
         }
         else
         {
-            Debug.LogError("[PlayFabAuthManager] Failed to get valid Steam Auth Session Ticket.");
+            Debug.LogError("[PlayFabAuthManager] Failed to get valid Steam Auth Session Ticket. Falling back to Custom ID login...");
+            LoginWithCustomID();
         }
     }
 
@@ -218,10 +223,15 @@ public class PlayFabAuthManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("[PlayFabAuthManager] Virtual Currency 'CP' (Chips) not found in player inventory on PlayFab.");
+                Debug.LogWarning("[PlayFabAuthManager] Virtual Currency 'CP' (Chips) not found in player inventory on PlayFab. Setting default to 0.");
+                myChipsBalance = 0;
+                if (GamePlayUI.Instance != null)
+                {
+                    GamePlayUI.Instance.UpdateMainMenuChipsText(myChipsBalance);
+                }
             }
 
-            // 2. 鍚屾ラ捇鐭 DM
+            // 2. 同步钻石 DM
             if (result.VirtualCurrency.TryGetValue("DM", out int diamondsBalance))
             {
                 myDiamondsBalance = diamondsBalance;
@@ -233,7 +243,12 @@ public class PlayFabAuthManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("[PlayFabAuthManager] Virtual Currency 'DM' (Diamonds) not found in player inventory on PlayFab. Please check portal configuration.");
+                Debug.LogWarning("[PlayFabAuthManager] Virtual Currency 'DM' (Diamonds) not found in player inventory on PlayFab. Setting default to 0.");
+                myDiamondsBalance = 0;
+                if (GamePlayUI.Instance != null)
+                {
+                    GamePlayUI.Instance.UpdateMainMenuDiamondsText(myDiamondsBalance);
+                }
             }
 
             // 瑙﹀彂浜嬩欢閫氱煡璁㈤槄鑰呬綑棰濆強閬撳叿鑳屽寘宸插埛鏂
@@ -512,7 +527,7 @@ public class PlayFabAuthManager : MonoBehaviour
     {
         if (!isDailyRewardAvailable)
         {
-            onFailure?.Invoke("浠婂ぉ宸茬粡棰嗗彇杩囧栧姳浜嗭紝鏄庡ぉ鍐嶆潵鍚э紒");
+            onFailure?.Invoke(LocalizationManager.GetText("UI_MAIN_FREE_DIAMOND_CLAIMED", "已领取今日钻石奖励"));
             return;
         }
 

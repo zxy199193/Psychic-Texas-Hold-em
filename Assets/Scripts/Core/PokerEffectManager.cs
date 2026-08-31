@@ -43,20 +43,49 @@ public class PokerEffectManager : MonoBehaviour
         return false;
     }
 
-    private int GetSkillIDFromFormattedMessage(string msg)
+    public int ExtractSkillIDFromMessage(string raw)
     {
-        if (string.IsNullOrEmpty(msg)) return 0;
-
-        var matches = System.Text.RegularExpressions.Regex.Matches(msg, @"\[([^\]]+)\]");
-        foreach (System.Text.RegularExpressions.Match match in matches)
+        if (string.IsNullOrEmpty(raw)) return 0;
+        if (raw.StartsWith("KEY:"))
         {
-            string value = match.Groups[1].Value;
-            if (UIMgr != null && UIMgr.allSkillConfigs != null)
+            string[] parts = raw.Substring(4).Split('|');
+            string key = parts[0];
+
+            switch (key)
             {
-                var config = UIMgr.allSkillConfigs.Find(c => c.skillName == value);
-                if (config != null)
+                case "MSG_SKILL_USE_FAIL_SEALED":
+                case "MSG_SKILL_USE_FAIL_SEALED_ALREADY":
+                    return 12; // 封印
+                case "MSG_SKILL_USE_FAIL_INTERGERE":
+                    return 6;  // 干扰 (ID: 6)
+                case "MSG_SKILL_USE_FAIL_AUTO_PROTECT":
+                case "MSG_SKILL_MIND_CONTROLED":
+                case "UI_GAME_CANT_FOLD":
+                    return 20; // 精神控制 (ID: 20)
+                case "MSG_SKILL_REFLECT":
+                    return 19; // 反射壁 (ID: 19)
+                case "MSG_SKILL_CHAINED":
+                case "MSG_SKILL_CHAINED_ALREADY":
+                    return 9;  // 枷锁 (ID: 9)
+                case "MSG_SKILL_WISH_ENERGY_RETURN":
+                    return 16; // 许愿 (ID: 16)
+                case "MSG_SKILL_RESIST":
+                case "MSG_SKILL_RESIST_NO_ENERGY":
+                    return 1;  // 抵抗 (ID: 1)
+                case "MSG_BUY_IN":
+                case "MSG_All_IN":
+                    return 0;  // 默认图标
+            }
+
+            // 检查参数中的 skillID (倒序扫描 parts)
+            for (int i = parts.Length - 1; i >= 1; i--)
+            {
+                if (int.TryParse(parts[i], out int parsedId) && parsedId > 0)
                 {
-                    return config.skillID;
+                    if (UIMgr != null && UIMgr.allSkillConfigs != null && UIMgr.allSkillConfigs.Exists(c => c.skillID == parsedId))
+                    {
+                        return parsedId;
+                    }
                 }
             }
         }
@@ -69,15 +98,24 @@ public class PokerEffectManager : MonoBehaviour
         string myName = PokerPlayer.LocalPlayer != null ? PokerPlayer.LocalPlayer.playerName : "";
         bool localIsSensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
 
-        if (originalName == "你" || (!string.IsNullOrEmpty(myName) && originalName == myName))
+        if (originalName == "你" || originalName == "YOU" || (!string.IsNullOrEmpty(myName) && originalName == myName))
         {
-            return LocalizationManager.GetText("MSG_YOU", (LocalizationManager.CurrentLanguage == "English") ? "You" : "你");
+            return LocalizationManager.GetText("MSG_YOU", "你");
+        }
+
+        if (originalName == "自己" || originalName == "Themselves" || originalName == "Self")
+        {
+            return LocalizationManager.GetText("MSG_SELF", "自己");
+        }
+
+        if (originalName == "公共牌" || originalName == "Community Cards")
+        {
+            return LocalizationManager.GetText("MSG_COMMUNITY_CARDS", "公共牌");
         }
 
         if (isCaster && !localIsSensing)
         {
-            string fallbackSomeone = (LocalizationManager.CurrentLanguage == "English") ? "Someone" : "某玩家";
-            return LocalizationManager.GetText("MSG_SOMEONE", fallbackSomeone);
+            return LocalizationManager.GetText("MSG_SOMEONE", "某玩家");
         }
 
         return originalName;
@@ -96,6 +134,8 @@ public class PokerEffectManager : MonoBehaviour
         {
             case "MSG_SKILL_USE_SELF": fallback = "正在发动技能[{0}]..."; break;
             case "MSG_SKILL_USE_ENEMY": fallback = "[{0}]正在对[{1}]发动技能[{2}]..."; break;
+            case "MSG_SKILL_USE_ENEMY_SELF": fallback = "[{0}]正在发动技能[{1}]..."; break;
+            case "MSG_SKILL_USE_ENEMY_ALL": fallback = "[{0}]正在对[全场]发动技能[{1}]..."; break;
             case "MSG_SKILL_USE_SUCCESS_SELF": fallback = "[{0}]发动成功"; break;
             case "MSG_SKILL_USE_SUCCESS_ENEMY": fallback = "[{0}]成功发动[{1}]"; break;
             case "MSG_SKILL_USE_FAIL_NO_ENERGY": fallback = "能量不足"; break;
@@ -136,6 +176,8 @@ public class PokerEffectManager : MonoBehaviour
             }
 
             bool isCasterParam = (key == "MSG_SKILL_USE_ENEMY" && i == 1)
+                              || (key == "MSG_SKILL_USE_ENEMY_SELF" && i == 1)
+                              || (key == "MSG_SKILL_USE_ENEMY_ALL" && i == 1)
                               || (key == "MSG_SKILL_USE_SUCCESS_ENEMY" && i == 1)
                               || (key == "MSG_SKILL_RESIST" && i == 2)
                               || (key == "MSG_SKILL_REFLECT" && i == 1);
@@ -165,8 +207,13 @@ public class PokerEffectManager : MonoBehaviour
     private void SpawnTextMessageInternal(string message, int skillID = 0, float duration = 3f)
     {
         if (UIMgr.messageFeedContainer == null || UIMgr.textMessagePrefab == null) return;
+        if (skillID <= 0)
+        {
+            skillID = ExtractSkillIDFromMessage(message);
+        }
         string localizedMessage = FormatSkillNotificationMessage(message);
         GameObject go = Instantiate(UIMgr.textMessagePrefab, UIMgr.messageFeedContainer);
+        go.transform.SetAsLastSibling();
         SkillMessageItem item = go.GetComponent<SkillMessageItem>();
         if (item != null)
         {
@@ -175,8 +222,12 @@ public class PokerEffectManager : MonoBehaviour
         }
         if (AudioManager.Instance != null)
         {
-            if (message.Contains("成功") || message.Contains("RESIST") || message.Contains("REFLECT") || message.Contains("USE_SELF")) AudioManager.Instance.PlaySkillSuccess();
-            else if (message.Contains("FAIL") || message.Contains("NO_ENERGY") || message.Contains("ERROR")) AudioManager.Instance.PlaySkillFail();
+            // 技能成功与抵抗已全权交由表现系统（PlaySkillVFX / PlayResistVFX）统一管理
+            // 此处仅针对能量不足/系统错误等操作失败提示播放警告音
+            if (message.Contains("FAIL") || message.Contains("NO_ENERGY") || message.Contains("ERROR"))
+            {
+                AudioManager.Instance.PlaySkillFail();
+            }
         }
         UIMgr.ForceRebuildLayout(go);
     }
@@ -551,4 +602,127 @@ public class PokerEffectManager : MonoBehaviour
             if (UIMgr != null) UIMgr.ForceRebuildLayout(tooltipObj);
         }
     }
+
+    #region 技能特效与表现系统 (VFX & SFX System)
+
+    public void PlaySkillVFX(int skillID, uint casterNetId, int targetType, int targetIndex, uint targetNetId)
+    {
+        SkillConfigSO config = GameConfigDatabaseSO.Instance != null ? GameConfigDatabaseSO.Instance.GetSkill(skillID) : null;
+        if (config == null) return;
+        if (config.vfxVisibility == VFXVisibility.None) return;
+
+        // 1. 播放特效预制体 (如果已配置)
+        if (config.vfxPrefab != null)
+        {
+            Transform anchorTrans = ResolveAnchorTransform(config.vfxAnchor, casterNetId, targetType, targetIndex, targetNetId);
+            SpawnVFXPrefab(config.vfxPrefab, anchorTrans, config.vfxOffset, config.vfxDuration);
+        }
+
+        // 2. 播放专属或默认音效
+        if (AudioManager.Instance != null)
+        {
+            if (config.sfxClip != null)
+            {
+                AudioManager.Instance.PlaySFX(config.sfxClip);
+            }
+            else
+            {
+                AudioManager.Instance.PlaySkillSuccess();
+            }
+        }
+    }
+
+    public void PlayResistVFX(uint resisterNetId, uint attackerNetId, int skillID)
+    {
+        // 优先读取 1 号技能【抵抗】的 SO 配置
+        SkillConfigSO resistConfig = GameConfigDatabaseSO.Instance != null ? GameConfigDatabaseSO.Instance.GetSkill(1) : null;
+
+        GameObject prefab = (resistConfig != null && resistConfig.vfxPrefab != null) ? resistConfig.vfxPrefab : (UIMgr != null ? UIMgr.defaultResistVFXPrefab : null);
+        AudioClip clip = (resistConfig != null && resistConfig.sfxClip != null) ? resistConfig.sfxClip : (UIMgr != null ? UIMgr.defaultResistSFXClip : null);
+        float duration = (resistConfig != null && resistConfig.vfxDuration > 0f) ? resistConfig.vfxDuration : 2.0f;
+        Vector3 offset = (resistConfig != null) ? resistConfig.vfxOffset : Vector3.zero;
+
+        // 1. 获取抵抗者头像/位置
+        Transform resisterTrans = UIMgr != null ? UIMgr.GetPlayerTransform(resisterNetId) : null;
+
+        // 2. 播放抵抗特效预制体 (如果已配置)
+        if (prefab != null)
+        {
+            SpawnVFXPrefab(prefab, resisterTrans, offset, duration);
+        }
+
+        // 3. 播放专属或默认抵抗音效
+        if (AudioManager.Instance != null)
+        {
+            if (clip != null)
+            {
+                AudioManager.Instance.PlaySFX(clip);
+            }
+            else
+            {
+                AudioManager.Instance.PlaySkillFail();
+            }
+        }
+    }
+
+    public Transform ResolveAnchorTransform(VFXAnchorType anchor, uint casterNetId, int targetType, int targetIndex, uint targetNetId)
+    {
+        if (UIMgr == null) return null;
+
+        switch (anchor)
+        {
+            case VFXAnchorType.TargetCard:
+                CardTarget card = UIMgr.FindSpecificCardTarget(targetType, targetIndex, targetNetId);
+                if (card != null) return card.transform;
+                return (targetType == 1) ? UIMgr.communityArea : UIMgr.GetPlayerTransform(targetNetId);
+
+            case VFXAnchorType.TargetPlayer:
+                return UIMgr.GetPlayerTransform(targetNetId);
+
+            case VFXAnchorType.CasterPlayer:
+                return UIMgr.GetPlayerTransform(casterNetId);
+
+            case VFXAnchorType.GlobalField:
+                if (UIMgr.vfxContainer != null) return UIMgr.vfxContainer;
+                if (UIMgr.communityArea != null) return UIMgr.communityArea;
+                return UIMgr.transform;
+
+            default:
+                return UIMgr.vfxContainer != null ? UIMgr.vfxContainer : UIMgr.transform;
+        }
+    }
+
+    private void SpawnVFXPrefab(GameObject prefab, Transform anchor, Vector3 offset, float duration)
+    {
+        if (prefab == null) return;
+
+        Transform parent = anchor;
+        if (parent == null)
+        {
+            parent = (UIMgr != null && UIMgr.vfxContainer != null) ? UIMgr.vfxContainer : (UIMgr != null ? UIMgr.transform : null);
+        }
+
+        if (parent == null) return;
+
+        GameObject vfxInstance = Instantiate(prefab, parent);
+        vfxInstance.transform.localPosition = offset;
+        vfxInstance.transform.localRotation = Quaternion.identity;
+        vfxInstance.transform.localScale = Vector3.one;
+
+        // 如果挂载在 UI Canvas 下，确保居中并处于最上层显示
+        RectTransform rt = vfxInstance.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.anchoredPosition = offset;
+            vfxInstance.transform.SetAsLastSibling();
+        }
+
+        UIEffectAnimator animator = vfxInstance.GetComponent<UIEffectAnimator>();
+        if (animator == null && duration > 0f)
+        {
+            Destroy(vfxInstance, duration);
+        }
+    }
+
+    #endregion
 }

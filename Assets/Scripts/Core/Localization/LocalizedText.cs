@@ -81,11 +81,17 @@ public class LocalizedText : MonoBehaviour
             Font langFont = LocalizationManager.GetCurrentLanguageFont();
             if (langFont != null)
             {
-                targetText.font = langFont;
+                if (targetText.font != langFont)
+                {
+                    targetText.font = langFont;
+                }
             }
             else if (initialOriginalFont != null)
             {
-                targetText.font = initialOriginalFont;
+                if (targetText.font != initialOriginalFont)
+                {
+                    targetText.font = initialOriginalFont;
+                }
             }
         }
 

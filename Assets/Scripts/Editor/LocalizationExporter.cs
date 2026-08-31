@@ -8,11 +8,11 @@ using UnityEngine;
 [InitializeOnLoad]
 public class LocalizationExporter
 {
-    private const string CsvPath = "Assets/Configs/Localization/Localization.csv";
-    private const string OutputDir = "Assets/Configs/Localization";
-    private const string OutputJsonPath = "Assets/Configs/Localization/localization_data.json";
+    private const string CsvPath = "Assets/Resources/Configs/Localization/Localization.csv";
+    private const string OutputDir = "Assets/Resources/Configs/Localization";
+    private const string OutputJsonPath = "Assets/Resources/Configs/Localization/localization_data.json";
 
-    private const string FontSettingsAssetPath = "Assets/Configs/Localization/LocalizationFontSettings.asset";
+    private const string FontSettingsAssetPath = "Assets/Resources/Configs/Localization/LocalizationFontSettings.asset";
 
     static LocalizationExporter()
     {

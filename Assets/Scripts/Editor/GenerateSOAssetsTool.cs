@@ -21,7 +21,7 @@ public class GenerateSOAssetsTool
             return;
         }
 
-        string dbDir = "Assets/Configs";
+        string dbDir = "Assets/Resources/Configs";
         string[] guids = AssetDatabase.FindAssets("t:GameConfigDatabaseSO");
         if (guids.Length > 0)
         {

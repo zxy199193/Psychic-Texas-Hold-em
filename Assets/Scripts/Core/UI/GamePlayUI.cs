@@ -44,7 +44,8 @@ public class SkillConfig
 
     private bool isSelfTargetedSkill(int id)
     {
-        return id == 1 || id == 2 || id == 9 || id == 12 || id == 13 || id == 15 || id == 16 || id == 17 || id == 20;
+        // 1:抵抗, 2:感应, 10:共鸣, 13:灵机, 14:透支, 16:许愿, 17:重力场, 18:戏法空间, 19:反射壁
+        return id == 1 || id == 2 || id == 10 || id == 13 || id == 14 || id == 16 || id == 17 || id == 18 || id == 19;
     }
 }
 
@@ -132,6 +133,17 @@ public class GamePlayUI : MonoBehaviour
     public Transform inGameTrinketContainer;
     public GameObject inGameTrinketPrefab;
     public GameObject myWinnerNode;
+    public Transform myVFXAnchor; // 本地玩家专用特效挂点（若未配置则自动使用头像或手牌区）
+
+    [Header("2.1 能量动效设置 (Energy Gain Animation Settings)")]
+    public float energyAnimScale = 1.05f;      // 缩放倍率 (默认 1.05)
+    public float energyAnimDuration = 0.25f;   // 单次动画时长 (默认 0.25s)
+    public AudioClip energyGainSFXClip;        // 能量增加专用音效 (可选，若未配置则使用全局默认音效)
+
+    private int localVisualEnergy = -1;
+    private Coroutine localEnergyAnimCoroutine;
+    private Dictionary<uint, int> enemyVisualEnergyDict = new Dictionary<uint, int>();
+    private Dictionary<uint, Coroutine> enemyEnergyAnimCoroutines = new Dictionary<uint, Coroutine>();
 
     [Header("3. 对手玩家 UI (Enemy Players)")]
     public EnemyPlayerUI[] enemySeatsUI;
@@ -173,6 +185,11 @@ public class GamePlayUI : MonoBehaviour
     public Button btnSensingSkill;
     public Material blurMaterial;
 
+    [Header("7.1 特效挂载与通用表现 (VFX & SFX)")]
+    public Transform vfxContainer;
+    public GameObject defaultResistVFXPrefab;
+    public AudioClip defaultResistSFXClip;
+
     [Header("8. 消息瀑布流 (Message Feed)")]
     public Transform messageFeedContainer;
     public GameObject textMessagePrefab;
@@ -202,6 +219,12 @@ public class GamePlayUI : MonoBehaviour
     [Header("10.5 游戏内自定义控制按钮 (In-Game Custom Controls)")]
     public Button btnShowRanking;         // 随时打开当前收益排名按钮
     public Button btnLeaveGame;           // 离开按钮
+
+    [Header("局内排名面板 (In-Game Ranking Window)")]
+    public GameObject inGameRankingWindow;
+    public Button btnCloseInGameRanking;
+    public Transform inGameRankingContainer;
+    public GameObject inGameRankingItemPrefab;
     
     [Header("离开游戏确认面板 (Leave Game Confirmation - Optional)")]
     public GameObject leaveConfirmPanel;   // 确认面板
@@ -264,6 +287,7 @@ public class GamePlayUI : MonoBehaviour
     private bool isCurrentlyBlurred = false;
     private CardTarget firstSelectedCard = null;
     private SkillMessageItem currentCastItem;
+    private List<SkillMessageItem> activeCastItems = new List<SkillMessageItem>();
     private Dictionary<uint, int> playerLastBets = new Dictionary<uint, int>();
     private Sprite chipSprite;
     private Dictionary<uint, int> visualChipsDict = new Dictionary<uint, int>();
@@ -303,6 +327,11 @@ public class GamePlayUI : MonoBehaviour
     private void OnDisable()
     {
         LocalizationManager.OnLanguageChanged -= OnLanguageChangedInGame;
+        HideCastBar();
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.StopAllLoopingSounds();
+        }
     }
 
     private void OnLanguageChangedInGame()
@@ -323,6 +352,12 @@ public class GamePlayUI : MonoBehaviour
     {
         Instance = this;
         hasGrantedMatchEndDiamonds = false;
+
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas != null && canvas.GetComponent<ResolutionAdapter>() == null)
+        {
+            canvas.gameObject.AddComponent<ResolutionAdapter>();
+        }
         if (btnFold != null)
         {
             btnFold.onClick.RemoveAllListeners();
@@ -382,6 +417,13 @@ public class GamePlayUI : MonoBehaviour
         {
             btnCloseRaiseMask.onClick.RemoveAllListeners();
             btnCloseRaiseMask.onClick.AddListener(CloseRaisePanel);
+        }
+        if (targetingMask != null)
+        {
+            Button maskBtn = targetingMask.GetComponent<Button>();
+            if (maskBtn == null) maskBtn = targetingMask.AddComponent<Button>();
+            maskBtn.onClick.RemoveAllListeners();
+            maskBtn.onClick.AddListener(CancelTargeting);
         }
         chipSprite = Resources.Load<Sprite>("Icon Common/icon_chips");
 
@@ -487,20 +529,39 @@ public class GamePlayUI : MonoBehaviour
             btnShowRanking.onClick.AddListener(OnBtnShowRankingClicked);
         }
 
+        if (btnCloseInGameRanking != null)
+        {
+            btnCloseInGameRanking.onClick.RemoveAllListeners();
+            btnCloseInGameRanking.onClick.AddListener(() =>
+            {
+                if (inGameRankingWindow != null) inGameRankingWindow.SetActive(false);
+            });
+        }
+
         if (btnLeaveGame != null)
         {
             btnLeaveGame.onClick.RemoveAllListeners();
             btnLeaveGame.onClick.AddListener(OnBtnLeaveGameClicked);
         }
 
-        // 已移除旧大厅中动态更改总圈数的监听器
         currentDisplayedEnemyTrinkets = new List<int>[enemySeatsUI.Length];
         for (int i = 0; i < currentDisplayedEnemyTrinkets.Length; i++)
         {
             currentDisplayedEnemyTrinkets[i] = new List<int>();
         }
 
-
+        if (messageFeedContainer != null)
+        {
+            VerticalLayoutGroup vlg = messageFeedContainer.GetComponent<VerticalLayoutGroup>();
+            if (vlg != null)
+            {
+                vlg.childControlHeight = true;
+                vlg.childControlWidth = false;
+                vlg.childForceExpandHeight = false;
+                vlg.childForceExpandWidth = false;
+                vlg.spacing = 10f;
+            }
+        }
     }
 
     private void Update()
@@ -651,7 +712,7 @@ public class GamePlayUI : MonoBehaviour
                 }
                 UpdateTextIfIntChanged(myChipsText, currentDisplayChips);
                 UpdateTextIfIntChanged(myCurrentBetText, p.currentBet);
-                UpdateTextIfIntChanged(myEnergyText, p.energy);
+                UpdateLocalPlayerEnergyUI(p.energy);
                 RefreshSkillButtonsState(p.energy);
                 if (myRebuyNode != null) myRebuyNode.SetActive(p.rebuyCount > 0);
                 if (myRebuyText != null && p.rebuyCount > 0) myRebuyText.text = $"{p.rebuyCount}";
@@ -730,8 +791,7 @@ public class GamePlayUI : MonoBehaviour
                     UpdateTextIfIntChanged(enemySeatsUI[enemyIndex].currentBetText, p.currentBet);
 
                     bool iAmSensing = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.localIsSensing;
-                    string energyDisplay = iAmSensing ? $"{p.energy}" : "?";
-                    SetTextAndRebuildLayout(enemySeatsUI[enemyIndex].energyText, energyDisplay);
+                    UpdateEnemyPlayerEnergyUI(enemyIndex, p.netId, p.energy, iAmSensing);
 
                     if (enemyIndex < enemySeatsUI.Length && enemySeatsUI[enemyIndex].rebuyNode != null)
                     {
@@ -1349,8 +1409,15 @@ public class GamePlayUI : MonoBehaviour
         if (myTurnHighlightNode != null) myTurnHighlightNode.SetActive(false);
         if (myHostingNode != null) myHostingNode.SetActive(false);
         if (myRebuyNode != null) myRebuyNode.SetActive(false);
+        if (inGameRankingWindow != null) inGameRankingWindow.SetActive(false);
         
-        // Stop and clean up Shockwave effects
+        // Stop and clean up Shockwave effects and casting bar
+        HideCastBar();
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.StopAllLoopingSounds();
+        }
+
         if (shockwave != null)
         {
             shockwave.StopLoopingShockwave();
@@ -1364,6 +1431,39 @@ public class GamePlayUI : MonoBehaviour
         cachedAllPlayers = new PokerPlayer[0];
         visualChipsDict.Clear();
         activeWinAnimations.Clear();
+        hasSyncedSkillsThisSession = false;
+
+        // Reset energy animation states
+        if (localEnergyAnimCoroutine != null)
+        {
+            StopCoroutine(localEnergyAnimCoroutine);
+            localEnergyAnimCoroutine = null;
+        }
+        localVisualEnergy = -1;
+        if (myEnergyText != null) myEnergyText.transform.localScale = Vector3.one;
+
+        if (enemyEnergyAnimCoroutines != null)
+        {
+            foreach (var kvp in enemyEnergyAnimCoroutines)
+            {
+                if (kvp.Value != null) StopCoroutine(kvp.Value);
+            }
+            enemyEnergyAnimCoroutines.Clear();
+        }
+        if (enemyVisualEnergyDict != null)
+        {
+            enemyVisualEnergyDict.Clear();
+        }
+        if (enemySeatsUI != null)
+        {
+            foreach (var seat in enemySeatsUI)
+            {
+                if (seat != null && seat.energyText != null)
+                {
+                    seat.energyText.transform.localScale = Vector3.one;
+                }
+            }
+        }
     }
 
     public void OnBtnToggleLogClicked()
@@ -1813,10 +1913,14 @@ public class GamePlayUI : MonoBehaviour
         if (AudioManager.Instance != null) AudioManager.Instance.StartCastingSound();
         if (messageFeedContainer == null || castMessagePrefab == null) return;
 
-        if (currentCastItem != null) currentCastItem.ForceClose();
-
         GameObject go = Instantiate(castMessagePrefab, messageFeedContainer);
-        currentCastItem = go.GetComponent<SkillMessageItem>();
+        go.transform.SetAsLastSibling();
+        SkillMessageItem castItem = go.GetComponent<SkillMessageItem>();
+        currentCastItem = castItem;
+        if (castItem != null)
+        {
+            activeCastItems.Add(castItem);
+        }
 
         string myName = PokerPlayer.LocalPlayer != null ? PokerPlayer.LocalPlayer.playerName : "";
         string rawKeyMsg = "";
@@ -1859,10 +1963,10 @@ public class GamePlayUI : MonoBehaviour
             shockwave.StartLoopingShockwave(isMyCast);
         }
 
-        if (currentCastItem != null)
+        if (castItem != null)
         {
             Sprite icon = GetIconByID(skillID);
-            currentCastItem.SetupCast(msg, duration, icon);
+            castItem.SetupCast(msg, duration, icon);
         }
 
         if (btnResistSkill != null)
@@ -1899,11 +2003,15 @@ public class GamePlayUI : MonoBehaviour
     public void HideCastBar()
     {
         if (AudioManager.Instance != null) AudioManager.Instance.StopCastingSound();
-        if (currentCastItem != null)
+        for (int i = activeCastItems.Count - 1; i >= 0; i--)
         {
-            currentCastItem.ForceClose();
-            currentCastItem = null;
+            if (activeCastItems[i] != null)
+            {
+                activeCastItems[i].ForceClose();
+            }
         }
+        activeCastItems.Clear();
+        currentCastItem = null;
         HideResistButtonState();
         if (shockwave != null)
         {
@@ -2481,7 +2589,7 @@ public class GamePlayUI : MonoBehaviour
 
     #region Card Peek & Swap Helpers
 
-    private CardTarget FindSpecificCardTarget(int targetType, int targetIndex, uint ownerNetId)
+    public CardTarget FindSpecificCardTarget(int targetType, int targetIndex, uint ownerNetId)
     {
         CardTarget[] allCards = FindObjectsOfType<CardTarget>();
         foreach (var c in allCards)
@@ -2489,6 +2597,36 @@ public class GamePlayUI : MonoBehaviour
             if (c.targetType == targetType && c.targetIndex == targetIndex)
             {
                 if (targetType == 1 || c.ownerNetId == ownerNetId) return c;
+            }
+        }
+        return null;
+    }
+
+    public Transform GetPlayerTransform(uint netId)
+    {
+        if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.netId == netId)
+        {
+            if (myVFXAnchor != null) return myVFXAnchor;
+            if (myAvatarImage != null) return myAvatarImage.transform;
+            if (myHandArea != null) return myHandArea;
+            return this.transform;
+        }
+
+        if (enemySeatsUI != null)
+        {
+            foreach (var player in FindObjectsOfType<PokerPlayer>())
+            {
+                if (player != null && player.netId == netId)
+                {
+                    int enemyIndex = GetEnemyIndex(player);
+                    if (enemyIndex >= 0 && enemyIndex < enemySeatsUI.Length)
+                    {
+                        if (enemySeatsUI[enemyIndex].vfxAnchor != null) return enemySeatsUI[enemyIndex].vfxAnchor;
+                        if (enemySeatsUI[enemyIndex].avatarImage != null) return enemySeatsUI[enemyIndex].avatarImage.transform;
+                        if (enemySeatsUI[enemyIndex].seatNode != null) return enemySeatsUI[enemyIndex].seatNode.transform;
+                    }
+                    break;
+                }
             }
         }
         return null;
@@ -2636,7 +2774,8 @@ public class GamePlayUI : MonoBehaviour
 
     public void ShowSensingLog(string message)
     {
-        SpawnTextMessage(message, 2, 4f);
+        int sId = (effectManager != null) ? effectManager.ExtractSkillIDFromMessage(message) : 0;
+        SpawnTextMessage(message, sId, 4f);
     }
 
     public void ToggleSensingBuffUI(bool isActive)
@@ -2997,6 +3136,177 @@ public class GamePlayUI : MonoBehaviour
         }
     }
 
+    private void UpdateLocalPlayerEnergyUI(int targetEnergy)
+    {
+        if (myEnergyText == null) return;
+
+        // 首次初始化直接赋值
+        if (localVisualEnergy < 0)
+        {
+            localVisualEnergy = targetEnergy;
+            UpdateTextIfIntChanged(myEnergyText, localVisualEnergy);
+            return;
+        }
+
+        // 能量增加：若尚未在运行动效协程，则启动逐点递增动效
+        if (targetEnergy > localVisualEnergy)
+        {
+            if (localEnergyAnimCoroutine == null)
+            {
+                localEnergyAnimCoroutine = StartCoroutine(AnimateEnergyGainRoutine(
+                    myEnergyText,
+                    () => localVisualEnergy,
+                    (val) => localVisualEnergy = val,
+                    targetEnergy,
+                    isLocal: true,
+                    () => localEnergyAnimCoroutine = null
+                ));
+            }
+        }
+        else if (targetEnergy < localVisualEnergy)
+        {
+            // 能量减少（如使用技能）：立即打断动效，同步至最新值并复原缩放
+            if (localEnergyAnimCoroutine != null)
+            {
+                StopCoroutine(localEnergyAnimCoroutine);
+                localEnergyAnimCoroutine = null;
+            }
+            localVisualEnergy = targetEnergy;
+            myEnergyText.transform.localScale = Vector3.one;
+            UpdateTextIfIntChanged(myEnergyText, localVisualEnergy);
+        }
+        else
+        {
+            if (localEnergyAnimCoroutine == null)
+            {
+                UpdateTextIfIntChanged(myEnergyText, localVisualEnergy);
+            }
+        }
+    }
+
+    private void UpdateEnemyPlayerEnergyUI(int enemyIndex, uint netId, int targetEnergy, bool iAmSensing)
+    {
+        if (enemyIndex < 0 || enemyIndex >= enemySeatsUI.Length) return;
+        Text enemyEnergyTxt = enemySeatsUI[enemyIndex].energyText;
+        if (enemyEnergyTxt == null) return;
+
+        if (!iAmSensing)
+        {
+            // 未感应时显示 "?"
+            if (enemyEnergyAnimCoroutines.ContainsKey(netId) && enemyEnergyAnimCoroutines[netId] != null)
+            {
+                StopCoroutine(enemyEnergyAnimCoroutines[netId]);
+                enemyEnergyAnimCoroutines[netId] = null;
+            }
+            enemyVisualEnergyDict[netId] = targetEnergy;
+            enemyEnergyTxt.transform.localScale = Vector3.one;
+            SetTextAndRebuildLayout(enemyEnergyTxt, "?");
+            return;
+        }
+
+        // 感应中，能看到具体数值
+        if (!enemyVisualEnergyDict.ContainsKey(netId) || enemyVisualEnergyDict[netId] < 0)
+        {
+            enemyVisualEnergyDict[netId] = targetEnergy;
+            SetTextAndRebuildLayout(enemyEnergyTxt, targetEnergy.ToString());
+            return;
+        }
+
+        int currentVisual = enemyVisualEnergyDict[netId];
+        if (targetEnergy > currentVisual)
+        {
+            bool isRunning = enemyEnergyAnimCoroutines.ContainsKey(netId) && enemyEnergyAnimCoroutines[netId] != null;
+            if (!isRunning)
+            {
+                enemyEnergyAnimCoroutines[netId] = StartCoroutine(AnimateEnergyGainRoutine(
+                    enemyEnergyTxt,
+                    () => enemyVisualEnergyDict.ContainsKey(netId) ? enemyVisualEnergyDict[netId] : 0,
+                    (val) => enemyVisualEnergyDict[netId] = val,
+                    targetEnergy,
+                    isLocal: false,
+                    () => { if (enemyEnergyAnimCoroutines.ContainsKey(netId)) enemyEnergyAnimCoroutines[netId] = null; }
+                ));
+            }
+        }
+        else if (targetEnergy < currentVisual)
+        {
+            if (enemyEnergyAnimCoroutines.ContainsKey(netId) && enemyEnergyAnimCoroutines[netId] != null)
+            {
+                StopCoroutine(enemyEnergyAnimCoroutines[netId]);
+                enemyEnergyAnimCoroutines[netId] = null;
+            }
+            enemyVisualEnergyDict[netId] = targetEnergy;
+            enemyEnergyTxt.transform.localScale = Vector3.one;
+            SetTextAndRebuildLayout(enemyEnergyTxt, targetEnergy.ToString());
+        }
+        else
+        {
+            bool isRunning = enemyEnergyAnimCoroutines.ContainsKey(netId) && enemyEnergyAnimCoroutines[netId] != null;
+            if (!isRunning)
+            {
+                SetTextAndRebuildLayout(enemyEnergyTxt, currentVisual.ToString());
+            }
+        }
+    }
+
+    private System.Collections.IEnumerator AnimateEnergyGainRoutine(Text textComponent, System.Func<int> getVisual, System.Action<int> setVisual, int targetEnergy, bool isLocal, System.Action onComplete)
+    {
+        if (textComponent == null)
+        {
+            onComplete?.Invoke();
+            yield break;
+        }
+
+        Vector3 originalScale = Vector3.one;
+
+        while (getVisual() < targetEnergy)
+        {
+            int nextVal = getVisual() + 1;
+            setVisual(nextVal);
+            SetTextAndRebuildLayout(textComponent, nextVal.ToString());
+
+            // 1. 播放音效 (仅本地玩家)
+            if (isLocal)
+            {
+                if (energyGainSFXClip != null && AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.PlaySFX(energyGainSFXClip);
+                }
+                else if (AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.PlayEnergyGain();
+                }
+            }
+
+            // 2. 缩放动画 (1.0 -> energyAnimScale -> 1.0)
+            float halfDuration = Mathf.Max(0.01f, energyAnimDuration * 0.5f);
+            float elapsed = 0f;
+            Vector3 peakScale = originalScale * energyAnimScale;
+
+            while (elapsed < halfDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / halfDuration);
+                textComponent.transform.localScale = Vector3.Lerp(originalScale, peakScale, t);
+                yield return null;
+            }
+
+            elapsed = 0f;
+            while (elapsed < halfDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / halfDuration);
+                textComponent.transform.localScale = Vector3.Lerp(peakScale, originalScale, t);
+                yield return null;
+            }
+
+            textComponent.transform.localScale = originalScale;
+        }
+
+        textComponent.transform.localScale = originalScale;
+        onComplete?.Invoke();
+    }
+
     public void ForceRebuildLayout(GameObject target)
     {
         if (target == null) return;
@@ -3007,6 +3317,15 @@ public class GamePlayUI : MonoBehaviour
             LayoutRebuilder.ForceRebuildLayoutImmediate(layouts[i].GetComponent<RectTransform>());
         }
         LayoutRebuilder.ForceRebuildLayoutImmediate(target.GetComponent<RectTransform>());
+
+        if (messageFeedContainer != null)
+        {
+            RectTransform containerRect = messageFeedContainer.GetComponent<RectTransform>();
+            if (containerRect != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(containerRect);
+            }
+        }
     }
 
     public void UpdateMaxHandTypeTip(bool forceUpdate = false)
@@ -3380,9 +3699,127 @@ public class GamePlayUI : MonoBehaviour
 
     public void OnBtnShowRankingClicked()
     {
-        if (lobbyUIManager != null && lobbyUIManager.roomUI != null)
+        if (inGameRankingWindow != null)
+        {
+            bool nextState = !inGameRankingWindow.activeSelf;
+            inGameRankingWindow.SetActive(nextState);
+            if (nextState)
+            {
+                inGameRankingWindow.transform.SetAsLastSibling();
+                RefreshInGameRankingWindow();
+            }
+        }
+        else if (lobbyUIManager != null && lobbyUIManager.roomUI != null)
         {
             lobbyUIManager.roomUI.OpenHalftimeStatsWindow();
+        }
+    }
+
+    public void RefreshInGameRankingWindow()
+    {
+        if (inGameRankingContainer == null || inGameRankingItemPrefab == null) return;
+
+        // Clear existing items
+        for (int i = inGameRankingContainer.childCount - 1; i >= 0; i--)
+        {
+            Transform child = inGameRankingContainer.GetChild(i);
+            child.SetParent(null);
+            Destroy(child.gameObject);
+        }
+
+        // Get and sort players by profit
+        PokerPlayer[] players = FindObjectsOfType<PokerPlayer>();
+        System.Array.Sort(players, (a, b) =>
+        {
+            int profitA = a.chips - 1000 * (a.rebuyCount + 1);
+            int profitB = b.chips - 1000 * (b.rebuyCount + 1);
+            return profitB.CompareTo(profitA); // Descending order
+        });
+
+        // Instantiate items
+        for (int i = 0; i < players.Length; i++)
+        {
+            PokerPlayer p = players[i];
+            if (p == null) continue;
+
+            GameObject go = Instantiate(inGameRankingItemPrefab, inGameRankingContainer);
+
+            // 1. Rank
+            Transform rankTrans = DeepFind(go.transform, "Text Rank") ?? DeepFind(go.transform, "Text Ranking") ?? DeepFind(go.transform, "Rank") ?? go.transform.Find("Rank");
+            if (rankTrans != null)
+            {
+                Text t = rankTrans.GetComponent<Text>();
+                if (t != null) t.text = (i + 1).ToString();
+            }
+
+            // 2. Name
+            Transform nameTrans = DeepFind(go.transform, "Text Name") ?? DeepFind(go.transform, "Text PlayerName") ?? DeepFind(go.transform, "Name") ?? go.transform.Find("Name");
+            if (nameTrans != null)
+            {
+                Text t = nameTrans.GetComponent<Text>();
+                if (t != null) SetTextWithEllipsis(t, p.playerName);
+            }
+
+            // 3. Chips
+            Transform chipsTrans = DeepFind(go.transform, "Text Chips") ?? DeepFind(go.transform, "Chips") ?? go.transform.Find("Chips");
+            if (chipsTrans != null)
+            {
+                Text t = chipsTrans.GetComponent<Text>();
+                if (t != null) t.text = p.chips.ToString();
+            }
+
+            // 4. Rebuys
+            Transform rebuysTrans = DeepFind(go.transform, "Text Rebuys") ?? DeepFind(go.transform, "Rebuys") ?? DeepFind(go.transform, "RebuyCount") ?? go.transform.Find("Rebuys");
+            if (rebuysTrans != null)
+            {
+                Text t = rebuysTrans.GetComponent<Text>();
+                if (t != null) t.text = p.rebuyCount.ToString();
+            }
+
+            // 5. Profit
+            Transform profitTrans = DeepFind(go.transform, "Text Profit") ?? DeepFind(go.transform, "Profit") ?? go.transform.Find("Profit");
+            if (profitTrans != null)
+            {
+                Text t = profitTrans.GetComponent<Text>();
+                if (t != null)
+                {
+                    int profit = p.chips - 1000 * (p.rebuyCount + 1);
+                    t.text = (profit >= 0 ? "+" : "") + profit.ToString();
+                }
+            }
+
+            // 6. Avatar
+            Transform avatarTrans = DeepFind(go.transform, "RawImage Steam Avatar") ?? DeepFind(go.transform, "RawImage Avatar") ?? DeepFind(go.transform, "RawImage") ?? go.transform.Find("RawImage");
+            if (avatarTrans != null)
+            {
+                RawImage img = avatarTrans.GetComponent<RawImage>();
+                if (img != null)
+                {
+                    if (p.steamId == 0) // AI / 机器人
+                    {
+                        if (allBotAvatars != null && p.botAvatarID >= 0 && p.botAvatarID < allBotAvatars.Length && allBotAvatars[p.botAvatarID] != null)
+                        {
+                            img.texture = allBotAvatars[p.botAvatarID];
+                        }
+                        else
+                        {
+                            img.texture = botDefaultAvatar;
+                        }
+                    }
+                    else // Steam 真人玩家
+                    {
+                        Texture2D tex = GetSteamAvatar(p.steamId);
+                        if (tex != null) img.texture = tex;
+                    }
+                }
+            }
+
+            // 7. 隐藏不需要的钻石奖励 Text 节点
+            Transform diamondsTrans = DeepFind(go.transform, "Text Diamonds") ?? DeepFind(go.transform, "Diamonds") ?? go.transform.Find("Text Diamonds");
+            if (diamondsTrans != null)
+            {
+                diamondsTrans.gameObject.SetActive(false);
+            }
         }
     }
 

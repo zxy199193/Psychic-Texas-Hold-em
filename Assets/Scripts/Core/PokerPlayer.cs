@@ -77,7 +77,7 @@ public class PokerPlayer : NetworkBehaviour
     [SyncVar] public bool isRoomHost = false;
     [SyncVar] public bool syncFillBots = false;
     [SyncVar] public bool syncShortDeck = false;
-    [SyncVar] public int syncMaxCircles = 0; // 0 表示无限，其他有 6, 8, 10, 12
+    [SyncVar] public int syncMaxCircles = 0; // 0 表示无限，其他有 4, 6, 8, 10, 12
 
     [SyncVar] public bool serverNextHandSealed = false;
     [SyncVar] public bool serverHoleCardsSealed = false;
@@ -323,6 +323,46 @@ public class PokerPlayer : NetworkBehaviour
     public void TargetReceiveHoleCards(NetworkConnectionToClient target, Card card1, Card card2, bool isSealed)
     {
         if (GamePlayUI.Instance != null) GamePlayUI.Instance.ShowMyHoleCards(card1, card2, isSealed);
+    }
+
+    [ClientRpc]
+    public void RpcRoomDissolved()
+    {
+        if (isServer) return;
+
+        Debug.Log("[PokerPlayer] Received RpcRoomDissolved from host. Exiting room...");
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.StopAllLoopingSounds();
+        }
+
+        if (SteamLobby.Instance != null)
+        {
+            SteamLobby.Instance.LeaveLobby();
+        }
+
+        if (Mirror.NetworkClient.isConnected)
+        {
+            Mirror.NetworkManager.singleton.StopClient();
+        }
+
+        LobbyUIManager lobbyUIMgr = FindObjectOfType<LobbyUIManager>();
+        if (lobbyUIMgr != null)
+        {
+            lobbyUIMgr.ResetToLobbyRoomList(true);
+            string title = LocalizationManager.GetText("UI_ROOM_DISSOLVED_TITLE", "房间解散");
+            string msg = LocalizationManager.GetText("UI_ROOM_DISSOLVED_MSG", "房主已离开房间，房间已解散。");
+            lobbyUIMgr.ShowNoticePopup(title, msg);
+        }
+    }
+
+    public override void OnStopClient()
+    {
+        base.OnStopClient();
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.StopAllLoopingSounds();
+        }
     }
 
     [ClientRpc]
@@ -665,7 +705,7 @@ public class PokerPlayer : NetworkBehaviour
 
         if (this.energy < actualEnergyCost)
         {
-            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_NO_ENERGY", 0);
+            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_NO_ENERGY", skillID);
             return;
         }
         if (isCasting)
@@ -690,7 +730,7 @@ public class PokerPlayer : NetworkBehaviour
 
         if (skillID == 20 && targetPlayer != null && targetPlayer.serverIsHosted)
         {
-            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_AUTO_PROTECT", 0);
+            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_AUTO_PROTECT", 20);
             return;
         }
 
@@ -699,7 +739,7 @@ public class PokerPlayer : NetworkBehaviour
         // ==========================================
         if (skillID == 12 && targetType == 0 && targetPlayer != null && (targetPlayer.serverHoleCardsSealed || targetPlayer.IsCardSealed(targetIndex)))
         {
-            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_SEALED_ALREADY", 0);
+            if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_SEALED_ALREADY", 12);
             return;
         }
 
@@ -707,7 +747,7 @@ public class PokerPlayer : NetworkBehaviour
         {
             if (this.connectionToClient != null)
             {
-                TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_SEALED", 1);
+                TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_SEALED", 12);
             }
             return;
         }
@@ -719,7 +759,7 @@ public class PokerPlayer : NetworkBehaviour
             {
                 if (this.connectionToClient != null)
                 {
-                    TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_SEALED", 1);
+                    TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_SEALED", 12);
                 }
                 return;
             }
@@ -734,7 +774,7 @@ public class PokerPlayer : NetworkBehaviour
             {
                 if (this.connectionToClient != null)
                 {
-                    TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_SEALED", 1);
+                    TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_SEALED", 12);
                 }
                 return;
             }
@@ -769,7 +809,7 @@ public class PokerPlayer : NetworkBehaviour
         currentCastCoroutine = StartCoroutine(CastingRoutine(skillID, skillToCast, targetPlayer, targetType, targetIndex, actualCastTime));
     }
 
-    private bool IsSensingBlocked()
+    public bool IsSensingBlocked()
     {
         // 饰品10【帽子】：发动技能时不会被[感应]效果感知
         return this.equippedTrinkets.Contains(10);
@@ -789,8 +829,6 @@ public class PokerPlayer : NetworkBehaviour
             ServerGameManager.Instance.LogSkillEvent(this, target, targetType, skill.skillName, 1);
         }
 
-        string targetName = (target != null) ? (target == this ? "自己" : target.playerName) : "公共牌";
-
         PokerPlayer target2 = null;
         if (skillID == 15 && this.dualTargetType == 0)
         {
@@ -801,12 +839,28 @@ public class PokerPlayer : NetworkBehaviour
         }
 
         bool isSensingBlocked = IsSensingBlocked();
-        if (!isSensingBlocked)
+        if (!isSensingBlocked && ServerGameManager.Instance != null)
         {
+            string msgKey;
+            if (skillID == 17 || skillID == 18) // 全场/场地技能（重力场、戏法空间）
+            {
+                msgKey = $"KEY:MSG_SKILL_USE_ENEMY_ALL|{this.playerName}|{skillID}";
+            }
+            else if (target == this) // 对自身发动技能（感应、许愿、灵机、透支、反射壁等）
+            {
+                msgKey = $"KEY:MSG_SKILL_USE_ENEMY_SELF|{this.playerName}|{skillID}";
+            }
+            else // 对其他玩家或公共牌发动技能
+            {
+                string targetName = (target != null) ? target.playerName : "公共牌";
+                msgKey = $"KEY:MSG_SKILL_USE_ENEMY|{this.playerName}|{targetName}|{skillID}";
+            }
+
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
-                if (p != null && p.serverIsSensing && p != this)
-                    p.TargetReceiveSensingLog(p.connectionToClient, $"KEY:MSG_SKILL_USE_ENEMY|{this.playerName}|{targetName}|{skillID}");
+                bool isDirectCastTarget = (target != null && target != this && p == target && skill.CanBeResisted);
+                if (p != null && p.serverIsSensing && p != this && !isDirectCastTarget && p.connectionToClient != null)
+                    p.TargetReceiveSensingLog(p.connectionToClient, msgKey);
             }
         }
 
@@ -818,9 +872,9 @@ public class PokerPlayer : NetworkBehaviour
         int activeSkillCount = 0;
         foreach (int id in this.equippedSkills)
         {
-            if (id != 2) activeSkillCount++;
+            if (id != 1) activeSkillCount++; // 排除被动技能1【抵抗】，计算携带的主动技能数量
         }
-        bool isDoubleSkillMode = (activeSkillCount == 2);
+        bool isDoubleSkillMode = (activeSkillCount <= 2 && activeSkillCount > 0);
 
         if (target != this && target != null && skill.CanBeResisted)
         {
@@ -893,12 +947,12 @@ public class PokerPlayer : NetworkBehaviour
                     {
                         ServerGameManager.Instance.LogSkillEvent(this, target, targetType, skill.skillName, 3);
                     }
-                    if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_INTERGERE", 1);
+                    if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_INTERGERE", 6);
                     if (!isSensingBlocked)
                     {
                         foreach (var p in ServerGameManager.Instance.activePlayers)
                         {
-                            if (p != null && p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_INTERGERE");
+                            if (p != null && p.serverIsSensing && p != this && p.connectionToClient != null) p.TargetReceiveSensingLog(p.connectionToClient, "KEY:MSG_SKILL_USE_FAIL_INTERGERE");
                         }
                     }
                     yield break;
@@ -927,9 +981,9 @@ public class PokerPlayer : NetworkBehaviour
 
                 string reflectMsg = $"KEY:LOG_SKILL_REFLECT|{this.playerName}|{skillID}|{newTarget.playerName}";
 
-                if (target.connectionToClient != null) target.TargetReceiveSkillMessage(target.connectionToClient, reflectMsg, 8);
-                if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, reflectMsg, 8);
-                if (newTarget != this && newTarget.connectionToClient != null) newTarget.TargetReceiveSkillMessage(newTarget.connectionToClient, reflectMsg, 8);
+                if (target.connectionToClient != null) target.TargetReceiveSkillMessage(target.connectionToClient, reflectMsg, 19);
+                if (this.connectionToClient != null) TargetReceiveSkillMessage(this.connectionToClient, reflectMsg, 19);
+                if (newTarget != this && newTarget.connectionToClient != null) newTarget.TargetReceiveSkillMessage(newTarget.connectionToClient, reflectMsg, 19);
 
                 if (this.connectionToClient != null) TargetAddSkillLog(this.connectionToClient, reflectMsg);
                 if (target != this && target.connectionToClient != null) target.TargetAddSkillLog(target.connectionToClient, reflectMsg);
@@ -958,34 +1012,75 @@ public class PokerPlayer : NetworkBehaviour
             {
                 foreach (var p in ServerGameManager.Instance.activePlayers)
                 {
-                    if (p != null && p.serverIsSensing && p != this) p.TargetReceiveSensingLog(p.connectionToClient, $"KEY:MSG_SKILL_USE_SUCCESS_ENEMY|{this.playerName}|{skillID}");
+                    bool isDirectTarget = (p == target) || (skillID == 17 || skillID == 18) || (dualTargetType == 0 && dualTargetNetId != 0 && p.netId == dualTargetNetId);
+                    if (p != null && p.serverIsSensing && p != this && !isDirectTarget && p.connectionToClient != null)
+                    {
+                        p.TargetReceiveSensingLog(p.connectionToClient, $"KEY:MSG_SKILL_USE_SUCCESS_ENEMY|{this.playerName}|{skillID}");
+                    }
                 }
             }
             skill.Execute(this, target, targetType, targetIndex, ServerGameManager.Instance);
+
+            // 触发技能特效与音效 (VFX & SFX)
+            if (ServerGameManager.Instance != null)
+            {
+                uint tNetId = (target != null) ? target.netId : 0;
+                List<PokerPlayer> extraTargets = null;
+                if (skillID == 14 || skillID == 15) // 交换等双目标技能
+                {
+                    extraTargets = new List<PokerPlayer>();
+                    if (dualTargetType == 0 && dualTargetNetId != 0)
+                    {
+                        foreach (var ap in ServerGameManager.Instance.activePlayers)
+                        {
+                            if (ap != null && ap.netId == dualTargetNetId && ap != target)
+                            {
+                                extraTargets.Add(ap);
+                                break;
+                            }
+                        }
+                    }
+                }
+                ServerGameManager.Instance.ServerTriggerSkillVFX(skillID, this, targetType, targetIndex, tNetId, extraTargets);
+            }
 
             if (this.connectionToClient != null)
             {
                 TargetReceiveSkillMessage(this.connectionToClient, $"KEY:MSG_SKILL_USE_SUCCESS_SELF|{skillID}", skillID);
             }
-            if (target != null && target != this && target.connectionToClient != null)
+
+            if (skillID == 17 || skillID == 18) // 全场/场地技能：向场上所有其他玩家广播生效通知
+            {
+                if (ServerGameManager.Instance != null)
+                {
+                    foreach (var p in ServerGameManager.Instance.activePlayers)
+                    {
+                        if (p != null && p != this && p.connectionToClient != null)
+                        {
+                            p.TargetReceiveSkillMessage(p.connectionToClient, $"KEY:MSG_SKILL_USE_SUCCESS_ENEMY|{this.playerName}|{skillID}", skillID);
+                        }
+                    }
+                }
+            }
+            else if (target != null && target != this && target.connectionToClient != null)
             {
                 target.TargetReceiveSkillMessage(target.connectionToClient, $"KEY:MSG_SKILL_USE_SUCCESS_ENEMY|{this.playerName}|{skillID}", skillID);
             }
 
-            // 电池饰品触发：每当其他玩家使用技能时恢复一点能量（抵抗不算，本处即为成功释放）
+            // 磁线圈/电池饰品(ID:6)触发：每当其他玩家使用技能时恢复一点能量（抵抗不算，本处即为成功释放）
             if (ServerGameManager.Instance != null)
             {
                 int baseMax = ServerGameManager.Instance.maxEnergy;
                 foreach (var p in ServerGameManager.Instance.activePlayers)
                 {
-                    if (p != null && p != this && p.equippedTrinkets.Contains(7))
+                    if (p != null && p != this && p.equippedTrinkets.Contains(6))
                     {
                         int pMaxE = p.GetMaxEnergy(baseMax);
                         int oldE = p.energy;
                         p.energy = Mathf.Clamp(p.energy + 1, 0, pMaxE);
                         if (p.energy > oldE)
                         {
-                            Debug.Log($"[电池饰品] 玩家 [{p.playerName}] 因为 [{this.playerName}] 施放技能，能量恢复 1 点 (当前: {p.energy}/{pMaxE})");
+                            Debug.Log($"[磁线圈饰品] 玩家 [{p.playerName}] 因为 [{this.playerName}] 施放技能，能量恢复 1 点 (当前: {p.energy}/{pMaxE})");
                         }
                     }
                 }
@@ -1041,6 +1136,12 @@ public class PokerPlayer : NetworkBehaviour
 
             string resistBroadcastKey = $"KEY:MSG_SKILL_RESIST|{resister.playerName}|{this.playerName}|{currentCastingSkillID}";
 
+            // 触发抵抗特效与音效 (VFX & SFX)
+            if (ServerGameManager.Instance != null)
+            {
+                ServerGameManager.Instance.ServerTriggerResistVFX(resister, this, currentCastingSkillID);
+            }
+
             if (this.connectionToClient != null)
             {
                 TargetStopCastingUI(this.connectionToClient);
@@ -1057,7 +1158,7 @@ public class PokerPlayer : NetworkBehaviour
             foreach (var p in ServerGameManager.Instance.activePlayers)
             {
                 if (p == null) continue;
-                if (!isSensingBlocked && p.serverIsSensing && p != this && p != resister)
+                if (!isSensingBlocked && p.serverIsSensing && p != this && p != resister && p.connectionToClient != null)
                     p.TargetReceiveSensingLog(p.connectionToClient, resistBroadcastKey);
 
                 if (p.incomingAttacker == this)
@@ -1161,6 +1262,42 @@ public class PokerPlayer : NetworkBehaviour
     }
 
     [TargetRpc]
+    public void TargetPlaySkillVFX(NetworkConnectionToClient targetConn, int skillID, uint casterNetId, int targetType, int targetIndex, uint targetNetId)
+    {
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.effectManager != null)
+        {
+            GamePlayUI.Instance.effectManager.PlaySkillVFX(skillID, casterNetId, targetType, targetIndex, targetNetId);
+        }
+    }
+
+    [ClientRpc]
+    public void RpcPlaySkillVFX(int skillID, uint casterNetId, int targetType, int targetIndex, uint targetNetId)
+    {
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.effectManager != null)
+        {
+            GamePlayUI.Instance.effectManager.PlaySkillVFX(skillID, casterNetId, targetType, targetIndex, targetNetId);
+        }
+    }
+
+    [TargetRpc]
+    public void TargetPlayResistVFX(NetworkConnectionToClient targetConn, uint resisterNetId, uint attackerNetId, int skillID)
+    {
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.effectManager != null)
+        {
+            GamePlayUI.Instance.effectManager.PlayResistVFX(resisterNetId, attackerNetId, skillID);
+        }
+    }
+
+    [ClientRpc]
+    public void RpcPlayResistVFX(uint resisterNetId, uint attackerNetId, int skillID)
+    {
+        if (GamePlayUI.Instance != null && GamePlayUI.Instance.effectManager != null)
+        {
+            GamePlayUI.Instance.effectManager.PlayResistVFX(resisterNetId, attackerNetId, skillID);
+        }
+    }
+
+    [TargetRpc]
     public void TargetPeekSingleCard(NetworkConnectionToClient targetConn, int targetType, int targetIndex, uint ownerNetId, Card card, float duration)
     {
         if (GamePlayUI.Instance != null) GamePlayUI.Instance.ShowSpecificCardTemporarily(targetType, targetIndex, ownerNetId, card, duration);
@@ -1206,7 +1343,10 @@ public class PokerPlayer : NetworkBehaviour
     public void StartSensingBuff()
     {
         serverIsSensing = true;
-        TargetSetSensingState(this.connectionToClient, true);
+        if (this.connectionToClient != null)
+        {
+            TargetSetSensingState(this.connectionToClient, true);
+        }
     }
 
     [TargetRpc]
@@ -1228,7 +1368,7 @@ public class PokerPlayer : NetworkBehaviour
         if (this.connectionToClient != null)
         {
             TargetSetMindControlState(this.connectionToClient, true);
-            TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_MIND_CONTROLED", 9);
+            TargetReceiveSkillMessage(this.connectionToClient, "KEY:MSG_SKILL_MIND_CONTROLED", 20);
         }
     }
 

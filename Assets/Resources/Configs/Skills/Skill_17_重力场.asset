@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 121ff7a0062dd5e41aa0eb72a63afaa6, type: 3}
+  m_Name: "Skill_17_\u91CD\u529B\u573A"
+  m_EditorClassIdentifier: 
+  skillID: 17
+  skillName: "\u91CD\u529B\u573A"
+  skillIcon: {fileID: 21300000, guid: 28eaa1b24cbc06b4b8fc80fd1703a2b1, type: 3}
+  description: "\u8FD9\u5C40\u6E38\u620F\u573A\u4E0A\u80FD\u91CF\u6700\u9AD8\u7684\u73A9\u5BB6\u6240\u6709\u6280\u80FD\u80FD\u91CF\u6D88\u8017+2"
+  energyCost: 5
+  castTime: 4
+  skillType: 16
+  param1Value: 2
+  param2Value: 0
+  vfxVisibility: 3
+  vfxAnchor: 4
+  vfxPrefab: {fileID: 8330824531178251997, guid: ace04a54255799e4d9b9de3b8894c070, type: 3}
+  sfxClip: {fileID: 8300000, guid: aa1d5a062557cd743b1077f0ea11be06, type: 3}
+  vfxDuration: 1
+  vfxOffset: {x: 0, y: 0, z: 0}

@@ -166,12 +166,93 @@ public class ShopUI : MonoBehaviour
         if (tipsPanel != null) tipsPanel.SetActive(false);
     }
 
+    public bool IsItemAvailable(ShopItemData data)
+    {
+        if (data == null) return false;
+        if (PlayFabAuthManager.Instance != null)
+        {
+            if (data.tabType == ShopTabType.Skills && PlayFabAuthManager.Instance.IsSkillUnlocked(data.associatedId))
+            {
+                return false;
+            }
+            if (data.tabType == ShopTabType.Trinkets && PlayFabAuthManager.Instance.IsTrinketUnlocked(data.associatedId))
+            {
+                return false;
+            }
+            if (data.isUniqueUnlock && !string.IsNullOrEmpty(data.playFabItemId) && PlayFabAuthManager.Instance.IsItemUnlocked(data.playFabItemId))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public bool HasAvailableItemsInTab(ShopTabType tabType)
+    {
+        foreach (var data in allShopItems)
+        {
+            if (data.tabType != tabType) continue;
+            if (IsItemAvailable(data))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void UpdateTabButtonsVisibility()
+    {
+        bool currentTabStillValid = false;
+        ShopTabType firstValidTab = ShopTabType.GiftPackage;
+        bool foundFirstValid = false;
+
+        for (int i = 0; i < tabButtons.Length; i++)
+        {
+            if (tabButtons[i] == null) continue;
+            ShopTabType tab = (ShopTabType)i;
+            bool hasItems = HasAvailableItemsInTab(tab);
+            tabButtons[i].gameObject.SetActive(hasItems);
+
+            if (hasItems)
+            {
+                if (!foundFirstValid)
+                {
+                    firstValidTab = tab;
+                    foundFirstValid = true;
+                }
+                if (tab == currentTab)
+                {
+                    currentTabStillValid = true;
+                }
+            }
+        }
+
+        // 如果当前页签已经卖空被隐藏，自动平滑切换到第一个有效页签
+        if (!currentTabStillValid && foundFirstValid)
+        {
+            SwitchTab(firstValidTab);
+        }
+    }
+
     public void OpenShop()
     {
         if (shopPanel != null)
         {
             shopPanel.SetActive(true);
-            SwitchTab(ShopTabType.GiftPackage); // 默认打开第一个礼包页签
+            UpdateTabButtonsVisibility();
+
+            // 寻找当前第一个可见的有效页签
+            ShopTabType targetTab = ShopTabType.GiftPackage;
+            for (int i = 0; i < tabButtons.Length; i++)
+            {
+                if (tabButtons[i] != null && tabButtons[i].gameObject.activeSelf)
+                {
+                    targetTab = (ShopTabType)i;
+                    break;
+                }
+            }
+
+            SwitchTab(targetTab);
             UILayoutUtils.ForceRebuildAllLayoutsImmediate(shopPanel.transform);
             StartCoroutine(UILayoutUtils.RebuildLayoutAtEndOfFrame(shopPanel.transform));
         }
@@ -186,13 +267,13 @@ public class ShopUI : MonoBehaviour
     {
         currentTab = tabType;
 
-        // 高亮选中页签（例如改变页签按钮的缩放或透明度，让玩家有反馈）
+        // 更新页签状态，保持各按钮标准尺寸稳定不抖动
         for (int i = 0; i < tabButtons.Length; i++)
         {
             if (tabButtons[i] == null) continue;
             bool isSelected = (i == (int)currentTab);
-            // 改变页签透明度或状态（这里直接用 CanvasGroup 或者缩放做简单效果）
-            tabButtons[i].transform.localScale = isSelected ? new Vector3(1.05f, 1.05f, 1f) : new Vector3(0.95f, 0.95f, 1f);
+            tabButtons[i].interactable = !isSelected;
+            tabButtons[i].transform.localScale = Vector3.one;
         }
 
         RefreshProducts();
@@ -202,7 +283,10 @@ public class ShopUI : MonoBehaviour
     {
         Debug.Log($"[ShopUI] Starting RefreshProducts. Current Tab: {currentTab}, Total Items In Database: {allShopItems.Count}");
 
-        // 1. 清理原有的商品项
+        // 1. 刷新所有页签按钮的显隐状态（全部卖光的页签自动隐藏）
+        UpdateTabButtonsVisibility();
+
+        // 2. 清理原有的商品项
         if (productContainer != null)
         {
             foreach (Transform child in productContainer)
@@ -218,10 +302,10 @@ public class ShopUI : MonoBehaviour
             }
         }
 
-        // 2. 刷新顶部持有的虚拟资产余额
+        // 3. 刷新顶部持有的虚拟资产余额
         UpdateCurrencyDisplay();
 
-        // 3. 确定当前实例化要挂载的容器
+        // 4. 确定当前实例化要挂载的容器
         Transform containerToUse = productContainer;
         if (currentTab == ShopTabType.GiftPackage && bundleContainer != null)
         {
@@ -229,27 +313,16 @@ public class ShopUI : MonoBehaviour
         }
         Debug.Log($"[ShopUI] Selected container for tab {currentTab}: {(containerToUse != null ? containerToUse.name : "null")}");
 
-        // 4. 动态实例化当前页签对应的商品
+        // 5. 动态实例化当前页签对应的商品
         int instantiatedCount = 0;
         foreach (var data in allShopItems)
         {
             if (data.tabType != currentTab) continue;
 
-            // 判断是否已解锁拥有（技能、饰品/道具以及一次性商品，已拥有则直接在列表中移除）
-            if (PlayFabAuthManager.Instance != null)
+            // 判断是否已解锁拥有（已拥有则直接跳过不生成）
+            if (!IsItemAvailable(data))
             {
-                if (data.tabType == ShopTabType.Skills && PlayFabAuthManager.Instance.IsSkillUnlocked(data.associatedId))
-                {
-                    continue;
-                }
-                if (data.tabType == ShopTabType.Trinkets && PlayFabAuthManager.Instance.IsTrinketUnlocked(data.associatedId))
-                {
-                    continue;
-                }
-                if (data.isUniqueUnlock && !string.IsNullOrEmpty(data.playFabItemId) && PlayFabAuthManager.Instance.IsItemUnlocked(data.playFabItemId))
-                {
-                    continue;
-                }
+                continue;
             }
 
             // 自动加载技能/饰品的名称、描述、图标数据，避免重复在 Inspector 配置
@@ -399,7 +472,7 @@ public class ShopUI : MonoBehaviour
             string itemName = data.GetLocalizedName();
             if (data.costCurrency == ShopCurrencyType.FREE)
             {
-                string format = LocalizationManager.GetText("UI_SHOP_BUY_CONFIRM_FREE", "是否确认免费获取 [{0}]？");
+                string format = LocalizationManager.GetText("UI_SHOP_FREE", "是否确认免费购买[{0}]？");
                 txtConfirmMsg.text = string.Format(format, itemName);
             }
             else

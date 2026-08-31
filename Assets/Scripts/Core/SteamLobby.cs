@@ -63,6 +63,16 @@ public class SteamLobby : MonoBehaviour
     {
         if (currentLobbyId.m_SteamID != 0)
         {
+            if (SteamManager.Initialized)
+            {
+                CSteamID ownerId = SteamMatchmaking.GetLobbyOwner(currentLobbyId);
+                if (ownerId == SteamUser.GetSteamID())
+                {
+                    SteamMatchmaking.SetLobbyJoinable(currentLobbyId, false);
+                    SteamMatchmaking.SetLobbyData(currentLobbyId, "game_signature", "Closed");
+                    SteamMatchmaking.SetLobbyData(currentLobbyId, HostAddressKey, "");
+                }
+            }
             SteamMatchmaking.LeaveLobby(currentLobbyId);
             Debug.Log($"Leaving Steam lobby: {currentLobbyId.m_SteamID}");
             currentLobbyId = new CSteamID(0);
@@ -226,15 +236,21 @@ public class SteamLobby : MonoBehaviour
         for (int i = 0; i < callback.m_nLobbiesMatching; i++)
         {
             CSteamID lobbyId = SteamMatchmaking.GetLobbyByIndex(i);
-            
-            string hostName = SteamMatchmaking.GetLobbyData(lobbyId, "name");
-            if (string.IsNullOrEmpty(hostName)) hostName = "未知房间";
-            
-            string hostAddressStr = SteamMatchmaking.GetLobbyData(lobbyId, HostAddressKey);
-            ulong hostSteamId = 0;
-            ulong.TryParse(hostAddressStr, out hostSteamId);
+
+            string gameSig = SteamMatchmaking.GetLobbyData(lobbyId, "game_signature");
+            if (gameSig != "PsychicTexasHoldem") continue;
 
             int memberCount = SteamMatchmaking.GetNumLobbyMembers(lobbyId);
+            if (memberCount <= 0) continue;
+
+            string hostAddressStr = SteamMatchmaking.GetLobbyData(lobbyId, HostAddressKey);
+            if (string.IsNullOrEmpty(hostAddressStr) || hostAddressStr == "0") continue;
+            ulong hostSteamId = 0;
+            ulong.TryParse(hostAddressStr, out hostSteamId);
+            if (hostSteamId == 0) continue;
+
+            string hostName = SteamMatchmaking.GetLobbyData(lobbyId, "name");
+            if (string.IsNullOrEmpty(hostName)) hostName = "未知房间";
 
             string mode = SteamMatchmaking.GetLobbyData(lobbyId, "mode");
             if (string.IsNullOrEmpty(mode)) mode = "常规";

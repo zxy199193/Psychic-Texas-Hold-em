@@ -29,6 +29,12 @@ public class LobbyUIManager : MonoBehaviour
     public Transform rewardItemsContainer;    // 存放奖励项的容器 Content Grid
     public GameObject rewardItemPrefab;       // 单个奖励项的 Prefab
 
+    [Header("Universal Notice / Message Popup Settings")]
+    public GameObject noticePopupPanel;      // 提示弹窗根节点
+    public UnityEngine.UI.Text txtNoticeTitle; // 弹窗标题
+    public UnityEngine.UI.Text txtNoticeContent; // 弹窗正文内容
+    public UnityEngine.UI.Button btnNoticeConfirm; // 确认按钮
+
     private void Awake()
     {
 #if UNITY_SERVER
@@ -49,6 +55,11 @@ public class LobbyUIManager : MonoBehaviour
             Debug.LogError("[LobbyUIManager] NetworkManager not found in scene!");
         }
 #endif
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas != null && canvas.GetComponent<ResolutionAdapter>() == null)
+        {
+            canvas.gameObject.AddComponent<ResolutionAdapter>();
+        }
     }
 
     private void Start()
@@ -64,11 +75,28 @@ public class LobbyUIManager : MonoBehaviour
         PlayFabAuthManager.OnCurrencyUpdated += OnCurrencyOrInventoryUpdated;
         PlayFabAuthManager.OnLoginFailed += OnPlayFabSyncFailed;
         LocalizationManager.OnLanguageChanged += OnLanguageChanged;
+        Mirror.NetworkClient.OnDisconnectedEvent += OnClientDisconnectedFromServer;
 
         // 如果当前还未登录，则启动时显示 Loading 遮罩
         if (loadingPanel != null && PlayFabAuthManager.Instance != null && !PlayFabAuthManager.Instance.isLoggedIn)
         {
             loadingPanel.SetActive(true);
+        }
+
+        // 自动绑定提示弹窗确认按钮
+        if (noticePopupPanel != null)
+        {
+            if (btnNoticeConfirm == null)
+            {
+                Transform confirmTrans = DeepFind(noticePopupPanel.transform, "Btn Confirm") ?? DeepFind(noticePopupPanel.transform, "Button");
+                if (confirmTrans != null) btnNoticeConfirm = confirmTrans.GetComponent<UnityEngine.UI.Button>();
+            }
+            if (btnNoticeConfirm != null)
+            {
+                btnNoticeConfirm.onClick.RemoveAllListeners();
+                btnNoticeConfirm.onClick.AddListener(() => noticePopupPanel.SetActive(false));
+            }
+            noticePopupPanel.SetActive(false);
         }
 
         // 自动绑定奖励弹窗关闭确认按钮
@@ -111,6 +139,7 @@ public class LobbyUIManager : MonoBehaviour
         PlayFabAuthManager.OnCurrencyUpdated -= OnCurrencyOrInventoryUpdated;
         PlayFabAuthManager.OnLoginFailed -= OnPlayFabSyncFailed;
         LocalizationManager.OnLanguageChanged -= OnLanguageChanged;
+        Mirror.NetworkClient.OnDisconnectedEvent -= OnClientDisconnectedFromServer;
     }
 
     private void OnLanguageChanged()
@@ -276,6 +305,7 @@ public class LobbyUIManager : MonoBehaviour
         if (lobbyUI != null && lobbyUI.roomListPanel != null)
         {
             lobbyUI.roomListPanel.SetActive(true);
+            lobbyUI.StartAutoRefresh();
             if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(false);
         }
 
@@ -290,6 +320,7 @@ public class LobbyUIManager : MonoBehaviour
     {
         if (lobbyUI != null && lobbyUI.roomListPanel != null)
         {
+            lobbyUI.StopAutoRefresh();
             lobbyUI.roomListPanel.SetActive(false);
             if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(true);
         }
@@ -307,20 +338,40 @@ public class LobbyUIManager : MonoBehaviour
 
     public void OnBtnLobbyBackClicked()
     {
-        if (PokerPlayer.LocalPlayer != null)
+        bool isHost = PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isRoomHost;
+
+        if (PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isReady)
         {
-            if (PokerPlayer.LocalPlayer.isReady)
-            {
-                PokerPlayer.LocalPlayer.CmdToggleReady(); // 取消准备
-            }
+            PokerPlayer.LocalPlayer.CmdToggleReady(); // 取消准备
         }
 
+        // 1. 如果是房主解散房间，先设置房间为不可加入并修改签名，防止被大厅搜索到幽灵房间
+        if (isHost && SteamLobby.Instance != null && SteamManager.Initialized && SteamLobby.Instance.currentLobbyId.m_SteamID != 0)
+        {
+            SteamMatchmaking.SetLobbyJoinable(SteamLobby.Instance.currentLobbyId, false);
+            SteamMatchmaking.SetLobbyData(SteamLobby.Instance.currentLobbyId, "game_signature", "Closed");
+            SteamMatchmaking.SetLobbyData(SteamLobby.Instance.currentLobbyId, "HostAddress", "");
+        }
+
+        // 2. 如果是房主，在关服前给所有客户端发送解散房间的 RPC 通知，让客户端弹出提示并同步退回大厅
+        if (isHost && PokerPlayer.LocalPlayer != null && PokerPlayer.LocalPlayer.isServer)
+        {
+            PokerPlayer.LocalPlayer.RpcRoomDissolved();
+        }
+
+        // 3. 离开 Steam 大厅
         if (SteamLobby.Instance != null)
         {
             SteamLobby.Instance.LeaveLobby();
         }
 
-        // 退出房间 (Mirror 网络链接断开)
+        // 4. 强制停止所有可能正在循环播放的技能音效与倒计时音效
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.StopAllLoopingSounds();
+        }
+
+        // 5. 退出 Mirror 网络连接
         if (Mirror.NetworkServer.active && Mirror.NetworkClient.isConnected)
         {
             Mirror.NetworkManager.singleton.StopHost();
@@ -330,21 +381,33 @@ public class LobbyUIManager : MonoBehaviour
             Mirror.NetworkManager.singleton.StopClient();
         }
 
-        // 返回大厅/房间列表 UI 并刷新列表
+        // 6. 本地重置 UI 并刷新大厅
+        ResetToLobbyRoomList(true);
+    }
+
+    public void ResetToLobbyRoomList(bool requestRefreshLobby = true)
+    {
         if (roomUI != null)
         {
             roomUI.ClearLobbyReadyPlayers();
+            if (roomUI.halftimeStatsWindow != null) roomUI.halftimeStatsWindow.SetActive(false);
+            if (roomUI.lobbyUIGroup != null) roomUI.lobbyUIGroup.SetActive(false);
+            if (roomUI.txtPlayerCount != null) roomUI.txtPlayerCount.gameObject.SetActive(false);
+            if (roomUI.btnLobbyReady != null) roomUI.btnLobbyReady.gameObject.SetActive(false);
+            if (roomUI.btnStartGame != null) roomUI.btnStartGame.gameObject.SetActive(false);
+            if (roomUI.btnHalftimeStats != null) roomUI.btnHalftimeStats.gameObject.SetActive(false);
         }
         if (GamePlayUI.Instance != null)
         {
             GamePlayUI.Instance.ResetAllGameplayUI();
+            if (GamePlayUI.Instance.inGameRankingWindow != null) GamePlayUI.Instance.inGameRankingWindow.SetActive(false);
         }
-        if (roomUI != null && roomUI.lobbyUIGroup != null) roomUI.lobbyUIGroup.SetActive(false);
         if (lobbyUI != null && lobbyUI.roomListPanel != null)
         {
             lobbyUI.roomListPanel.SetActive(true);
+            lobbyUI.StartAutoRefresh();
             if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(false);
-            if (SteamLobby.Instance != null)
+            if (requestRefreshLobby && SteamLobby.Instance != null)
             {
                 SteamLobby.Instance.RequestLobbyList();
             }
@@ -359,23 +422,64 @@ public class LobbyUIManager : MonoBehaviour
         {
             PlayFabAuthManager.Instance.GetUserChips();
         }
-        
+
+        // 清空之前房间选择的技能和道具配置，恢复默认
+        ResetLocalSelectedSkillsAndTrinkets();
+
         // 重置大厅 UI 状态
         if (mainMenuUI != null)
         {
             if (mainMenuUI.btnJoinRoom != null) mainMenuUI.btnJoinRoom.gameObject.SetActive(true);
             if (mainMenuUI.btnExitGame != null) mainMenuUI.btnExitGame.gameObject.SetActive(true);
         }
-        if (roomUI != null)
+    }
+
+    private void OnClientDisconnectedFromServer()
+    {
+        if (Mirror.NetworkServer.active) return; // 服务器端/房主自身不触发断开提示
+
+        bool wasInRoomOrGame = (roomUI != null && roomUI.lobbyUIGroup != null && roomUI.lobbyUIGroup.activeSelf)
+            || (GamePlayUI.Instance != null && GamePlayUI.Instance.gameObject.activeSelf);
+
+        if (SteamLobby.Instance != null && SteamLobby.Instance.currentLobbyId.m_SteamID != 0)
         {
-            if (roomUI.txtPlayerCount != null) roomUI.txtPlayerCount.gameObject.SetActive(false);
-            if (roomUI.btnLobbyReady != null) roomUI.btnLobbyReady.gameObject.SetActive(false);
-            if (roomUI.btnStartGame != null) roomUI.btnStartGame.gameObject.SetActive(false);
+            SteamLobby.Instance.LeaveLobby();
         }
+
+        ResetToLobbyRoomList(true);
+
+        if (wasInRoomOrGame)
+        {
+            string title = LocalizationManager.GetText("UI_ROOM_DISSOLVED_TITLE", "房间解散");
+            string msg = LocalizationManager.GetText("UI_ROOM_DISSOLVED_MSG", "房主已离开房间，房间已解散。");
+            ShowNoticePopup(title, msg);
+        }
+    }
+
+    public void ResetLocalSelectedSkillsAndTrinkets()
+    {
+        localSelectedSkills.Clear();
+        // 固有技能：抵抗(1)与感应(2)默认自动选中
+        localSelectedSkills.Add(1);
+        localSelectedSkills.Add(2);
+
+        localSelectedTrinkets.Clear();
+
+        if (PokerPlayer.LocalPlayer != null)
+        {
+            PokerPlayer.LocalPlayer.CmdUpdateEquippedSkills(localSelectedSkills.ToArray());
+            PokerPlayer.LocalPlayer.CmdUpdateEquippedTrinkets(localSelectedTrinkets.ToArray());
+        }
+
+        UpdateSelectedCountText();
+        UpdateSelectedTrinketCountText();
+        RefreshSelectedSkillIconsPreview();
+        RefreshSelectedTrinketIconsPreview();
     }
 
     public void SetupLobbyUI(bool isHost)
     {
+        if (lobbyUI != null) lobbyUI.StopAutoRefresh();
         if (mainMenuUI != null && mainMenuUI.mainMenuPanel != null) mainMenuUI.mainMenuPanel.SetActive(true);
         if (mainMenuUI != null)
         {
@@ -402,6 +506,9 @@ public class LobbyUIManager : MonoBehaviour
                 UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(roomUI.txtLobbyRoomName.transform.parent.GetComponent<RectTransform>());
             }
         }
+
+        // 创建新房间或加入新房间时，彻底清空上一局残留的技能与道具
+        ResetLocalSelectedSkillsAndTrinkets();
 
         // 重新同步并刷新大厅的技能与饰品锁状态
         InitLobbySkillSelection();
@@ -876,6 +983,68 @@ public class LobbyUIManager : MonoBehaviour
         if (rewardPopupPanel != null)
         {
             rewardPopupPanel.SetActive(false);
+        }
+    }
+
+    public void ShowNoticePopup(string title = "", string content = "", System.Action onConfirm = null)
+    {
+        // 1. 优先检查并打开 LobbyUI 下挂载的专属解散弹窗
+        if (lobbyUI != null && lobbyUI.roomDissolvedPopup != null)
+        {
+            lobbyUI.ShowRoomDissolvedPopup();
+            return;
+        }
+
+        // 2. 检查专用 Notice 弹窗
+        if (noticePopupPanel != null)
+        {
+            if (txtNoticeTitle != null) txtNoticeTitle.text = title;
+            if (txtNoticeContent != null) txtNoticeContent.text = content;
+            if (btnNoticeConfirm != null)
+            {
+                btnNoticeConfirm.onClick.RemoveAllListeners();
+                btnNoticeConfirm.onClick.AddListener(() =>
+                {
+                    noticePopupPanel.SetActive(false);
+                    onConfirm?.Invoke();
+                });
+            }
+            noticePopupPanel.SetActive(true);
+            noticePopupPanel.transform.SetAsLastSibling();
+            return;
+        }
+
+        // 回退使用通用 RewardPopupPanel 显示单文本信息弹窗
+        if (rewardPopupPanel != null)
+        {
+            CancelInvoke("HideRewardPopup");
+            if (txtRewardTitle != null) txtRewardTitle.text = title;
+            if (txtRewardSpecialDesc != null)
+            {
+                txtRewardSpecialDesc.gameObject.SetActive(true);
+                txtRewardSpecialDesc.text = content;
+            }
+            if (rewardItemsContainer != null)
+            {
+                ClearArea(rewardItemsContainer);
+            }
+
+            Transform confirmBtnTrans = DeepFind(rewardPopupPanel.transform, "Btn Confirm") ?? DeepFind(rewardPopupPanel.transform, "Button");
+            if (confirmBtnTrans != null)
+            {
+                var btn = confirmBtnTrans.GetComponent<UnityEngine.UI.Button>();
+                if (btn != null)
+                {
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() =>
+                    {
+                        rewardPopupPanel.SetActive(false);
+                        onConfirm?.Invoke();
+                    });
+                }
+            }
+            rewardPopupPanel.SetActive(true);
+            rewardPopupPanel.transform.SetAsLastSibling();
         }
     }
 }

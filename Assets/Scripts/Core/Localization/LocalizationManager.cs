@@ -26,8 +26,8 @@ public class LocalizationKeyValue
 public class LocalizationManager : MonoBehaviour
 {
     private const string PrefKey = "APP_LANGUAGE";
-    private const string ResourcePath = "Localization/localization_data";
-    private const string FontSettingsResourcePath = "Localization/LocalizationFontSettings";
+    private const string ResourcePath = "Configs/Localization/localization_data";
+    private const string FontSettingsResourcePath = "Configs/Localization/LocalizationFontSettings";
 
     public const string LANG_ZH_CN = "zh_CN";
     public const string LANG_EN_US = "en_US";
@@ -113,10 +113,10 @@ public class LocalizationManager : MonoBehaviour
 
 #if UNITY_EDITOR
         // 2. 编辑器模式下直接从 Configs 路径加载
-        fontSettings = UnityEditor.AssetDatabase.LoadAssetAtPath<LocalizationFontSettingsSO>("Assets/Configs/Localization/LocalizationFontSettings.asset");
+        fontSettings = UnityEditor.AssetDatabase.LoadAssetAtPath<LocalizationFontSettingsSO>("Assets/Resources/Configs/Localization/LocalizationFontSettings.asset");
         if (fontSettings != null)
         {
-            Debug.Log("[LocalizationManager] 🔤 成功从 Assets/Configs/Localization/ 加载多语言字体配置资产！");
+            Debug.Log("[LocalizationManager] 🔤 成功从 Assets/Resources/Configs/Localization/ 加载多语言字体配置资产！");
             return;
         }
 #endif
@@ -146,7 +146,7 @@ public class LocalizationManager : MonoBehaviour
         // 2. 编辑器模式下直接从 Configs 路径加载
         if (jsonAsset == null)
         {
-            jsonAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Configs/Localization/localization_data.json");
+            jsonAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Resources/Configs/Localization/localization_data.json");
         }
 #endif
 
@@ -357,8 +357,11 @@ public class LocalizationManager : MonoBehaviour
         return GetFontForLanguage(currentLanguage);
     }
 
+    private static Font cachedFallbackZhFont;
+    private static Font cachedFallbackEnFont;
+
     /// <summary>
-    /// 根据语言代码获取对应的字体配置（未配置专属字体时返回全局默认备用字体）
+    /// 根据语言代码获取对应的字体配置（未配置专属字体时返回全局默认备用字体或 Resources 兜底字体）
     /// </summary>
     public static Font GetFontForLanguage(string langCode)
     {
@@ -366,9 +369,25 @@ public class LocalizationManager : MonoBehaviour
 
         if (fontSettings != null)
         {
-            return fontSettings.GetFont(langCode);
+            Font f = fontSettings.GetFont(langCode);
+            if (f != null) return f;
         }
-        return null;
+
+        // 终极保底：若 ScriptableObject 未能加载成功，直接从 Resources/Font 读取对应字体
+        if (string.Equals(langCode, LANG_EN_US, StringComparison.OrdinalIgnoreCase))
+        {
+            if (cachedFallbackEnFont == null)
+            {
+                cachedFallbackEnFont = Resources.Load<Font>("Font/Oswald-VariableFont_wght");
+            }
+            if (cachedFallbackEnFont != null) return cachedFallbackEnFont;
+        }
+
+        if (cachedFallbackZhFont == null)
+        {
+            cachedFallbackZhFont = Resources.Load<Font>("Font/msyh");
+        }
+        return cachedFallbackZhFont;
     }
 
     /// <summary>

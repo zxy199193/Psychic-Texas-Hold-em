@@ -227,7 +227,7 @@ data = [
 ]
 
 # 1. 写入 CSV (UTF-8 with BOM or UTF-8 clean)
-csv_dir = "Assets/Configs/Localization"
+csv_dir = "Assets/Resources/Configs/Localization"
 os.makedirs(csv_dir, exist_ok=True)
 csv_path = os.path.join(csv_dir, "Localization.csv")
 

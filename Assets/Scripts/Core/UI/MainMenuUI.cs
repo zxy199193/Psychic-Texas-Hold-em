@@ -135,7 +135,17 @@ public class MainMenuUI : MonoBehaviour
         }
 
         PlayFabAuthManager.OnCurrencyUpdated += RefreshAchievementRedDot;
+        PlayFabAuthManager.OnCurrencyUpdated += RefreshCurrencyDisplay;
         RefreshAchievementRedDot();
+        RefreshCurrencyDisplay();
+    }
+
+    public void RefreshCurrencyDisplay()
+    {
+        int chips = PlayFabAuthManager.Instance != null ? PlayFabAuthManager.Instance.myChipsBalance : 0;
+        int diamonds = PlayFabAuthManager.Instance != null ? PlayFabAuthManager.Instance.myDiamondsBalance : 0;
+        UpdateChipsText(chips);
+        UpdateDiamondsText(diamonds);
     }
 
     private void OnBtnJoinRoomClicked()
@@ -178,6 +188,7 @@ public class MainMenuUI : MonoBehaviour
     {
         PlayFabAuthManager.OnDailyRewardChecked -= OnDailyRewardChecked;
         PlayFabAuthManager.OnCurrencyUpdated -= RefreshAchievementRedDot;
+        PlayFabAuthManager.OnCurrencyUpdated -= RefreshCurrencyDisplay;
     }
 
     private void OnDailyRewardChecked(int offlineDiamonds, bool claimAvailable)
@@ -188,11 +199,11 @@ public class MainMenuUI : MonoBehaviour
             if (lobbyUIMgr != null)
             {
                 string diamondName = LocalizationManager.GetText("UI_SHOP_DIAMOND", "钻石");
-                string popupTitle = LocalizationManager.GetText("UI_POPUP_TITLE_REWARD", "获得奖励");
+                string popupTitle = LocalizationManager.GetText("UI_MAIN_FREE_DIAMOND_REWARD", "获得奖励");
                 var rewardList = new List<LobbyUIManager.RewardItemData> {
                     new LobbyUIManager.RewardItemData(diamondName, lobbyUIMgr.spriteDiamond, offlineDiamonds, true)
                 };
-                string descFormat = LocalizationManager.GetText("UI_DAILY_REWARD_OFFLINE_ACCUMULATED", "已累积 {0} 日每日奖励，共计 {1} {2}");
+                string descFormat = LocalizationManager.GetText("UI_MAIN_FREE_DIAMOND_OFFLINE", "已累积 {0} 日每日奖励，共计 {1} {2}");
                 string desc = string.Format(descFormat, offlineDays, offlineDiamonds, diamondName);
                 lobbyUIMgr.ShowRewardPopup(popupTitle, rewardList, desc);
             }
@@ -225,7 +236,7 @@ public class MainMenuUI : MonoBehaviour
             {
                 btnText.text = claimAvailable
                     ? LocalizationManager.GetText("UI_MAIN_FREE_DIAMOND", "每日奖励")
-                    : LocalizationManager.GetText("UI_MAIN_FREE_DIAMOND_CLAIMED", "已领取");
+                    : LocalizationManager.GetText("UI_MAIN_FREE_DIAMOND_CLAIMED", "已领取今日钻石奖励");
             }
         }
     }
@@ -244,7 +255,7 @@ public class MainMenuUI : MonoBehaviour
                 if (lobbyUIMgr != null)
                 {
                     string diamondName = LocalizationManager.GetText("UI_SHOP_DIAMOND", "钻石");
-                    string popupTitle = LocalizationManager.GetText("UI_POPUP_TITLE_REWARD", "获得奖励");
+                    string popupTitle = LocalizationManager.GetText("UI_MAIN_FREE_DIAMOND_REWARD", "获得奖励");
                     var rewardList = new List<LobbyUIManager.RewardItemData> {
                         new LobbyUIManager.RewardItemData(diamondName, lobbyUIMgr.spriteDiamond, 50, true)
                     };

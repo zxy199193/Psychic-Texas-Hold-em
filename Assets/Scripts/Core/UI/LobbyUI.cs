@@ -18,9 +18,28 @@ public class LobbyUI : MonoBehaviour
     [Header("Buttons")]
     public Button btnCloseRoomList;
     public Button btnLobbyCreateRoom;
+    public Button btnRefreshRoomList; // 手动刷新按钮（可选）
+
+    [Header("Auto Refresh Settings")]
+    public float refreshInterval = 3f; // 自动刷新间隔（秒）
+
+    [Header("Room Dissolved Notice Popup")]
+    public GameObject roomDissolvedPopup;
+    public Button btnCloseRoomDissolved;
 
     private GamePlayUI UIMgr => GamePlayUI.Instance;
     private LobbyUIManager lobbyUIMgr;
+    private Coroutine autoRefreshCoroutine;
+
+    private void OnEnable()
+    {
+        StartAutoRefresh();
+    }
+
+    private void OnDisable()
+    {
+        StopAutoRefresh();
+    }
 
     public void Initialize(LobbyUIManager lobbyUIMgr)
     {
@@ -36,6 +55,73 @@ public class LobbyUI : MonoBehaviour
         {
             btnLobbyCreateRoom.onClick.RemoveAllListeners();
             btnLobbyCreateRoom.onClick.AddListener(OnBtnLobbyCreateRoomClicked);
+        }
+
+        if (btnRefreshRoomList != null)
+        {
+            btnRefreshRoomList.onClick.RemoveAllListeners();
+            btnRefreshRoomList.onClick.AddListener(() =>
+            {
+                if (SteamLobby.Instance != null && SteamManager.Initialized)
+                {
+                    SteamLobby.Instance.RequestLobbyList();
+                }
+            });
+        }
+
+        if (btnCloseRoomDissolved != null)
+        {
+            btnCloseRoomDissolved.onClick.RemoveAllListeners();
+            btnCloseRoomDissolved.onClick.AddListener(() =>
+            {
+                if (roomDissolvedPopup != null) roomDissolvedPopup.SetActive(false);
+            });
+        }
+        if (roomDissolvedPopup != null) roomDissolvedPopup.SetActive(false);
+    }
+
+    public void StartAutoRefresh()
+    {
+        StopAutoRefresh();
+        if (gameObject.activeInHierarchy)
+        {
+            autoRefreshCoroutine = StartCoroutine(AutoRefreshRoutine());
+        }
+    }
+
+    public void StopAutoRefresh()
+    {
+        if (autoRefreshCoroutine != null)
+        {
+            StopCoroutine(autoRefreshCoroutine);
+            autoRefreshCoroutine = null;
+        }
+    }
+
+    private System.Collections.IEnumerator AutoRefreshRoutine()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(refreshInterval);
+
+            // 只有当房间列表面板处于打开状态，且玩家当前不在房间或游戏中时，才自动轮询刷新
+            bool inRoom = lobbyUIMgr != null && lobbyUIMgr.roomUI != null && lobbyUIMgr.roomUI.lobbyUIGroup != null && lobbyUIMgr.roomUI.lobbyUIGroup.activeSelf;
+            if (roomListPanel != null && roomListPanel.activeInHierarchy && !inRoom)
+            {
+                if (SteamLobby.Instance != null && SteamManager.Initialized)
+                {
+                    SteamLobby.Instance.RequestLobbyList();
+                }
+            }
+        }
+    }
+
+    public void ShowRoomDissolvedPopup()
+    {
+        if (roomDissolvedPopup != null)
+        {
+            roomDissolvedPopup.SetActive(true);
+            roomDissolvedPopup.transform.SetAsLastSibling();
         }
     }
 

@@ -360,7 +360,6 @@ public class ResonanceSkill : BaseSkill
         var casterResult = HandEvaluator.GetBestHand(caster.serverHand, serverContext.serverCommunityCards, serverContext.isShortDeckMode);
         HandEvaluator.HandRank casterRank = casterResult.rank;
 
-        bool triggeredAny = false;
         foreach (var p in serverContext.activePlayers)
         {
             if (p != null && p != caster && !p.isFolded)
@@ -372,7 +371,6 @@ public class ResonanceSkill : BaseSkill
                     {
                         caster.TargetTriggerResonanceBlink(caster.connectionToClient, p.netId, 3.0f);
                     }
-                    triggeredAny = true;
                 }
             }
         }

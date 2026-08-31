@@ -219,6 +219,6 @@ TIP_CLAIM_NOT_MET,该成就尚未达成，请继续加油！,Achievement require
 "@
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[System.IO.Directory]::CreateDirectory("Assets/Configs/Localization")
-[System.IO.File]::WriteAllText("Assets/Configs/Localization/Localization.csv", $csvContent, $utf8NoBom)
+[System.IO.Directory]::CreateDirectory("Assets/Resources/Configs/Localization")
+[System.IO.File]::WriteAllText("Assets/Resources/Configs/Localization/Localization.csv", $csvContent, $utf8NoBom)
 Write-Host "CSV generated with UTF8 successfully."

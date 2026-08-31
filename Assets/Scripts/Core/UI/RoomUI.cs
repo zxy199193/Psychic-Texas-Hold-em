@@ -103,14 +103,6 @@ public class RoomUI : MonoBehaviour
             btnStartGame.onClick.RemoveAllListeners();
             btnStartGame.onClick.AddListener(OnBtnStartGameClicked);
         }
-
-        // 【运行时重算父级】：将中场统计排行界面动态转移到 GamePlayUI Canvas 下面
-        // 这样在游戏对局中 roomPanel (lobbyUIGroup) 被设为 inactive 时，排行面板依然能够独立正常显示
-        if (halftimeStatsWindow != null && UIMgr != null)
-        {
-            halftimeStatsWindow.transform.SetParent(UIMgr.transform, false);
-            halftimeStatsWindow.transform.SetAsLastSibling();
-        }
     }
 
     private void OnBtnLobbyBackClicked()
@@ -131,6 +123,7 @@ public class RoomUI : MonoBehaviour
             halftimeStatsWindow.SetActive(nextState);
             if (nextState)
             {
+                halftimeStatsWindow.transform.SetAsLastSibling();
                 RefreshHalftimeStatsWindow();
             }
         }
@@ -379,6 +372,7 @@ public class RoomUI : MonoBehaviour
     {
         if (halftimeStatsWindow != null)
         {
+            halftimeStatsWindow.transform.SetAsLastSibling();
             halftimeStatsWindow.SetActive(true);
             RefreshHalftimeStatsWindow();
         }

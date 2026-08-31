@@ -32,6 +32,7 @@ public class AudioManager : MonoBehaviour
     public AudioClip yourTurnClip;
     public AudioClip countdownClip;     // 倒计时警示音效 (<=5秒循环播放)
     public AudioSource countdownSource; // 倒计时循环音轨
+    public AudioClip energyGainClip;    // 能量增加提示音效
 
     private void Awake()
     {
@@ -106,8 +107,13 @@ public class AudioManager : MonoBehaviour
     public void PlayYourTurn() { PlaySFX(yourTurnClip); }
     public void PlayCheck() { PlaySFX(checkClip); }
     public void PlayFold() { PlaySFX(foldClip); }
-    // 内部播放单次音效的核心方法
-    private void PlaySFX(AudioClip clip)
+    public void PlayEnergyGain()
+    {
+        if (energyGainClip != null) PlaySFX(energyGainClip);
+        else if (skillSuccessClip != null) PlaySFX(skillSuccessClip);
+    }
+    // 播放单次音效的核心方法
+    public void PlaySFX(AudioClip clip)
     {
         if (clip != null && sfxSource != null)
         {
@@ -176,6 +182,15 @@ public class AudioManager : MonoBehaviour
         {
             countdownSource.Stop();
         }
+    }
+
+    /// <summary>
+    /// 强制停止所有可能正在循环播放的持续性音效（如施法发功声、倒计时警报声）
+    /// </summary>
+    public void StopAllLoopingSounds()
+    {
+        StopCastingSound();
+        StopCountdownSound();
     }
 
     // ==========================================
